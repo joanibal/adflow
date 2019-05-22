@@ -6051,7 +6051,10 @@ end subroutine cross_prod
           case (cgnsAxisMoment)
              write(*,"(a)",advance="no") "       AxisMoment       |"
 
-          end select
+          case (cgnsHeatFlux)
+             write(*,"(a)",advance="no") "           Q            |"
+
+         end select
        enddo
 
        print "(1x)"

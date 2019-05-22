@@ -106,8 +106,8 @@ class ADFLOW(AeroSolver):
 
         startInitTime = time.time()
 
-        # Load the compiled module using MExt, allowing multiple
-        # imports
+        # --------------------- Set adflow Module ------------------------------
+        # Load the compiled module using MExt, allowing multiple imports
         try:
             self.adflow
         except:
@@ -116,12 +116,8 @@ class ADFLOW(AeroSolver):
 
         libLoadTime = time.time()
 
-        # Information for base class:
-        name = 'ADFLOW'
-        category = 'Three Dimensional CFD'
-        informs = {}
+        # Load all the option/objective/Design Variable (DV) information:
 
-        # Load all the option/objective/DV information:
         defOpts = self._getDefOptions()
         self.optionMap, self.moduleMap = self._getOptionMap()
         self.ignoreOptions, self.deprecatedOptions, self.specialOptions = \
@@ -142,6 +138,8 @@ class ADFLOW(AeroSolver):
         # This is the real solver so dtype is 'd'
         self.dtype = dtype
 
+        # ------------------------ Set MPI Comms -------------------------------
+
         # Next set the MPI Communicators and associated info
         if comm is None:
             comm = MPI.COMM_WORLD
@@ -154,7 +152,8 @@ class ADFLOW(AeroSolver):
         self.myid = self.adflow.communication.myid = self.comm.rank
         self.adflow.communication.nproc = self.comm.size
 
-        # Initialize the inherited aerosolver.
+
+        # ------------------------ Set Options ---------------------------------
         if options is None:
             raise Error("The 'options' keyword argument must be passed "
                         "adflow. The options dictionary must contain (at least) "
@@ -165,8 +164,9 @@ class ADFLOW(AeroSolver):
 
         defSetupTime = time.time()
 
-        AeroSolver.__init__(self, name, category, defOpts, informs,
-                            options=options)
+        # Initialize the inherited aerosolver.
+        AeroSolver.__init__(self, 'ADFLOW', category='Three Dimensional CFD',
+                            def_options=defOpts, options=options)
 
         baseClassTime = time.time()
         # Update turbresscale depending on the turbulence model specified
@@ -175,15 +175,13 @@ class ADFLOW(AeroSolver):
         # Initialize petec in case the user has not already
         self.adflow.adjointutils.initializepetsc()
 
-        # Set the stand-alone adflow flag to false...this changes how
-        # terminate calls are handled.
+        # Set the stand-alone and frompython adflow flag to false and true respectively
+        # these change how terminate calls are handled
         self.adflow.iteration.standalonemode = False
-
-        # Set the frompython flag to true... this also changes how
-        # terminate calls are handled
         self.adflow.killsignals.frompython = True
 
-        # Dictionary of design varibales and their index
+
+        # Dictionary of design variables and their index
         self.aeroDVs = []
 
         # Default counters
@@ -210,7 +208,7 @@ class ADFLOW(AeroSolver):
         self.adflow.utils.writeintromessage()
 
         # Remind the user of all the adflow options:
-        self.printCurrentOptions()
+        # self.printCurrentOptions()
 
         # Do the remainder of the operations that would have been done
         # had we read in a param file
@@ -2814,7 +2812,7 @@ class ADFLOW(AeroSolver):
         """
 
         # Set the family to all walls group.
-        npts, ncell = self._getSurfaceSize(self.allWallsGroup)
+        npts, _ = self._getSurfaceSize(self.allWallsGroup)
 
         fluxes = numpy.zeros(npts, self.dtype)
         self.adflow.getheatflux(fluxes, TS+1)
@@ -2827,6 +2825,42 @@ class ADFLOW(AeroSolver):
         tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
         fluxes = tmp[:, 0]
         return fluxes
+
+    def getWallTemperature(self, groupName=None, TS=0):
+        """Return the wall temperature on the families
+        defined by group name on this processor.
+
+        Parameters
+        ----------
+        groupName : str
+            Group identifier to get only heat fluxes cooresponding to
+            the desired group. The group must be a family or a
+            user-supplied group of families. The default is None which
+            corresponds to all wall-type surfaces.
+
+        TS : int
+            Spectral instance for which to get the fluxes.
+
+        Returns
+        -------
+        temperature : numpy array
+
+            Dimensional temperature on wall.
+        """
+
+        # Set the family to all walls group.
+        npts, _ = self._getSurfaceSize(self.allWallsGroup)
+        fullTemp = self.adflow.gettnswall(npts, TS+1)
+
+        if groupName is None:
+            groupName = self.allWallsGroup
+
+        # Map vector expects and Nx3 array. So we will do just that.
+        tmp = numpy.zeros((npts, 3))
+        tmp[:, 0] = fullTemp
+        tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
+        temperature = tmp[:, 0]
+        return temperature
 
     def setWallTemperature(self, temperature, groupName=None, TS=0):
         """Set the temperature of the isothermal walls.
@@ -2855,11 +2889,21 @@ class ADFLOW(AeroSolver):
         # For the mapVector to work correctly, we need to retrieve the
         # existing values and just overwrite the ones we've changed
         # using mapVector.
-        npts, ncell = self._getSurfaceSize(self.allWallsGroup)
+        npts, _ = self._getSurfaceSize(self.allWallsGroup)
         fullTemp = self.adflow.gettnswall(npts, TS+1)
 
         # Now map new values in and set.
-        fullTemp = self.mapVector(temperature, groupName, self.allWallsGroup, fullTemp)
+
+
+        # Map vector expects and Nx3 array. So we will do just that.
+        tmp1 = numpy.zeros((npts, 3))
+        tmp2 = copy.copy(tmp1)
+
+        tmp1[:, 0] = fullTemp
+        tmp2[:, 0] = temperature
+
+        fullTemp = self.mapVector(tmp2, groupName, self.allWallsGroup, tmp1)[:,0]
+
         self.adflow.settnswall(fullTemp, TS+1)
 
     def setTargetCp(self, CpTargets, groupName=None, TS=0):
@@ -2891,7 +2935,7 @@ class ADFLOW(AeroSolver):
         # using mapVector.
         npts, ncell = self._getSurfaceSize(self.allWallsGroup)
         fullCpTarget = numpy.atleast_2d(self.adflow.getcptargets(npts, TS+1))
-        
+
         # Now map new values in and set.
         fullCpTarget = self.mapVector(numpy.atleast_2d(CpTargets).T, groupName, self.allWallsGroup, fullCpTarget.T)
         fullCpTarget = fullCpTarget.T
@@ -4721,6 +4765,7 @@ class ADFLOW(AeroSolver):
             'lowspeedpreconditioner':['discr', 'lowspeedpreconditioner'],
             'cavitationnumber':['physics','cavitationnumber'],
 
+
             # Common Paramters
             'ncycles':['iter', 'ncycles'],
             'timelimit':['iter', 'timelimit'],
@@ -5073,6 +5118,7 @@ class ADFLOW(AeroSolver):
             'mavgvy': self.adflow.constants.costfuncmavgvy,
             'mavgvz': self.adflow.constants.costfuncmavgvz,
             'cperror2':self.adflow.constants.costfunccperror2,
+            'heatflux':self.adflow.constants.costfuncheatflux,
             }
 
         return iDV, BCDV, adflowCostFunctions

@@ -275,7 +275,13 @@
        character(len=maxCGNSNameLen), parameter :: cgnsSepSensor = "SepSensor"
        character(len=maxCGNSNameLen), parameter :: cgnsCavitation = "Cavitation"
        character(len=maxCGNSNameLen), parameter :: cgnsAxisMoment = "AxisMoment"
+
 !
+!       Names of the heat transfer parameters
+!
+       character(len=maxCGNSNameLen), parameter :: cgnsHeatFlux = "HeatFlux"
+
+       !
 !       Names for the convergence history and time history.
 !
        character(len=maxCGNSNameLen), parameter :: &

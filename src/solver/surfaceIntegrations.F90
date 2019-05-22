@@ -36,7 +36,7 @@ contains
 
     ! Sum pressure and viscous contributions
     force = globalvals(iFp:iFp+2, :) + globalvals(iFv:iFv+2, :) + globalvals(iFlowFm:iFlowFm+2, :)
-    forceP = globalvals(iFp:iFp+2, :) 
+    forceP = globalvals(iFp:iFp+2, :)
     forceV = globalvals(iFv:iFv+2, :)
     forceM = globalvals(iFlowFm:iFlowFm+2, :)
 
@@ -113,6 +113,7 @@ contains
        funcValues(costFuncFlowPower) = funcValues(costFuncFlowPower) + ovrNTS*globalVals(iPower, sps)
 
        funcValues(costFuncCpError2) = funcValues(costFuncCpError2) + ovrNTS*globalVals(iCpError2,sps)
+       funcValues(costFuncHeatFlux) = funcValues(costFuncHeatFlux) + ovrNTS*globalVals(iHeatFlux,sps)
 
        ! Mass flow like objective
        mFlow = globalVals(iMassFlow, sps)
@@ -325,9 +326,10 @@ contains
 
     real(kind=realType), dimension(3) :: refPoint
     real(kind=realType), dimension(3,2) :: axisPoints
-    real(kind=realType) :: mx, my, mz, cellArea, m0x, m0y, m0z, Mvaxis, Mpaxis
+    real(kind=realType) :: mx, my, mz, cellArea, m0x, m0y, m0z, Mvaxis, Mpaxis, qw
     real(kind=realType) :: CpError, CpError2
 
+    real(kind=realType):: Q, scaleDim
     select case (BCFaceID(mm))
     case (iMin, jMin, kMin)
        fact = -one
@@ -361,6 +363,9 @@ contains
     sepSensorAvg = zero
     Mpaxis = zero; Mvaxis = zero;
     CpError2 = zero;
+
+    Q = zero
+    scaleDim = pRef*sqrt(pRef/rhoRef)
 
     !
     !         Integrate the inviscid contribution over the solid walls,
@@ -501,157 +506,166 @@ contains
           Sensor1 = Sensor1 * cellArea * blk
           Cavitation = Cavitation + Sensor1
        end if
-    enddo
+     enddo
 
-    !
-    ! Integration of the viscous forces.
-    ! Only for viscous boundaries.
-    !
-    visForce: if( BCType(mm) == NSWallAdiabatic .or. &
-         BCType(mm) == NSWallIsoThermal) then
+     !
+     ! Integration of the viscous forces.
+     ! Only for viscous boundaries.
+     !
+     visForce: if( BCType(mm) == NSWallAdiabatic .or. &
+     BCType(mm) == NSWallIsoThermal) then
 
-       ! Initialize dwall for the laminar case and set the pointer
-       ! for the unit normals.
+     ! Initialize dwall for the laminar case and set the pointer
+          ! for the unit normals.
 
-       dwall = zero
+          dwall = zero
 
-       ! Loop over the quadrilateral faces of the subface and
-       ! compute the viscous contribution to the force and
-       ! moment and update the maximum value of y+.
+          ! Loop over the quadrilateral faces of the subface and
+          ! compute the viscous contribution to the force and
+          ! moment and update the maximum value of y+.
 
-       !$AD II-LOOP
-       do ii=0,(BCData(mm)%jnEnd - bcData(mm)%jnBeg)*(bcData(mm)%inEnd - bcData(mm)%inBeg) -1
-          i = mod(ii, (bcData(mm)%inEnd-bcData(mm)%inBeg)) + bcData(mm)%inBeg + 1
-          j = ii/(bcData(mm)%inEnd-bcData(mm)%inBeg) + bcData(mm)%jnBeg + 1
+          !$AD II-LOOP
+          do ii=0,(BCData(mm)%jnEnd - bcData(mm)%jnBeg)*(bcData(mm)%inEnd - bcData(mm)%inBeg) -1
+               i = mod(ii, (bcData(mm)%inEnd-bcData(mm)%inBeg)) + bcData(mm)%inBeg + 1
+               j = ii/(bcData(mm)%inEnd-bcData(mm)%inBeg) + bcData(mm)%jnBeg + 1
 
-          ! Store the viscous stress tensor a bit easier.
-          blk = max(BCData(mm)%iblank(i,j), 0)
+               ! Store the viscous stress tensor a bit easier.
+               blk = max(BCData(mm)%iblank(i,j), 0)
 
-          tauXx = viscSubface(mm)%tau(i,j,1)
-          tauYy = viscSubface(mm)%tau(i,j,2)
-          tauZz = viscSubface(mm)%tau(i,j,3)
-          tauXy = viscSubface(mm)%tau(i,j,4)
-          tauXz = viscSubface(mm)%tau(i,j,5)
-          tauYz = viscSubface(mm)%tau(i,j,6)
+               tauXx = viscSubface(mm)%tau(i,j,1)
+               tauYy = viscSubface(mm)%tau(i,j,2)
+               tauZz = viscSubface(mm)%tau(i,j,3)
+               tauXy = viscSubface(mm)%tau(i,j,4)
+               tauXz = viscSubface(mm)%tau(i,j,5)
+               tauYz = viscSubface(mm)%tau(i,j,6)
 
-          ! Compute the viscous force on the face. A minus sign
-          ! is now present, due to the definition of this force.
+               ! Compute the viscous force on the face. A minus sign
+               ! is now present, due to the definition of this force.
 
-          fx = -fact*(tauXx*ssi(i,j,1) + tauXy*ssi(i,j,2) &
+               fx = -fact*(tauXx*ssi(i,j,1) + tauXy*ssi(i,j,2) &
                +        tauXz*ssi(i,j,3))*pRef
-          fy = -fact*(tauXy*ssi(i,j,1) + tauYy*ssi(i,j,2) &
+               fy = -fact*(tauXy*ssi(i,j,1) + tauYy*ssi(i,j,2) &
                +        tauYz*ssi(i,j,3))*pRef
-          fz = -fact*(tauXz*ssi(i,j,1) + tauYz*ssi(i,j,2) &
+               fz = -fact*(tauXz*ssi(i,j,1) + tauYz*ssi(i,j,2) &
                +        tauZz*ssi(i,j,3))*pRef
 
-          ! Compute the coordinates of the centroid of the face
-          ! relative from the moment reference point. Due to the
-          ! usage of pointers for xx and offset of 1 is present,
-          ! because x originally starts at 0.
+               ! Compute the coordinates of the centroid of the face
+               ! relative from the moment reference point. Due to the
+               ! usage of pointers for xx and offset of 1 is present,
+               ! because x originally starts at 0.
 
-          xc = fourth*(xx(i,j,  1) + xx(i+1,j,  1) &
+               xc = fourth*(xx(i,j,  1) + xx(i+1,j,  1) &
                +         xx(i,j+1,1) + xx(i+1,j+1,1)) - refPoint(1)
-          yc = fourth*(xx(i,j,  2) + xx(i+1,j,  2) &
+               yc = fourth*(xx(i,j,  2) + xx(i+1,j,  2) &
                +         xx(i,j+1,2) + xx(i+1,j+1,2)) - refPoint(2)
-          zc = fourth*(xx(i,j,  3) + xx(i+1,j,  3) &
+               zc = fourth*(xx(i,j,  3) + xx(i+1,j,  3) &
                +         xx(i,j+1,3) + xx(i+1,j+1,3)) - refPoint(3)
 
-          ! Update the viscous force and moment coefficients, blanking as we go.
+               ! Update the viscous force and moment coefficients, blanking as we go.
 
-          Fv(1) = Fv(1) + fx * blk
-          Fv(2) = Fv(2) + fy * blk
-          Fv(3) = Fv(3) + fz * blk
+               Fv(1) = Fv(1) + fx * blk
+               Fv(2) = Fv(2) + fy * blk
+               Fv(3) = Fv(3) + fz * blk
 
-          mx = yc*fz - zc*fy
-          my = zc*fx - xc*fz
-          mz = xc*fy - yc*fx
+               mx = yc*fz - zc*fy
+               my = zc*fx - xc*fz
+               mz = xc*fy - yc*fx
 
-          Mv(1) = Mv(1) + mx * blk
-          Mv(2) = Mv(2) + my * blk
-          Mv(3) = Mv(3) + mz * blk
+               Mv(1) = Mv(1) + mx * blk
+               Mv(2) = Mv(2) + my * blk
+               Mv(3) = Mv(3) + mz * blk
 
-          ! Compute the r and n vectors for the moment around an
-          ! axis computation where r is the distance from the
-          ! force to the first point on the axis and n is a unit
-          ! normal in the direction of the axis
-          r(1) = fourth*(xx(i,j,   1) + xx(i+1,j,   1)&
+               ! Cell heat flux
+               qw = -fact*scaleDim*(viscSubface(mm)%q(i,j,1)*ssi(i,j,1) &
+               + viscSubface(mm)%q(i,j,2)*ssi(i,j,2) &
+               + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
+
+               ! total heat flux thought that surface
+               Q = Q + qw * blk
+
+               ! Compute the r and n vectors for the moment around an
+               ! axis computation where r is the distance from the
+               ! force to the first point on the axis and n is a unit
+               ! normal in the direction of the axis
+               r(1) = fourth*(xx(i,j,   1) + xx(i+1,j,   1)&
                + xx(i,j+1,1) + xx(i+1,j+1,1)) - axisPoints(1,1)
-          r(2) = fourth*(xx(i,j,   2) + xx(i+1,j,   2)&
+               r(2) = fourth*(xx(i,j,   2) + xx(i+1,j,   2)&
                + xx(i,j+1,2) + xx(i+1,j+1,2)) - axisPoints(2,1)
-          r(3) = fourth*(xx(i,j,   3) + xx(i+1,j,   3)&
+               r(3) = fourth*(xx(i,j,   3) + xx(i+1,j,   3)&
                + xx(i,j+1,3) + xx(i+1,j+1,3)) - axisPoints(3,1)
 
-          L = sqrt((axisPoints(1,2) - axisPoints(1,1)) ** 2 &
+               L = sqrt((axisPoints(1,2) - axisPoints(1,1)) ** 2 &
                + (axisPoints(2,2) - axisPoints(2,1)) ** 2 &
                + (axisPoints(3,2) - axisPoints(3,1)) ** 2 )
 
-          n(1) = (axisPoints(1,2) - axisPoints(1,1)) / L
-          n(2) = (axisPoints(2,2) - axisPoints(2,1)) / L
-          n(3) = (axisPoints(3,2) - axisPoints(3,1)) / L
+               n(1) = (axisPoints(1,2) - axisPoints(1,1)) / L
+               n(2) = (axisPoints(2,2) - axisPoints(2,1)) / L
+               n(3) = (axisPoints(3,2) - axisPoints(3,1)) / L
 
-          ! Compute the moment of the force about the first point
-          ! used to define the axis, and then project that axis in
-          ! the n direction
-          m0x = r(2)*fz - r(3)*fy
-          m0y = r(3)*fx - r(1)*fz
-          m0z = r(1)*fy - r(2)*fx
-          Mvaxis = Mvaxis + (m0x*n(1) + m0y*n(2) + m0z*n(3))*blk
+               ! Compute the moment of the force about the first point
+               ! used to define the axis, and then project that axis in
+               ! the n direction
+               m0x = r(2)*fz - r(3)*fy
+               m0y = r(3)*fx - r(1)*fz
+               m0z = r(1)*fy - r(2)*fx
+               Mvaxis = Mvaxis + (m0x*n(1) + m0y*n(2) + m0z*n(3))*blk
 
-          ! Save the face based forces for the slice operations
-          bcData(mm)%Fv(i, j, 1) = fx
-          bcData(mm)%Fv(i, j, 2) = fy
-          bcData(mm)%Fv(i, j, 3) = fz
+               ! Save the face based forces for the slice operations
+               bcData(mm)%Fv(i, j, 1) = fx
+               bcData(mm)%Fv(i, j, 2) = fy
+               bcData(mm)%Fv(i, j, 3) = fz
 
-          ! Compute the tangential component of the stress tensor,
-          ! which is needed to monitor y+. The result is stored
-          ! in fx, fy, fz, although it is not really a force.
-          ! As later on only the magnitude of the tangential
-          ! component is important, there is no need to take the
-          ! sign into account (it should be a minus sign).
+               ! Compute the tangential component of the stress tensor,
+               ! which is needed to monitor y+. The result is stored
+               ! in fx, fy, fz, although it is not really a force.
+               ! As later on only the magnitude of the tangential
+               ! component is important, there is no need to take the
+               ! sign into account (it should be a minus sign).
 
-          fx = tauXx*BCData(mm)%norm(i,j,1) + tauXy*BCData(mm)%norm(i,j,2) &
+               fx = tauXx*BCData(mm)%norm(i,j,1) + tauXy*BCData(mm)%norm(i,j,2) &
                + tauXz*BCData(mm)%norm(i,j,3)
-          fy = tauXy*BCData(mm)%norm(i,j,1) + tauYy*BCData(mm)%norm(i,j,2) &
+               fy = tauXy*BCData(mm)%norm(i,j,1) + tauYy*BCData(mm)%norm(i,j,2) &
                + tauYz*BCData(mm)%norm(i,j,3)
-          fz = tauXz*BCData(mm)%norm(i,j,1) + tauYz*BCData(mm)%norm(i,j,2) &
+               fz = tauXz*BCData(mm)%norm(i,j,1) + tauYz*BCData(mm)%norm(i,j,2) &
                + tauZz*BCData(mm)%norm(i,j,3)
 
-          fn = fx*BCData(mm)%norm(i,j,1) + fy*BCData(mm)%norm(i,j,2) + fz*BCData(mm)%norm(i,j,3)
+               fn = fx*BCData(mm)%norm(i,j,1) + fy*BCData(mm)%norm(i,j,2) + fz*BCData(mm)%norm(i,j,3)
 
-          fx = fx - fn*BCData(mm)%norm(i,j,1)
-          fy = fy - fn*BCData(mm)%norm(i,j,2)
-          fz = fz - fn*BCData(mm)%norm(i,j,3)
+               fx = fx - fn*BCData(mm)%norm(i,j,1)
+               fy = fy - fn*BCData(mm)%norm(i,j,2)
+               fz = fz - fn*BCData(mm)%norm(i,j,3)
 
-          ! Compute the local value of y+. Due to the usage
-          ! of pointers there is on offset of -1 in dd2Wall..
+               ! Compute the local value of y+. Due to the usage
+               ! of pointers there is on offset of -1 in dd2Wall..
 #ifndef USE_TAPENADE
-          if(equations == RANSEquations) then
-             dwall = dd2Wall(i-1,j-1)
-             rho   = half*(ww2(i,j,irho) + ww1(i,j,irho))
-             mul   = half*(rlv2(i,j) + rlv1(i,j))
-             yplus = sqrt(rho*sqrt(fx*fx + fy*fy + fz*fz))*dwall/mul
+               if(equations == RANSEquations) then
+                    dwall = dd2Wall(i-1,j-1)
+                    rho   = half*(ww2(i,j,irho) + ww1(i,j,irho))
+                    mul   = half*(rlv2(i,j) + rlv1(i,j))
+                    yplus = sqrt(rho*sqrt(fx*fx + fy*fy + fz*fz))*dwall/mul
 
-             ! Store this value if this value is larger than the
-             ! currently stored value. Blank non-active cells.
+                    ! Store this value if this value is larger than the
+                    ! currently stored value. Blank non-active cells.
 
-             yplusMax = max(yplusMax, yplus*blk)
-          end if
+                    yplusMax = max(yplusMax, yplus*blk)
+               end if
 #endif
-       enddo
-    else
-       ! If we had no viscous force, set the viscous component to zero
-       bcData(mm)%Fv = zero
-    end if visForce
+          enddo
+     else
+          ! If we had no viscous force, set the viscous component to zero
+          bcData(mm)%Fv = zero
+     end if visForce
 
-    ! Increment the local values array with the values we computed here.
-    localValues(iFp:iFp+2) = localValues(iFp:iFp+2) + Fp
-    localValues(iFv:iFv+2) = localValues(iFv:iFv+2) + Fv
+     ! Increment the local values array with the values we computed here.
+     localValues(iFp:iFp+2) = localValues(iFp:iFp+2) + Fp
+     localValues(iFv:iFv+2) = localValues(iFv:iFv+2) + Fv
     localValues(iMp:iMp+2) = localValues(iMp:iMp+2) + Mp
     localValues(iMv:iMv+2) = localValues(iMv:iMv+2) + Mv
     localValues(iSepSensor) = localValues(iSepSensor) + sepSensor
     localValues(iCavitation) = localValues(iCavitation) + cavitation
     localValues(iSepAvg:iSepAvg+2) = localValues(iSepAvg:iSepAvg+2) + sepSensorAvg
     localValues(iAxisMoment) = localValues(iAxisMoment) + Mpaxis + Mvaxis
+    localValues(iHeatFlux) = localValues(iHeatFlux) + Q
     localValues(iCpError2) = localValues(iCpError2) + CpError2
 
 #ifndef USE_TAPENADE

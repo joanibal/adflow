@@ -950,7 +950,6 @@ contains
     iterTot      = 0
 
     ! Determine the cycling strategy for this level.
-
     call setCycleStrategy
 
     ! Determine the number of multigrid cycles, which depends
@@ -1432,6 +1431,9 @@ contains
 
              case (cgnsAxisMoment)
                 monLoc(mm) = monLoc(mm) + localValues(iaxisMoment)
+
+             case (cgnsHeatFlux)
+                monLoc(mm) = monLoc(mm) + localValues(iheatFlux)
 
              end select
 

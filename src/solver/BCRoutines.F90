@@ -74,7 +74,7 @@ end subroutine applyAllBC
 
     ! Local variables.
     logical :: correctForK
-    integer(kind=intType) :: nn
+    integer(kind=intType) :: nn, ii, jj, kk
     !
     ! Determine whether or not the total energy must be corrected
     ! for the presence of the turbulent kinetic energy.
@@ -87,6 +87,13 @@ end subroutine applyAllBC
     !  Symmetry Boundary Condition
     ! ------------------------------------
     !$AD II-LOOP
+   !  do ii=0, (il+2)
+   !    do kk=0, (kl+2)
+   !       write(*,*) ii, kk, w(ii,:,kk, ivz)
+   !    end do
+   !    write(*,*)
+   !  end do
+
     do nn=1, nBocos
        if (BCType(nn) == symm) then
           call setBCPointers(nn, .False.)
@@ -131,6 +138,8 @@ end subroutine applyAllBC
     !$AD II-LOOP
     do nn=1, nViscBocos
        if (BCType(nn) == NSWallAdiabatic) then
+
+
           call setBCPointers(nn, .False.)
           call bcNSWallAdiabatic(nn, secondHalo, correctForK)
        end if
@@ -1333,6 +1342,7 @@ end subroutine applyAllBC
        qn0 = u0*BCData(nn)%norm(i,j,1) + v0*BCData(nn)%norm(i,j,2) + w0*BCData(nn)%norm(i,j,3)
        vn0 = qn0 - BCData(nn)%rface(i,j)
 
+
        ! Compute the three velocity components, the normal
        ! velocity and the speed of sound of the current state
        ! in the internal cell.
@@ -1350,9 +1360,15 @@ end subroutine applyAllBC
        ! eigenvalue) or the free stream value is taken
        ! (otherwise).
 
+
+       ! the values for the velocity magnitude and speed of sound are found by setting the + and - Riemann invarents equal to one another
+       !  J+ = q + 2*c/(gamma - 1) , J- = q - 2*c/(gamma -1)
+
+       ! ac1 is the J_plus and ac2 is J_minus
+
        if(vn0 > -c0) then ! Outflow or subsonic inflow.
-          ac1 = qne + two*ovgm1*ce
-       else               ! Supersonic inflow.
+         ac1 = qne + two*ovgm1*ce
+      else               ! Supersonic inflow.
           ac1 = qn0 + two*ovgm1*c0
        endif
 
@@ -1362,8 +1378,12 @@ end subroutine applyAllBC
           ac2 = qn0 - two*ovgm1*c0
        endif
 
+       ! this simplifies to (qne + qno)/2 for subsonic inflows and outflows and qn0 and qne for supersonic inflows and outflow respectivly
        qnf = half*  (ac1 + ac2)
+
+       ! Similarly this simplifies to (ce + co)/2 for subsonic inflows and outflows and c0 and ce for supersonic inflows and outflow respectivly
        cf  = fourth*(ac1 - ac2)*gm1
+
 
        if(vn0 > zero) then ! Outflow.
 
@@ -1371,6 +1391,7 @@ end subroutine applyAllBC
           vf = ve + (qnf - qne)*BCData(nn)%norm(i,j,2)
           wf = we + (qnf - qne)*BCData(nn)%norm(i,j,3)
 
+          ! interior entropy
           sf = ww2(i,j,irho)**gamma2(i,j)/pp2(i,j)
 
        else
@@ -1386,7 +1407,7 @@ end subroutine applyAllBC
        ! halo cell.
 
        cc = cf*cf/gamma2(i,j)
-       qq = uf*uf + vf*vf + wf*wf
+      !  qq = uf*uf + vf*vf + wf*wf
        ww1(i,j,irho) = (sf*cc)**ovgm1
        ww1(i,j,ivx)  = uf
        ww1(i,j,ivy)  = vf
