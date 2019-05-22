@@ -1317,6 +1317,7 @@ contains
                ! Store the surface solution for this contribution in
                ! buffer. Note that the counter jj is updated in the
                ! routine storeSurfsolInBuffer.
+
                call storeSurfsolInBuffer(ind, buffer, jj, ii,       &
                     faceID, cellRange(1,1,kk), &
                     solNames(mm),              &

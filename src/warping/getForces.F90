@@ -1392,18 +1392,18 @@ subroutine computeNodalForces_b(sps)
         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
         if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
              BCType(mm) == NSWallIsothermal) then
+           BCDatad(mm)%F = zero
            do j=jBeg, jEnd
-              do i=iBeg, iEnd                 
+              do i=iBeg, iEnd
+
                  qf_b = fourth*(BCDatad(mm)%F(i, j, :) + BCdatad(mm)%F(i-1, j, :) + &
                       BCDatad(mm)%F(i, j-1, :) + BCDatad(mm)%F(i-1, j-1, :))
-              
+
                  ! Fp and Fv are face-based values
                  BCDatad(mm)%Fp(i, j, :) = BCDatad(mm)%Fp(i, j, :) + qf_b
                  BCDatad(mm)%Fv(i, j, :) = BCDatad(mm)%Fv(i, j, :) + qf_b
               end do
            end do
-           ! this needs to be after the update to be the reverse of the forward mode.
-           BCDatad(mm)%F = zero
         end if
      end do
   end do domains
@@ -1498,7 +1498,7 @@ subroutine heatFluxes
   !      Local variables.
   !
   integer(kind=intType) :: i, j, ii, mm
-  real(kind=realType) :: fact, scaleDim
+  real(kind=realType) :: fact, scaleDim, Q
   real(kind=realType) :: qw, qA
   logical :: heatedSubface
 
@@ -1539,10 +1539,12 @@ subroutine heatFluxes
                    ( viscSubface(mm)%q(i,j,1)*BCData(mm)%norm(i,j,1) &
                    + viscSubface(mm)%q(i,j,2)*BCData(mm)%norm(i,j,2) &
                    + viscSubface(mm)%q(i,j,3)*BCData(mm)%norm(i,j,3))
+
            enddo
         end do
      end if
   enddo bocos
+
 end subroutine heatFluxes
 
 subroutine setTNSWall(tnsw, npts, sps)
@@ -1578,6 +1580,7 @@ subroutine setTNSWall(tnsw, npts, sps)
         end if isoWall
      end do bocos
   end do domains
+
   ! TODO: The temperature must be interpolated to the coarse meshes.
   !
   ! The following lines are extracted from BCData/setBCDataCoarseGrid
@@ -1656,6 +1659,8 @@ subroutine getTNSWall(tnsw, npts, sps)
      ! Loop over the number of viscous boundary subfaces of this block.
      bocos: do mm=1,nBocos
         isoWall: if (BCType(mm) == NSWallIsoThermal) then
+           jBeg = BCdata(mm)%jnBeg; jEnd = BCData(mm)%jnEnd
+           iBeg = BCData(mm)%inBeg; iEnd = BCData(mm)%inEnd
            do j=jBeg,jEnd
               do i=iBeg, iEnd
                  ii = ii + 1
@@ -1664,5 +1669,7 @@ subroutine getTNSWall(tnsw, npts, sps)
            end do
         end if isoWall
      end do bocos
-  end do domains
+
+   end do domains
+
 end subroutine getTNSWall

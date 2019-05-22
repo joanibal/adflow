@@ -460,11 +460,13 @@ contains
 
     call siTemperature(temp(1), mult, trans)
 
+
     do j=jBeg,jEnd
        do i=iBeg,iEnd
           BCData(boco)%TNS_Wall(i,j) = (mult*bcVarArray(i,j,1) + trans)/Tref
        enddo
     enddo
+
 
   end subroutine BCDataIsothermalWall
 
@@ -1447,7 +1449,7 @@ contains
                 select case (BCType(j))
 
                 case (NSWallIsothermal)
-                   call setBCVarNamesSupersonicInflow
+                   call setBCVarNamesIsothermalWall
                    call errorCheckbcDataNamesIn("NSWallIsothermal", bcDataNamesIn)
                 case (SupersonicInflow)
                    call setBCVarNamesSupersonicInflow
@@ -1479,7 +1481,7 @@ contains
              varName = char2str(bcDataNamesIn(iVar,:), maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
-                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
                      bcDataIn(iVar)
              else if (trim(varName) == "Torque") then
                 actuatorRegions(iRegion)%T = bcDataIn(iVar)
@@ -1543,7 +1545,7 @@ contains
                 select case (BCType(j))
 
                 case (NSWallIsothermal)
-                   call setBCVarNamesSupersonicInflow
+                   call setBCVarNamesIsothermalWall
                    call errorCheckbcDataNamesIn("NSWallIsothermal", bcDataNamesIn)
                 case (SupersonicInflow)
                    call setBCVarNamesSupersonicInflow
@@ -1575,9 +1577,9 @@ contains
              varName = char2str(bcDataNamesIn(iVar,:), maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
-                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
                      bcDataIn(iVar)
-                actuatorRegionsd(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+                actuatorRegionsd(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
                      bcDataInd(iVar)
              else if (trim(varName) == "Torque") then
                 actuatorRegionsd(iRegion)%T = bcDataInd(iVar)
@@ -1644,7 +1646,7 @@ contains
                 select case (BCType(j))
 
                 case (NSWallIsothermal)
-                   call setBCVarNamesSupersonicInflow
+                   call setBCVarNamesIsothermalWall
                    call errorCheckbcDataNamesIn("NSWallIsothermal", bcDataNamesIn)
                 case (SupersonicInflow)
                    call setBCVarNamesSupersonicInflow
@@ -1676,7 +1678,7 @@ contains
              varName = char2str(bcDataNamesIn(iVar,:), maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
-                bcDataInd(ivar) = & 
+                bcDataInd(ivar) = &
                      sum(actuatorRegions(iRegion)%axisVec*actuatorRegionsd(iRegion)%F)
              else if (trim(varName) == "Torque") then
                 bcDataInd(ivar) = actuatorRegionsd(iRegion)%T
@@ -2265,7 +2267,7 @@ contains
                         BCData(mm)%T(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd,3), &
                         BCData(mm)%Tp(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd,3), &
                         BCData(mm)%Tv(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd,3), &
-                        BCData(mm)%cellHeatFlux(iBeg:iEnd,jBeg:jEnd), &
+                        BCData(mm)%cellHeatFlux(iNodeBeg+1:iNodeEnd,jNodeBeg+1:jNodeEnd), &
                         BCData(mm)%nodeHeatFlux(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd), &
                         BCData(mm)%Fp(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd, 3), &
                         BCData(mm)%Fv(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd, 3), &

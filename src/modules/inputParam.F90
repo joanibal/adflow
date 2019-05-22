@@ -293,6 +293,7 @@ module inputCostFunctions
   real(kind=realtype) :: sepSensorOffset= zero
   real(kind=realtype) ::sepSensorSharpness=10.0_realType
   logical :: computeCavitation
+  logical :: computeHeatFLux
 
 end module inputCostFunctions
 

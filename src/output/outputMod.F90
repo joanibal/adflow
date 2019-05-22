@@ -167,6 +167,7 @@ contains
     if( surfWriteSepSensor )      nSolVar = nSolVar +1
     if( surfWriteCavitation )     nsolVar = nsolVar +1
     if( surfWriteGC )             nsolVar = nsolVar +1
+    if( surfWriteHeatFlux )       nsolVar = nsolVar +1
 
   end subroutine numberOfSurfSolVariables
 
@@ -714,6 +715,12 @@ contains
        nn = nn + 1
        solNames(nn) = cgnsGC
     end if
+
+   if (surfWriteHeatFlux) then
+      nn = nn + 1
+      solNames(nn) = cgnsHeatFlux
+   end if
+
 
   end subroutine surfSolNames
 
@@ -1464,7 +1471,7 @@ contains
        select case (solName)
 
        case (cgnsSkinFmag, cgnsStanton, cgnsYplus, &
-            cgnsSkinFx, cgnsSkinFy, cgnsSkinFz)
+            cgnsSkinFx, cgnsSkinFy, cgnsSkinFz, cgnsHeatFlux)
 
           ! Update the counter and set this entry of buffer to 0.
 
@@ -1655,7 +1662,6 @@ contains
     !       to be written and loop over the boundary faces of the subface.
     !
     ! Determine the variable to be written.
-
     varName: select case (solName)
 
     case (cgnsDensity)
@@ -2077,6 +2083,58 @@ contains
              !print*, sensor
           enddo
        enddo
+
+
+
+      case (cgnsHeatFlux)
+
+         ! Some constants needed to compute the stanton number.
+
+         fact = pRef*sqrt(pRef/rhoRef)
+
+         ! Loop over the given range of faces. As the viscous data is
+         ! only present in the owned faces, the values of the halo's
+         ! are set equal to the nearest physical face. Therefore the
+         ! working indices are ii and jj.
+         do j=rangeFace(2,1), rangeFace(2,2)
+            if(j == rangeFace(2,1)) then
+               jj = min(j + offVis, rangeFace(2,2))
+            else if(j == rangeFace(2,2)) then
+               jj = max(j - offVis, rangeFace(2, 1))
+            else
+               jj = j
+            endif
+
+            do i=rangeFace(1,1), rangeFace(1,2)
+               if(i == rangeFace(1,1)) then
+                  ii = min(i + offVis, rangeFace(1,2))
+               else if(i == rangeFace(1,2)) then
+                  ii = max(i - offVis, rangeFace(1,1))
+               else
+                  ii = i
+               endif
+
+               ! Determine the viscous subface on which this
+               ! face is located.
+
+               mm = viscPointer(ii,jj)
+
+               ! Compute the heat flux. Multipy with the sign of the
+               ! normal to obtain the correct value.
+
+               ! do j=(BCData(mm)%jnBeg+1), BCData(mm)%jnEnd
+               !    do i=(BCData(mm)%inBeg+1), BCData(mm)%inEnd
+
+               qw = fact*(viscSubface(mm)%q(ii,jj,1)*BCData(mm)%norm(ii,jj,1) &
+               + viscSubface(mm)%q(ii,jj,2)*BCData(mm)%norm(ii,jj,2) &
+               + viscSubface(mm)%q(ii,jj,3)*BCData(mm)%norm(ii,jj,3))
+               ! write(*,*) 'qw', qw, viscSubface(mm)%q(ii,jj,1), viscSubface(mm)%q(ii,jj,2), viscSubface(mm)%q(ii,jj,3)
+               nn = nn + 1
+               buffer(nn) = qw
+
+            enddo
+         enddo
+
     end select varName
 
   end subroutine storeSurfsolInBuffer

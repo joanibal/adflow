@@ -298,6 +298,13 @@ contains
        case(cgnsAxisMoment)
           sortNumber(i) = 116
 
+       case(cgnsHeatFlux)
+          sortNumber(i) = 117
+
+       case(cgnsStanton)
+          sortNumber(i) = 118
+
+
        case (cgnsHdiffMax)
           sortNumber(i) = 201
 
@@ -1602,6 +1609,14 @@ contains
           nMon = nMon + 1; nMonSum = nMonSum + 1
           tmpNames(nMon) = cgnsCavitation
 
+      case("heatflux")
+         nMon = nMon + 1; nMonSum = nMonSum + 1
+         tmpNames(nMon) = cgnsHeatFlux
+
+      case("StantonNumber")
+         nMon = nMon + 1; nMonSum = nMonSum + 1
+         tmpNames(nMon) = cgnsStanton
+
        case("axismoment")
           nMon = nMon + 1; nMonSum = nMonSum + 1
           tmpNames(nMon) = cgnsAxisMoment
@@ -2360,6 +2375,8 @@ contains
     surfWriteCavitation = .false.
     surfWriteAxisMoment = .false.
     surfWriteGC = .false.
+    surfWriteHeatFlux = .false.
+
 
     ! Initialize nVarSpecified to 0. This serves as a test
     ! later on.
@@ -2486,6 +2503,10 @@ contains
        case ("gc")
           surfWriteGC = .True.
           nVarSpecified = nVarSpecified + 1
+
+        case ("heatflux")
+           surfWriteHeatFlux = .True.
+           nVarSpecified = nVarSpecified + 1
 
        case default
           pos = len_trim(keyword)
