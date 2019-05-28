@@ -278,6 +278,16 @@ class ADFLOW(AeroSolver):
         self.allWallsGroup = 'allWalls'
         self.addFamilyGroup(self.allWallsGroup, wallListFam)
 
+
+        wallList, nWalls = self.adflow.surfaceutils.getisothermalwalllist(len(famList))
+        wallList = wallList[0:nWalls]
+        wallListFam = []
+        for i in range(len(wallList)):
+            wallListFam.append(famList[wallList[i]-1])
+        self.allIsothermalWallsGroup = 'allIsothermalWalls'
+        self.addFamilyGroup(self.allIsothermalWallsGroup, wallListFam)
+
+
         # Set the design families if given, otherwise default to all
         # walls
         self.designFamilyGroup = self.getOption('designSurfaceFamily')
@@ -3010,7 +3020,7 @@ class ADFLOW(AeroSolver):
         fullTemp = self.adflow.gettnswall(npts, TS+1)
 
         if groupName is None:
-            groupName = self.allWallsGroup
+            groupName = self.allIsothermalWallsGroup
 
         # Map vector expects and Nx3 array. So we will do just that.
         tmp = numpy.zeros((npts, 3))
@@ -3041,7 +3051,7 @@ class ADFLOW(AeroSolver):
             Time spectral instance to set.
         """
         if groupName is None:
-            groupName = self.allWallsGroup
+            groupName = self.allIsothermalWallsGroup
 
         # For the mapVector to work correctly, we need to retrieve the
         # existing values and just overwrite the ones we've changed

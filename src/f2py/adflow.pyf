@@ -394,7 +394,14 @@ python module libadflow
            integer(kind=inttype) intent(out) :: nwalllist
            integer(kind=inttype) intent(in) :: nfamtotal
          end subroutine getwalllist
+
+         subroutine getisothermalwalllist(walllist,nwalllist,nfamtotal) ! in :test:surfaceUtils.F90:surfaceutils
+           integer(kind=inttype) dimension(nfamtotal),intent(out),depend(nfamtotal) :: walllist
+           integer(kind=inttype) intent(out) :: nwalllist
+           integer(kind=inttype) intent(in) :: nfamtotal
+         end subroutine getisothermalwalllist
        end module surfaceutils
+
 
        module tecplotio
          subroutine addparaslice(slicename,pt,direction,famlist,n) ! in :test:liftDistribution.F90

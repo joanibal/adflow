@@ -663,4 +663,49 @@ contains
 
   end subroutine getWallList
 
+  subroutine getIsothermalWallList(wallList, nWallList, nFamTotal)
+
+!    ! Python wrapped utility function to return the list of families
+!    ! that are walls to Python since we need that information in
+!    ! Python for a few default values.
+
+   use constants
+   use surfaceFamilies, only :BCFamGroups
+   use blockPointers, only : nDom, flowDoms, nBocos, BCData, BCType
+   use utils, only : setPointers
+   implicit none
+
+   integer(kind=intType), intent(in) :: nFamtotal
+   integer(kind=intType), dimension(nFamTotal), intent(out) :: wallList
+   integer(kind=intType), intent(out) :: nWallList
+   integer(kind=intType) :: mm, nn, i, j, ii, iFam
+
+
+   ! this will work as long as all of the BCs for a familly of walls are the same
+
+
+   ii = 1
+   write(*,*) 'test'
+   famLoop: do iFam=1, nFamTotal
+
+   domainLoop: do nn=1,nDom
+      call setPointers(nn, 1_intType, 1_intType)
+         bocoLoop: do mm=1, nBocos
+            matchiFam: if (flowDoms(nn, 1, 1)%bcData(mm)%famID == iFam) then
+
+                  if (BCType(mm) == NSwallIsoThermal) then
+                     wallList(ii) = iFam
+                     ii = ii + 1
+                     cycle famLoop
+                  end if
+
+            end if matchiFam
+         end do bocoLoop
+      end do domainLoop
+   end do famLoop
+
+   nWallList = ii - 1
+
+ end subroutine getIsothermalWallList
+
 end module surfaceUtils
