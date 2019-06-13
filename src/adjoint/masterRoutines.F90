@@ -1,7 +1,10 @@
 module masterRoutines
 contains
-  subroutine master(useSpatial, famLists, funcValues, forces, &
-       bcDataNames, bcDataValues, bcDataFamLists)
+! subroutine master(useSpatial, famLists, funcValues, forces, heatfluxes, &
+!    bcDataNames, bcDataValues, bcDataFamLists)
+
+   subroutine master(useSpatial, famLists, funcValues, forces, &
+      bcDataNames, bcDataValues, bcDataFamLists)
 
     use constants
     use communication, only : adflow_comm_world
@@ -51,6 +54,9 @@ contains
     ! Output Variables
     real(kind=realType), intent(out), optional, dimension(:, :, :) :: forces
 
+   !  ! n nodes x 1 x nsps (leave 3d)
+   !  real(kind=realType), intent(out), optional, dimension(:, :, :) :: heatfluxes
+
     ! Working Variables
     integer(kind=intType) :: ierr, nn, sps, fSize, iRegion
     real(kind=realType), dimension(nSections) :: t
@@ -60,6 +66,8 @@ contains
        call adjustInflowAngle()
 
        ! Update all the BCData
+       ! set new wall temperature data (call set TNS data)
+
        call referenceState
        if (present(bcDataNames)) then
           do sps=1,nTimeIntervalsSpectral
@@ -218,8 +226,17 @@ contains
           ! Now we can retrieve the forces/tractions for this spectral instance
           fSize = size(forces, 2)
           call getForces(forces(:, :, sps), fSize, sps)
+
+
+
        end if
-    end do
+
+      !  if (present(heatfluxes)) then
+      !    ! Now we can retrieve the heatfluxes for this spectral instance
+
+      !     call getHeatFluxes(heatfluxes(:, 1, sps), size(heatfluxes, 2) , sps)
+      ! end if
+   end do
 
   end subroutine master
 #ifndef USE_COMPLEX

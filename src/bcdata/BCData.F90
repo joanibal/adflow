@@ -443,7 +443,6 @@ contains
 
     ! Write an error message and terminate if it was not
     ! possible to determine the temperature.
-
     if(.not. bcVarPresent(1)) then
 
        write(errorMessage,100)                    &
@@ -1447,7 +1446,6 @@ contains
              famInclude: if (famInList(BCdata(j)%famID, famLists(iVar, 2:2+nFam-1))) then
 
                 select case (BCType(j))
-
                 case (NSWallIsothermal)
                    call setBCVarNamesIsothermalWall
                    call errorCheckbcDataNamesIn("NSWallIsothermal", bcDataNamesIn)
@@ -1689,7 +1687,7 @@ contains
 
   end subroutine setBCData_b
 
-  subroutine extractFromDataSet(bcVarArray)
+  subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
     !--------------------------------------------------------------
     ! Manual Differentiation Warning: Modifying this routine requires
     ! modifying the hand-written forward and reverse routines.
@@ -1702,17 +1700,21 @@ contains
     !
     use constants
     use cgnsNames
-    use blockPointers, onlY : nbkGlobal
+    use blockPointers, onlY : nbkGlobal, BCData
     use utils, only : terminate
     implicit none
 
     ! Input
-    real(kind=realType), dimension(:, :, :) :: bcVarArray
-
+   !  real(kind=realType), dimension(:, :, :) :: bcVarArray
+    integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+    real(kind=realType), dimension(iBeg:iEnd,jBeg:jEnd, nbcVarMax) :: bcVarArray
     !
     !      Local variables.
     !
-    integer(kind=intType) :: k, l, m, n
+    real(kind=realType), dimension(iEnd - iBeg + 2,jEnd - jBeg + 2) :: tmp
+
+
+    integer(kind=intType) :: k, l, m, n, i, j
     integer(kind=intType) :: nInter, nDim, nVarPresent, nCoor
 
     integer(kind=intType), dimension(3) :: dataDim, coor
@@ -1734,7 +1736,6 @@ contains
 
     do m=1,nbcVar
        bcVarPresent(m) = .false.
-
        dataSetLoop: do k=1,nDataSet
           do l=1,dataSet(k)%nDirichletArrays
              if(dataSet(k)%dirichletArrays(l)%arrayName == &
@@ -1774,8 +1775,49 @@ contains
           k = ind(1,m)
           l = ind(2,m)
 
-          bcVarArray(:,:,m) = &
-               dataSet(k)%dirichletArrays(l)%dataArr(1)
+
+          if (size(dataSet(k)%dirichletArrays(l)%dataArr) == 1) then
+            bcVarArray(:,:,m) =  dataSet(k)%dirichletArrays(l)%dataArr(1)
+          else
+               ! create a temperary matrix where the middle is the same as the
+               ! dataArr and edges are linearly extrapolated to provide 4 nodes
+               ! to extrapolate the halo cells from
+
+               ! write(*,*) 'tmp', shape(tmp)
+               tmp(2:(iEnd - iBeg + 1), 2:(jEnd - jBeg + 1) ) = &
+               reshape(dataSet(k)%dirichletArrays(l)%dataArr, (/iEnd-iBeg , jEnd-jbeg /))
+               ! write(*,*) iEnd, iBeg, jEnd, jbeg, (/iEnd-iBeg , jEnd-jbeg /)
+               ! write(*,*) reshape(dataSet(k)%dirichletArrays(l)%dataArr, (/iEnd-iBeg , jEnd-jbeg /))
+               ! write(*,*) dataSet(k)%dirichletArrays(l)%dataArr
+
+               ! do i=1, iEnd - iBeg + 2
+               !    write(*,*) 'i', i, tmp(i, :)
+               ! end do
+
+               tmp(1, :) = tmp(2, :) -  (tmp(3, :) - tmp(2, :))
+               tmp(iEnd - iBeg + 2, :) = tmp(iEnd - iBeg + 1, :) +  (tmp(iEnd - iBeg +1, :) - tmp(iEnd - iBeg, :))
+
+               tmp(:, 1) = tmp(:, 2) -  (tmp(:, 3) - tmp(:, 2))
+               tmp(: , jEnd - jBeg + 2) = tmp(: , jEnd - jBeg + 1) +  (tmp(: , jEnd - jBeg +1) - tmp(: , jEnd - jBeg))
+
+
+               ! ! write(*,*) tmp
+               ! do i=1, iEnd - iBeg + 2
+               !    write(*,*) 'i', i, tmp(i, :)
+               ! end do
+
+
+
+               do j=jBeg, jEnd
+                  do i=iBeg, iEnd
+                     bcVarArray(i,j,m) = fourth*(tmp(i, j)+ tmp(i+1, j) + tmp(i, j+1) + tmp(i+1, j+1))
+                     ! write(*,*) 'i', i , 'j', j, bcVarArray(i,j,m)
+                  end do
+               end do
+
+            write(*,*) 'non uniform bcvar', iBeg, iEnd, jBeg, jEnd
+            ! bcVarArray(:,:,m) =  dataSet(k)%dirichletArrays(l)%dataArr(1)
+          endif
        endif
     enddo
 
@@ -2760,24 +2802,24 @@ contains
 
              case (NSWallIsothermal)
                 call setBCVarNamesIsothermalWall ! sets bcVarNames and nbcVar
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataIsothermalWall(j, bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
              case (SupersonicInflow)
                 call setBCVarNamesSupersonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSupersonicInflow(j, bcVarArray, iBeg, iEnd, jBeg, jEnd, &
                      allFlowSupersonicInflow, allTurbSupersonicInflow)
 
              case (SubsonicInflow)
                 call setBCVarNamesSubsonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicInflow(j, bcVarArray, iBeg, iEnd, jBeg, jEnd, &
                      allTurbSubsonicInflow)
 
              case (SubsonicOutflow)
                 call setBCVarNamesSubsonicOutflow ! sets bcVarNames and nbcVar
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicOutflow(j, bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
              case (DomainInterfaceAll, DomainInterfaceRhoUVW, &
@@ -3110,27 +3152,27 @@ contains
 
              case (NSWallIsothermal)
                 call setBCVarNamesIsothermalWall ! sets bcVarNames and nbcVar
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataIsothermalWall_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
 
              case (SupersonicInflow)
                 call setBCVarNamesSupersonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSupersonicInflow_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd, &
                      allFlowSupersonicInflow, allTurbSupersonicInflow)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
 
              case (SubsonicInflow)
                 call setBCVarNamesSubsonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicInflow_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd, &
                      allTurbSubsonicInflow)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
 
              case (SubsonicOutflow)
                 call setBCVarNamesSubsonicOutflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicOutflow_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
              end select

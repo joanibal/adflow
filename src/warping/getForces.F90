@@ -289,7 +289,7 @@ subroutine getForces_b(forcesd, npts, sps)
   ! updated.
   call getForces(forces, npts, sps)
 
-  ! We know must consider additional forces that are required by the
+  ! We now must consider additional forces that are required by the
   ! zipper mesh triangles on the root proc.
 
   ! Pointer for easier reading.

@@ -46,7 +46,7 @@ use:\n pip install ordereddict')
 class Error(Exception):
     """
     Format the error message in a box to make it clear this
-    was a expliclty raised exception.
+    was a explicitly raised exception.
     """
     def __init__(self, message):
         msg = '\n+'+'-'*78+'+'+'\n' + '| pyADFLOW Error: '
@@ -92,7 +92,7 @@ class ADFLOW(AeroSolver):
         The communicator on which to create ADflow. If not given, defaults
         to MPI.COMM_WORLD.
     options : dictionary
-        The list of options to use with ADflow. This keyword arguement
+        The list of options to use with ADflow. This keyword argument
         is NOT OPTIONAL. It must always be provided. It must contain, at least
         the 'gridFile' entry for the filename of the grid to load
     debug : bool
@@ -108,9 +108,7 @@ class ADFLOW(AeroSolver):
 
         # --------------------- Set adflow Module ------------------------------
         # Load the compiled module using MExt, allowing multiple imports
-        try:
-            self.adflow
-        except:
+        if not hasattr(self, 'adflow'):
             curDir = os.path.dirname(os.path.realpath(__file__))
             self.adflow = MExt.MExt('libadflow', [curDir], debug=debug)._module
 
@@ -445,7 +443,7 @@ class ADFLOW(AeroSolver):
         # Now we need to search each localX in X to find the corresponding D
         try:
             from scipy.spatial import KDTree
-        except:
+        except ImportError:
             raise Error('scip.spatial must be available to use setDisplacements')
         tree = KDTree(numpy.array(X))
         d, index = tree.query(localX)
@@ -2258,10 +2256,8 @@ class ADFLOW(AeroSolver):
         # The aeroProblem we're resetting to has an oldWinf in it, we
         # must invalidate it since it would try to use that the next
         # time this AP is used.
-        try:
+        if hasattr(aeroProblem.adflowData, 'oldWinf'):
             aeroProblem.adflowData.oldWinf = None
-        except:
-            pass
 
         self.setAeroProblem(aeroProblem, releaseAdjointMemory)
         self._resetFlow()
@@ -2406,9 +2402,7 @@ class ADFLOW(AeroSolver):
                 print('+'+'-'*70+'+')
 
         # See if the aeroProblem has adflowData already, if not, create.
-        try:
-            aeroProblem.adflowData
-        except AttributeError:
+        if not hasattr(aeroProblem, 'adflowData'):
             aeroProblem.adflowData = adflowFlowCase()
             aeroProblem.ptSetName = ptSetName
             aeroProblem.surfMesh = self.getSurfaceCoordinates(self.designFamilyGroup)
@@ -2517,9 +2511,8 @@ class ADFLOW(AeroSolver):
         # aeroproblem. While we do it we save the options that we've
         # modified if they are different than the current option.
         AP = aeroProblem
-        try:
-            AP.savedOptions
-        except:
+
+        if not hasattr(AP, 'savedOptions'):
             AP.savedOptions = {'adflow':{}}
 
 
