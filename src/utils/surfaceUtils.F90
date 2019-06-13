@@ -665,9 +665,9 @@ contains
 
   subroutine getIsothermalWallList(wallList, nWallList, nFamTotal)
 
-!    ! Python wrapped utility function to return the list of families
-!    ! that are walls to Python since we need that information in
-!    ! Python for a few default values.
+   ! Python wrapped utility function to return the list of families
+   ! that are isotheramal walls to Python since we need that information in
+   ! Python for a few default values.
 
    use constants
    use surfaceFamilies, only :BCFamGroups
@@ -682,10 +682,9 @@ contains
 
 
    ! this will work as long as all of the BCs for a familly of walls are the same
-
+   ! -idk if this is true
 
    ii = 1
-   write(*,*) 'test'
    famLoop: do iFam=1, nFamTotal
 
    domainLoop: do nn=1,nDom
