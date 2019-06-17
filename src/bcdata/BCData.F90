@@ -1512,7 +1512,7 @@ contains
     !
     !      Local variables.
     !
-    integer(kind=intType) :: i, j, k, iVar, nFam
+    integer(kind=intType) :: i, j, k, iVar, nFam, iRegion
     character(maxCGNSNameLen) :: varName
 
     domainsLoop: do i=1, nDom
@@ -1613,7 +1613,7 @@ contains
     !
     !      Local variables.
     !
-    integer(kind=intType) :: i, j, k, iVar, nFam
+    integer(kind=intType) :: i, j, k, iVar, nFam, iRegion
     character(maxCGNSNameLen) :: varName
 
     domainsLoop: do i=1, nDom

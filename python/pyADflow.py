@@ -1124,6 +1124,53 @@ class ADFLOW(AeroSolver):
             self.solveTimeStep()
             self.writeSolution()
 
+    def callMasterRoutine(self, aeroProblem, useSpatial = False):
+        """
+            calls the master routine on the fortran level.
+            This routine contains all the steps necessary to update the state
+            variables and compute output function values.
+
+            Thus this function is used for testing to ensure all the functions
+            used for the solving procedure are working properly
+
+        Parameters
+        ----------
+        aeroProblem : pyAero_problem class
+            The complete description of the problem to solve
+        """
+
+        bcDataNames, bcDataValues, bcDataFamLists, _, _ = self._getBCDataFromAeroProblem(aeroProblem)
+
+        groupNames = set()
+        for f in aeroProblem.evalFuncs:
+            fl = f.lower()
+            if fl in self.adflowCostFunctions:
+                groupName = self.adflowCostFunctions[fl][0]
+                groupNames.add(groupName)
+            if f in self.adflowUserCostFunctions:
+                for sf in self.adflowUserCostFunctions[f].functions:
+                    groupName = self.adflowCostFunctions[sf.lower()][0]
+                    groupNames.add(groupName)
+
+        groupNames = list(groupNames)
+        if len(groupNames) == 0:
+            famLists = self._expandGroupNames([self.allWallsGroup])
+        else:
+            famLists = self._expandGroupNames(groupNames)
+
+        funcvalues = numpy.zeros((self.adflow.constants.ncostfunction, 1))
+
+
+        npts, _ = self._getSurfaceSize(self.allWallsGroup)
+
+        fluxes = numpy.zeros((1, npts, 1), self.dtype, order='F')
+        forces = numpy.zeros((3, npts, 1), self.dtype, order='F')
+        self.adflow.masterroutines.master(useSpatial, famLists,
+                                          bcDataNames, bcDataValues, bcDataFamLists,
+                                          funcvalues, forces, fluxes)
+
+        return funcvalues, forces, fluxes
+
     def advanceTimeStepCounter(self):
         """
         Advance one unit of timestep and physical time.
@@ -1370,7 +1417,8 @@ class ADFLOW(AeroSolver):
 
             # Compute everything and update into the dictionary
             funcsSens[key].update(self.computeJacobianVectorProductBwd(
-                resBar=psi, funcsBar=self._getFuncsBar(f), xDvDeriv=True))
+                resBar=psi, funcsBar=self._getFuncsBar(f), xDvDeriv=True
+                ))
 
             totalSensEndTime[f] = time.time()
 
