@@ -493,7 +493,7 @@ python module libadflow
 
        end module solvers
 
-      module aleutils
+       module aleutils
 
          subroutine shiftlevelale
          end subroutine shiftlevelale
@@ -688,6 +688,21 @@ python module libadflow
          use constants
          real(kind=realtype) dimension(16) :: oversettimes
        end module oversetdata
+
+       module masterroutines
+          subroutine master(usespatial, famlists, bcdatanames, bcdatavalues, &
+            bcdatafamlists, funcvalues, forces, heatfluxes)
+              logical intent(in) :: usespatial
+              integer(kind=inttype) dimension(:,:) :: famlists
+              character dimension(:,:),intent(in) :: bcdatanames
+              real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+              integer(kind=inttype), dimension(:,:) :: bcdatafamlists
+              real(kind=realtype), dimension(:, :), intent(inout) :: funcvalues
+              real(kind=realtype), dimension(:, :, :), intent(inout) :: forces
+              real(kind=realtype), dimension(:, :, :), intent(inout) :: heatfluxes
+          end subroutine master
+       end module masterroutines
+
 
 ! ================ bare subroutines =============
 

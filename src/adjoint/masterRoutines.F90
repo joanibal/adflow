@@ -1,10 +1,7 @@
 module masterRoutines
 contains
-! subroutine master(useSpatial, famLists, funcValues, forces, heatfluxes, &
-!    bcDataNames, bcDataValues, bcDataFamLists)
-
-   subroutine master(useSpatial, famLists, funcValues, forces, &
-      bcDataNames, bcDataValues, bcDataFamLists)
+   subroutine master(useSpatial, famLists, bcDataNames, bcDataValues, &
+      bcDataFamLists, funcValues, forces, heatfluxes)
 
     use constants
     use communication, only : adflow_comm_world
@@ -53,9 +50,7 @@ contains
 
     ! Output Variables
     real(kind=realType), intent(out), optional, dimension(:, :, :) :: forces
-
-   !  ! n nodes x 1 x nsps (leave 3d)
-   !  real(kind=realType), intent(out), optional, dimension(:, :, :) :: heatfluxes
+    real(kind=realType), intent(out), optional, dimension(:, :, :) :: heatfluxes
 
     ! Working Variables
     integer(kind=intType) :: ierr, nn, sps, fSize, iRegion
@@ -99,17 +94,16 @@ contains
 
     do sps=1,nTimeIntervalsSpectral
        do nn=1,nDom
-          call setPointers(nn, 1, sps)
-
-          if (useSpatial) then
-             call volume_block
-             call metric_block
-             call boundaryNormals
+         call setPointers(nn, 1, sps)
+         if (useSpatial) then
+            call volume_block
+            call metric_block
+            call boundaryNormals
 
              if (equations == RANSEquations .and. useApproxWallDistance) then
                 call updateWallDistancesQuickly(nn, 1, sps)
              end if
-          end if
+         end if
 
           ! Compute the pressures/viscositites
           call computePressureSimple(.False.)
@@ -231,14 +225,14 @@ contains
 
        end if
 
-      !  if (present(heatfluxes)) then
-      !    ! Now we can retrieve the heatfluxes for this spectral instance
+       if (present(heatfluxes)) then
+         ! Now we can retrieve the heatfluxes for this spectral instance
+          call getHeatFlux(heatfluxes(1, :, sps), size(heatfluxes, 2) , sps)
+      end if
+    end do
 
-      !     call getHeatFluxes(heatfluxes(:, 1, sps), size(heatfluxes, 2) , sps)
-      ! end if
-   end do
+   end subroutine master
 
-  end subroutine master
 #ifndef USE_COMPLEX
   subroutine master_d(wdot, xdot, forcesDot, dwDot, famLists, funcValues, funcValuesd, &
        bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
@@ -564,7 +558,7 @@ contains
     ! compute the reverse mode sensitivity of *all* outputs with
     ! respect to *all* inputs. Anything that needs to be
     ! differentiated for the adjoint method should be included in this
-    ! function. This routine is written by had, assembling the various
+    ! function. This routine is written by hand, assembling the various
     ! individually differentiated tapenade routines.
 
     use constants
