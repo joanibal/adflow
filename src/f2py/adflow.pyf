@@ -737,17 +737,24 @@ python module libadflow
          integer(kind=inttype) intent(in) :: sps_in
        end subroutine getheatflux
 
-       subroutine settnswall(tnsw,npts,sps_in) ! in :test:getForces.F90
-         real(kind=realtype) dimension(npts),intent(in) :: tnsw
-         integer(kind=inttype) optional,intent(in),check(len(tnsw)>=npts),depend(tnsw) :: npts=len(tnsw)
-         integer(kind=inttype) intent(in) :: sps_in
-       end subroutine settnswall
+      !  subroutine settnswall(tnsw,npts,sps_in) ! in :test:getForces.F90
+      !    real(kind=realtype) dimension(npts),intent(in) :: tnsw
+      !    integer(kind=inttype) optional,intent(in),check(len(tnsw)>=npts),depend(tnsw) :: npts=len(tnsw)
+      !    integer(kind=inttype) intent(in) :: sps_in
+      !  end subroutine settnswall
 
-       subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
-         real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
+      !  subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
+      !    real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
+      !    integer(kind=inttype) intent(in) :: npts
+      !    integer(kind=inttype) intent(in) :: sps
+      !  end subroutine gettnswall
+
+       subroutine getwalltemperature(walltemp, npts, sps) ! in :test:getforces.f90
+         real(kind=realtype) dimension(npts),intent(out),depend(npts) :: walltemp
          integer(kind=inttype) intent(in) :: npts
          integer(kind=inttype) intent(in) :: sps
-       end subroutine gettnswall
+       end subroutine getwalltemperature
+
 
        subroutine setcptargets(cptarget,npts,sps_in) ! in :test:setCpTarget.f90
          real(kind=realtype) dimension(npts),intent(in) :: cptarget

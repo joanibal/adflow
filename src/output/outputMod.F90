@@ -1691,8 +1691,8 @@ contains
        do j=rangeFace(2,1), rangeFace(2,2)
           do i=rangeFace(1,1), rangeFace(1,2)
              nn = nn + 1
-             buffer(nn) = (pp1(i,j) + pp2(i,j)) &
-                  / (RGas*(ww1(i,j,irho) + ww2(i,j,irho)))
+             buffer(nn) = (pp1(i,j)*ww2(i,j,irho) + ww1(i,j,irho)*pp2(i,j)) &
+                  / (RGas*(ww1(i,j,irho) * ww2(i,j,irho)))*Tref/two
           enddo
        enddo
 

@@ -118,6 +118,8 @@ module block
      real(kind=realType), dimension(:,:,:,:), pointer :: uSlipALE
      real(kind=realType), dimension(:,:),     pointer :: nodeHeatFlux
      real(kind=realType), dimension(:,:),     pointer :: cellHeatFlux
+     real(kind=realType), dimension(:,:),     pointer :: nodeTemperature
+     real(kind=realType), dimension(:,:),     pointer :: cellTemperature
 
      ! ptInlet(:,:):       Total pressure at subsonic inlets.
      ! ttInlet(:,:):       Total temperature at subsonic inlets.

@@ -3058,7 +3058,7 @@ class ADFLOW(AeroSolver):
 
         # Set the family to all walls group.
         npts, _ = self._getSurfaceSize(self.allWallsGroup)
-        fullTemp = self.adflow.gettnswall(npts, TS+1)
+        fullTemp = self.adflow.getwalltemperature(npts, TS+1)
 
         if groupName is None:
             groupName = self.allIsothermalWallsGroup
@@ -3069,50 +3069,6 @@ class ADFLOW(AeroSolver):
         tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
         temperature = tmp[:, 0]
         return temperature
-
-    def setWallTemperature(self, temperature, groupName=None, TS=0):
-        """Set the temperature of the isothermal walls.
-
-        Parameters
-        ----------
-        temperature : numpy array
-
-            Dimensional temperature to set for wall. This size must
-            correpsond to the size of the heat flux obtained using the
-            same groupName.
-
-        groupName : str
-
-            Group identifier to set only temperatures corresponding to
-            the desired group. The group must be a family or a
-            user-supplied group of families. The default is None which
-            corresponds to all wall-type surfaces.
-
-        TS : int
-            Time spectral instance to set.
-        """
-        if groupName is None:
-            groupName = self.allIsothermalWallsGroup
-
-        # For the mapVector to work correctly, we need to retrieve the
-        # existing values and just overwrite the ones we've changed
-        # using mapVector.
-        npts, _ = self._getSurfaceSize(self.allWallsGroup)
-        fullTemp = self.adflow.gettnswall(npts, TS+1)
-
-        # Now map new values in and set.
-
-
-        # Map vector expects and Nx3 array. So we will do just that.
-        tmp1 = numpy.zeros((npts, 3))
-        tmp2 = copy.copy(tmp1)
-
-        tmp1[:, 0] = fullTemp
-        tmp2[:, 0] = temperature
-
-        fullTemp = self.mapVector(tmp2, groupName, self.allWallsGroup, tmp1)[:,0]
-
-        self.adflow.settnswall(fullTemp, TS+1)
 
     def setTargetCp(self, CpTargets, groupName=None, TS=0):
         """Set the CpTarget distribution for am inverse design problem.
