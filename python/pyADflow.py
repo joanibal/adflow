@@ -3507,7 +3507,7 @@ class ADFLOW(AeroSolver):
     #   =========================================================================
 
     def computeJacobianVectorProductFwd(self, xDvDot=None, xSDot=None, xVDot=None, wDot=None,
-                                        residualDeriv=False, funcDeriv=False, fDeriv=False,
+                                        residualDeriv=False, funcDeriv=False, fDeriv=False, hfDeriv=False,
                                         groupName=None):
         """This the main python gateway for producing forward mode jacobian
         vector products. It is not generally called by the user by
@@ -3530,9 +3530,13 @@ class ADFLOW(AeroSolver):
         funcDeriv : bool
             Flag specifiying if the derviative of the cost functions
             (as defined in the current aeroproblem) should be returned.
-        Fderiv : bool
+        fDeriv : bool
             Flag specifiying if the derviative of the surface forces (tractions)
             should be returned
+        hfDeriv : bool
+            Flag specifiying if the derviative of the surface heatfluxes should
+            be returned
+
         groupName : str
             Optional group name to use for evaluating functions. Defaults to all
             surfaces.
@@ -3641,10 +3645,9 @@ class ADFLOW(AeroSolver):
             famLists = self._expandGroupNames(groupNames)
 
         # Extract any possibly BC daa
-        dwdot, tmp, fdot = self.adflow.adjointapi.computematrixfreeproductfwd(
+        dwdot, tmp, fdot, hfdot = self.adflow.adjointapi.computematrixfreeproductfwd(
             xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
             bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime)
-
         # Explictly put fdot to nothing if size is zero
         if fSize==0:
             fdot = numpy.zeros((0, 3))
@@ -3680,10 +3683,12 @@ class ADFLOW(AeroSolver):
             returns.append(funcsDot)
         if fDeriv:
             returns.append(fdot.T)
-
+        if hfDeriv:
+            returns.append(hfdot.T)
+            print(hfdot.T[:,1:10])
         return tuple(returns) if len(returns) > 1 else returns[0]
 
-    def computeJacobianVectorProductBwd(self, resBar=None, funcsBar=None, fBar=None,
+    def computeJacobianVectorProductBwd(self, resBar=None, funcsBar=None, fBar=None, hfBar=None,
                                     wDeriv=None, xVDeriv=None, xSDeriv=None,
                                     xDvDeriv=None, xDvDerivAero=None):
         """This the main python gateway for producing reverse mode jacobian
@@ -3705,6 +3710,8 @@ class ADFLOW(AeroSolver):
         fBar : numpy array
             Seed for the forces (or tractions depending on the option value) to use
             in reverse mode.
+        hfBar : numpy array
+            Seed for the heatfluxes to use in reverse mode.
 
         wDeriv : bool
             Flag specifiying if the state (w) derivative (wb) should be returned
@@ -3726,10 +3733,10 @@ class ADFLOW(AeroSolver):
 
         """
         # Error Checking
-        if resBar is None and funcsBar is None and fBar is None:
+        if resBar is None and funcsBar is None and fBar is None and hfBar is None:
             raise Error("computeJacobianVectorProductBwd: One of resBar, funcsBar and fBar"
-                        " must be given. resBar=%s, funcsBar=%s, fBar=%s"% (
-                            resBar, funcsBar, fBar))
+                        " must be given. resBar=%s, funcsBar=%s, fBar=%s, hfBar=%s"% (
+                            resBar, funcsBar, fBar, hfBar))
         if (wDeriv is None and xVDeriv is None and xDvDeriv is None and
             xSDeriv is None and xDvDerivAero is None):
             raise Error("computeJacobianVectorProductBwd: One of wDeriv, xVDeriv, "
@@ -3759,6 +3766,14 @@ class ADFLOW(AeroSolver):
             # Expand out to the sps direction in case there were only
             # 2 dimensions.
             fBar= fBar.reshape((nTime, nPts, 3))
+
+        if hfBar is None:
+            hfBar = numpy.zeros((nTime, nPts, 3))
+        else:
+            # Expand out to the sps direction in case there were only
+            # 2 dimensions.
+            hfBar= hfBar.reshape((nTime, nPts, 1))
+
 
         # ---------------------
         #  Check for funcsBar
@@ -3810,7 +3825,7 @@ class ADFLOW(AeroSolver):
 
         # Do actual Fortran call.
         xvbar, extrabar, wbar, bcdatavaluesbar = self.adflow.adjointapi.computematrixfreeproductbwd(
-            resBar, funcsBar, fBar.T, useSpatial, useState, self.getSpatialSize(),
+            resBar, funcsBar, fBar.T, hfBar.T, useSpatial, useState, self.getSpatialSize(),
             self.adflow.adjointvars.ndesignextra, self.getAdjointStateSize(), famLists,
             bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty)
 

@@ -86,7 +86,7 @@ contains
     if (present(useCoarseMats)) then
        buildCoarseMats = useCoarseMats
     end if
-    
+
     if (turbOnly) then
        ! we are making a PC for turbulence only KSP
        flowRes = .False.
@@ -157,7 +157,7 @@ contains
                       cols(1) = irow
                       nCol = 1
 
-                      if (buildCoarseMats) then 
+                      if (buildCoarseMats) then
                          do lvl=1, agmgLevels-1
                             coarseRows(lvl+1) = coarseIndices(nn, lvl)%arr(i, j, k)
                             coarseCols(1, lvl+1) = coarseRows(lvl+1)
@@ -440,17 +440,17 @@ contains
                             cols(1) = flowDoms(nn, level, sps)%globalCell(i, j, k)
                             nCol = 1
 
-                            if (buildCoarseMats) then 
+                            if (buildCoarseMats) then
                                do lvl=1, agmgLevels-1
                                   coarseCols(1, lvl+1) = coarseIndices(nn, lvl)%arr(i, j, k)
                                end do
                             end if
-                            
+
                          else
                             do m=1,8
                                cols(m) = flowDoms(nn, level, sps)%gInd(m, i, j, k)
-                           
-                               if (buildCoarseMats) then 
+
+                               if (buildCoarseMats) then
                                   do lvl=1, agmgLevels-1
                                      coarseCols(m, lvl+1) = coarseOversetIndices(nn, lvl)%arr(m, i, j, k)
                                   end do
@@ -462,7 +462,7 @@ contains
                                  weights)
                             nCol = 8
                          end if
-                      
+
                          colorCheck: if (flowdoms(nn, 1, 1)%color(i, j, k) == icolor) then
 
                             ! i, j, k are now the "Center" cell that we
@@ -486,12 +486,12 @@ contains
                                   irow = flowDoms(nn, level, sps)%globalCell(&
                                        i+ii, j+jj, k+kk)
 
-                                  if (buildCoarseMats) then 
+                                  if (buildCoarseMats) then
                                      do lvl=1, agmgLevels-1
                                         coarseRows(lvl+1) = coarseIndices(nn, lvl)%arr(i+ii, j+jj, k+kk)
                                      end do
                                   end if
-                                  
+
                                   rowBlank: if (flowDoms(nn, level, sps)%iBlank(i+ii, j+jj, k+kk) == 1) then
 
                                      centerCell: if ( ii == 0 .and. jj == 0  .and. kk == 0) then
@@ -541,7 +541,7 @@ contains
           call EChk(ierr, __FILE__, __LINE__)
        end do
     end if
-    
+
     ! Maybe we can do something useful while the communication happens?
     ! Deallocate the temporary memory used in this routine.
 
@@ -587,7 +587,7 @@ contains
           call EChk(ierr, __FILE__, __LINE__)
        end do
     end if
-    
+
     call MatSetOption(matrix, MAT_NEW_NONZERO_LOCATIONS, PETSC_FALSE, ierr)
     call EChk(ierr, __FILE__, __LINE__)
 
@@ -671,7 +671,7 @@ contains
 
          ! Extension for setting coarse grids:
          if (buildCoarseMats) then
-            if (nCol == 1) then 
+            if (nCol == 1) then
                do lvl=2, agmgLevels
                   if (useTranspose) then
                      ! Loop over the coarser levels
@@ -685,7 +685,7 @@ contains
             else
                do m=1, nCol
                   do lvl=2, agmgLevels
-                     if (coarseCols(m, lvl) >= 0) then 
+                     if (coarseCols(m, lvl) >= 0) then
                         if (useTranspose) then
                            ! Loop over the coarser levels
                            call MatSetValuesBlocked(A(lvl), 1, coarseCols(m, lvl), 1, coarseRows(lvl), &
@@ -854,7 +854,10 @@ contains
                   flowDomsd(nn, level, sps)%BCData(mm)%htInlet(iBeg:iStop,jBeg:jStop), &
                   flowDomsd(nn, level, sps)%BCData(mm)%ttInlet(iBeg:iStop,jBeg:jStop), &
                   flowDomsd(nn, level, sps)%BCData(mm)%turbInlet(iBeg:iStop,jBeg:jStop,nt1:nt2), &
-                  flowDomsd(nn, level, sps)%BCData(mm)%ps(iBeg:iStop,jBeg:jStop), stat=ierr)
+                  flowDomsd(nn, level, sps)%BCData(mm)%ps(iBeg:iStop,jBeg:jStop), &
+                  flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux(inBeg+1:inStop,jnBeg+1:jnStop), &
+                  flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatFlux(inBeg:inStop,jnBeg:jnStop), &
+                  stat=ierr)
 
              call EChk(ierr,__FILE__,__LINE__)
           end do bocoLoop
@@ -992,6 +995,9 @@ contains
        flowDomsd(nn, level, sps)%BCData(mm)%ttInlet = zero
        flowDomsd(nn, level, sps)%BCData(mm)%turbInlet = zero
        flowDomsd(nn, level, sps)%BCData(mm)%ps = zero
+       flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux = zero
+       flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatFlux = zero
+
     end do bocoLoop
 
 
@@ -1418,7 +1424,7 @@ contains
     PC  master_PC, globalPC, subpc
     KSP master_PC_KSP, subksp
     integer(kind=intType) :: nlocal, first, ierr
- 
+
 
     ! First, KSPSetFromOptions MUST be called
     call KSPSetFromOptions(kspObject, ierr)
@@ -1472,15 +1478,15 @@ contains
 
        call KSPSetType(master_PC_KSP, 'richardson', ierr)
        call EChk(ierr, __FILE__, __LINE__)
-       
+
        call KSPMonitorSet(master_PC_KSP, MyKSPMonitor, PETSC_NULL_FUNCTION, &
             PETSC_NULL_FUNCTION, ierr)
        call EChk(ierr, __FILE__, __LINE__)
-       
+
        ! Important to set the norm-type to None for efficiency.
        call kspsetnormtype(master_PC_KSP, KSP_NORM_NONE, ierr)
        call EChk(ierr, __FILE__, __LINE__)
-       
+
        ! Do one iteration of the outer ksp preconditioners. Note the
        ! tolerances are unsued since we have set KSP_NORM_NON
        call KSPSetTolerances(master_PC_KSP, PETSC_DEFAULT_REAL, &
@@ -1562,7 +1568,7 @@ contains
     ! and if localPreConIts=1 then subKSP is set to preOnly.
     use constants
     use utils, only : ECHk
-    use agmg, only : agmgOuterIts, agmgASMOverlap, agmgFillLevel, agmgMatrixOrdering, & 
+    use agmg, only : agmgOuterIts, agmgASMOverlap, agmgFillLevel, agmgMatrixOrdering, &
          setupShellPC, destroyShellPC, applyShellPC
 #include <petscversion.h>
 #if PETSC_VERSION_GE(3,8,0)
@@ -1588,7 +1594,7 @@ contains
 
     call KSPSetType(kspObject, kspObjectType, ierr)
     call EChk(ierr, __FILE__, __LINE__)
-    
+
     ! Set the preconditioner side from option:
     if (trim(preConSide) == 'right') then
        call KSPSetPCSide(kspObject, PC_RIGHT, ierr)
@@ -1621,7 +1627,7 @@ contains
     agmgFillLevel = fillLevel
     agmgMatrixOrdering = localMatrixOrdering
   end subroutine setupStandardMultigrid
-  
+
   subroutine destroyPETScVars
 
     use constants

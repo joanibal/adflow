@@ -252,6 +252,10 @@ contains
 &       ovrnts*globalvalsd(icperror2, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+      funcvaluesd(costfuncheatflux) = funcvaluesd(costfuncheatflux) + &
+&       ovrnts*globalvalsd(iheatflux, sps)
+      funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
+&       ovrnts*globalvals(iheatflux, sps)
 ! mass flow like objective
       mflowd = globalvalsd(imassflow, sps)
       mflow = globalvals(imassflow, sps)
@@ -656,6 +660,8 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+      funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
+&       ovrnts*globalvals(iheatflux, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -777,17 +783,20 @@ contains
   end subroutine getcostfunctions
 !  differentiation of wallintegrationface in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) localvalues
+!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
 !   with respect to varying inputs: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
-!                *(*bcdata.fv) *(*bcdata.fp) *(*bcdata.area) localvalues
+!                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
+!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
 !   rw status of diff variables: veldirfreestream:in machcoef:in
 !                pointref:in pinf:in pref:in *xx:in *pp1:in *pp2:in
-!                *ssi:in *ww2:in *(*viscsubface.tau):in *(*bcdata.fv):in-out
-!                *(*bcdata.fp):in-out *(*bcdata.area):in-out localvalues:in-out
+!                *ssi:in *ww2:in *(*viscsubface.tau):in *(*viscsubface.q):in
+!                *(*bcdata.fv):in-out *(*bcdata.fp):in-out *(*bcdata.area):in-out
+!                *(*bcdata.cellheatflux):in-out localvalues:in-out
 !   plus diff mem management of: xx:in pp1:in pp2:in ssi:in ww2:in
-!                viscsubface:in *viscsubface.tau:in bcdata:in *bcdata.fv:in
-!                *bcdata.fp:in *bcdata.area:in
+!                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
+!                bcdata:in *bcdata.fv:in *bcdata.fp:in *bcdata.area:in
+!                *bcdata.cellheatflux:in
   subroutine wallintegrationface_d(localvalues, localvaluesd, mm)
 !
 !       wallintegrations computes the contribution of the block
@@ -805,7 +814,8 @@ contains
     use flowvarrefstate
     use inputcostfunctions
     use inputphysics, only : machcoef, machcoefd, pointref, pointrefd,&
-&   veldirfreestream, veldirfreestreamd, equations, momentaxis, cavitationnumber
+&   veldirfreestream, veldirfreestreamd, equations, momentaxis, &
+&   cavitationnumber
     use bcpointers_d
     implicit none
 ! input/output variables
@@ -836,14 +846,16 @@ contains
     real(kind=realtype), dimension(3) :: refpointd
     real(kind=realtype), dimension(3, 2) :: axispoints
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis
+&   mpaxis, qw
     real(kind=realtype) :: mxd, myd, mzd, cellaread, m0xd, m0yd, m0zd, &
-&   mvaxisd, mpaxisd
+&   mvaxisd, mpaxisd, qwd
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: cperrord, cperror2d
+    real(kind=realtype) :: q, scaledim
+    real(kind=realtype) :: qd, scaledimd
+    intrinsic sqrt
     intrinsic mod
     intrinsic max
-    intrinsic sqrt
     intrinsic exp
     real(kind=realtype) :: arg1
     real(kind=realtype) :: arg1d
@@ -884,6 +896,17 @@ contains
     mpaxis = zero
     mvaxis = zero
     cperror2 = zero
+    q = zero
+    arg1d = prefd/rhoref
+    arg1 = pref/rhoref
+    if (arg1 .eq. 0.0_8) then
+      result1d = 0.0_8
+    else
+      result1d = arg1d/(2.0*sqrt(arg1))
+    end if
+    result1 = sqrt(arg1)
+    scaledimd = prefd*result1 + pref*result1d
+    scaledim = pref*result1
     sepsensoravgd = 0.0_8
     rd = 0.0_8
     vd = 0.0_8
@@ -1108,6 +1131,7 @@ contains
 ! initialize dwall for the laminar case and set the pointer
 ! for the unit normals.
       dwall = zero
+      qd = 0.0_8
       mvaxisd = 0.0_8
       fvd = 0.0_8
       mvd = 0.0_8
@@ -1192,6 +1216,23 @@ contains
         mv(2) = mv(2) + my*blk
         mvd(3) = mvd(3) + blk*mzd
         mv(3) = mv(3) + mz*blk
+! cell heat flux
+        qwd = -(fact*(scaledimd*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)&
+&         +viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, &
+&         j, 3)*ssi(i, j, 3))+scaledim*(viscsubfaced(mm)%q(i, j, 1)*ssi(&
+&         i, j, 1)+viscsubface(mm)%q(i, j, 1)*ssid(i, j, 1)+viscsubfaced&
+&         (mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j, 2)*ssid(i&
+&         , j, 2)+viscsubfaced(mm)%q(i, j, 3)*ssi(i, j, 3)+viscsubface(&
+&         mm)%q(i, j, 3)*ssid(i, j, 3))))
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat flux thought that surface
+        qd = qd + blk*qwd
+        q = q + qw*blk
+! save the face based heatflux
+        bcdatad(mm)%cellheatflux(i, j) = qd
+        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -1257,6 +1298,7 @@ contains
 ! if we had no viscous force, set the viscous component to zero
       bcdatad(mm)%fv = 0.0_8
       bcdata(mm)%fv = zero
+      qd = 0.0_8
       mvaxisd = 0.0_8
       fvd = 0.0_8
       mvd = 0.0_8
@@ -1282,6 +1324,8 @@ contains
 &     mvaxisd
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
+    localvaluesd(iheatflux) = localvaluesd(iheatflux) + qd
+    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvaluesd(icperror2) = localvaluesd(icperror2) + cperror2d
     localvalues(icperror2) = localvalues(icperror2) + cperror2
   end subroutine wallintegrationface_d
@@ -1323,11 +1367,12 @@ contains
     real(kind=realtype), dimension(3) :: refpoint
     real(kind=realtype), dimension(3, 2) :: axispoints
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis
+&   mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
+    real(kind=realtype) :: q, scaledim
+    intrinsic sqrt
     intrinsic mod
     intrinsic max
-    intrinsic sqrt
     intrinsic exp
     real(kind=realtype) :: arg1
     real(kind=realtype) :: result1
@@ -1362,6 +1407,10 @@ contains
     mpaxis = zero
     mvaxis = zero
     cperror2 = zero
+    q = zero
+    arg1 = pref/rhoref
+    result1 = sqrt(arg1)
+    scaledim = pref*result1
 !
 !         integrate the inviscid contribution over the solid walls,
 !         either inviscid or viscous. the integration is done with
@@ -1543,6 +1592,14 @@ contains
         mv(1) = mv(1) + mx*blk
         mv(2) = mv(2) + my*blk
         mv(3) = mv(3) + mz*blk
+! cell heat flux
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat flux thought that surface
+        q = q + qw*blk
+! save the face based heatflux
+        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -1606,6 +1663,7 @@ contains
 &     sepsensoravg
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
+    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvalues(icperror2) = localvalues(icperror2) + cperror2
   end subroutine wallintegrationface
 !  differentiation of flowintegrationface in forward (tangent) mode (with options i4 dr8 r8):

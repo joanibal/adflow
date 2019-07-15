@@ -140,6 +140,8 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+      funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
+&       ovrnts*globalvals(iheatflux, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -296,11 +298,12 @@ contains
     real(kind=realtype), dimension(3) :: refpoint
     real(kind=realtype), dimension(3, 2) :: axispoints
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis
+&   mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
+    real(kind=realtype) :: q, scaledim
+    intrinsic sqrt
     intrinsic mod
     intrinsic max
-    intrinsic sqrt
     intrinsic exp
     select case  (bcfaceid(mm)) 
     case (imin, jmin, kmin) 
@@ -333,6 +336,8 @@ contains
     mpaxis = zero
     mvaxis = zero
     cperror2 = zero
+    q = zero
+    scaledim = pref*sqrt(pref/rhoref)
 !
 !         integrate the inviscid contribution over the solid walls,
 !         either inviscid or viscous. the integration is done with
@@ -511,6 +516,14 @@ contains
         mv(1) = mv(1) + mx*blk
         mv(2) = mv(2) + my*blk
         mv(3) = mv(3) + mz*blk
+! cell heat flux
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat flux thought that surface
+        q = q + qw*blk
+! save the face based heatflux
+        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -573,6 +586,7 @@ contains
 &     sepsensoravg
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
+    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvalues(icperror2) = localvalues(icperror2) + cperror2
   end subroutine wallintegrationface
   subroutine flowintegrationface(isinflow, localvalues, mm)

@@ -24,7 +24,7 @@ contains
     logical, intent(in) :: secondhalo
 ! local variables.
     logical :: correctfork
-    integer(kind=inttype) :: nn
+    integer(kind=inttype) :: nn, ii, jj, kk
 !
 ! determine whether or not the total energy must be corrected
 ! for the presence of the turbulent kinetic energy.
@@ -34,6 +34,12 @@ contains
 ! ------------------------------------
 !  symmetry boundary condition
 ! ------------------------------------
+!  do ii=0, (il+2)
+!    do kk=0, (kl+2)
+!       write(*,*) ii, kk, w(ii,:,kk, ivz)
+!    end do
+!    write(*,*)
+!  end do
     do nn=1,nbocos
       if (bctype(nn) .eq. symm) then
         call setbcpointers(nn, .false.)
@@ -1046,6 +1052,10 @@ contains
 ! is taken (positive sign of the corresponding
 ! eigenvalue) or the free stream value is taken
 ! (otherwise).
+! the values for the velocity magnitude and speed of sound are found by setting the + and - riemann invarents equal to one anothe
+!r
+!  j+ = q + 2*c/(gamma - 1) , j- = q - 2*c/(gamma -1)
+! ac1 is the j_plus and ac2 is j_minus
       if (vn0 .gt. -c0) then
 ! outflow or subsonic inflow.
         ac1 = qne + two*ovgm1*ce
@@ -1060,13 +1070,18 @@ contains
 ! inflow or subsonic outflow.
         ac2 = qn0 - two*ovgm1*c0
       end if
+! this simplifies to (qne + qno)/2 for subsonic inflows and outflows and qn0 and qne for supersonic inflows and outflow respectiv
+!ly
       qnf = half*(ac1+ac2)
+! similarly this simplifies to (ce + co)/2 for subsonic inflows and outflows and c0 and ce for supersonic inflows and outflow res
+!pectivly
       cf = fourth*(ac1-ac2)*gm1
       if (vn0 .gt. zero) then
 ! outflow.
         uf = ue + (qnf-qne)*bcdata(nn)%norm(i, j, 1)
         vf = ve + (qnf-qne)*bcdata(nn)%norm(i, j, 2)
         wf = we + (qnf-qne)*bcdata(nn)%norm(i, j, 3)
+! interior entropy
         sf = ww2(i, j, irho)**gamma2(i, j)/pp2(i, j)
       else
 ! inflow
@@ -1078,7 +1093,7 @@ contains
 ! compute the density, velocity and pressure in the
 ! halo cell.
       cc = cf*cf/gamma2(i, j)
-      qq = uf*uf + vf*vf + wf*wf
+!  qq = uf*uf + vf*vf + wf*wf
       ww1(i, j, irho) = (sf*cc)**ovgm1
       ww1(i, j, ivx) = uf
       ww1(i, j, ivy) = vf

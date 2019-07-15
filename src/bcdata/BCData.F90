@@ -2294,6 +2294,8 @@ contains
                         BCData(mm)%CpTarget(iNodeBeg:iNodeEnd, jNodeBeg:jNodeEnd), &
                         BCData(mm)%cellTemperature(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd), &
                         BCData(mm)%nodeTemperature(iNodeBeg:iNodeEnd, jNodeBeg:jNodeEnd), &
+                        BCData(mm)%cellHeatFlux(iNodeBeg+1:iNodeEnd,jNodeBeg+1:jNodeEnd), &
+                        BCData(mm)%nodeHeatFlux(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd), &
                         stat=ierr)
                    if(ierr /= 0)                      &
                         call terminate("allocMemBCData", &
@@ -2311,14 +2313,14 @@ contains
                         BCData(mm)%T(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd,3), &
                         BCData(mm)%Tp(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd,3), &
                         BCData(mm)%Tv(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd,3), &
-                        BCData(mm)%cellHeatFlux(iNodeBeg+1:iNodeEnd,jNodeBeg+1:jNodeEnd), &
-                        BCData(mm)%nodeHeatFlux(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd), &
                         BCData(mm)%Fp(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd, 3), &
                         BCData(mm)%Fv(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd, 3), &
                         BCData(mm)%area(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd), &
                         BCData(mm)%CpTarget(iNodeBeg:iNodeEnd, jNodeBeg:jNodeEnd), &
                         BCData(mm)%cellTemperature(iNodeBeg+1:iNodeEnd, jNodeBeg+1:jNodeEnd), &
                         BCData(mm)%nodeTemperature(iNodeBeg:iNodeEnd, jNodeBeg:jNodeEnd), &
+                        BCData(mm)%cellHeatFlux(iNodeBeg+1:iNodeEnd,jNodeBeg+1:jNodeEnd), &
+                        BCData(mm)%nodeHeatFlux(iNodeBeg:iNodeEnd,jNodeBeg:jNodeEnd), &
                         stat=ierr)
                    if(ierr /= 0)                      &
                         call terminate("allocMemBCData", &

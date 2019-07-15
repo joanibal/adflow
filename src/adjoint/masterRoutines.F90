@@ -234,7 +234,7 @@ contains
    end subroutine master
 
 #ifndef USE_COMPLEX
-  subroutine master_d(wdot, xdot, forcesDot, dwDot, famLists, funcValues, funcValuesd, &
+  subroutine master_d(wdot, xdot, forcesDot, heatfluxesDot, dwDot, famLists, funcValues, funcValuesd, &
        bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
 
     use constants
@@ -297,15 +297,21 @@ contains
     ! Output variables:
     real(kind=realType), intent(out), dimension(:) :: dwDot
     real(kind=realType), intent(out), dimension(:, :, :) :: forcesDot
+    real(kind=realType), intent(out), dimension(:, :, :) :: heatfluxesDot
 
     ! Working Variables
     real(kind=realType), dimension(:, :, :), allocatable :: forces
-    integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj, iRegion
+    real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
+    integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, hfSize, ii, jj, iRegion
     real(kind=realType), dimension(nSections) :: t
     real(kind=realType) :: dummyReal, dummyReald
 
     fSize = size(forcesDot, 2)
     allocate(forces(3, fSize, nTimeIntervalsSpectral))
+
+    hfSize = size(heatfluxesDot, 2)
+    allocate(heatfluxes(1, hfSize, nTimeIntervalsSpectral))
+
 
     call VecPlaceArray(x_like, xdot, ierr)
     call EChk(ierr, __FILE__, __LINE__)
@@ -524,9 +530,11 @@ contains
     if (present(famLists)) then
        call getSolution_d(famLists, funcValues, funcValuesd)
     end if
+    write(*,*) 'hfdot ', minval(heatfluxesDot), maxval(heatfluxesDot)
 
     do sps=1, nTimeIntervalsSpectral
        call getForces_d(forces(:, :, sps), forcesDot(:, :, sps), fSize, sps)
+       call getHeatFlux_d(heatfluxes(:, :, sps), heatfluxesDot(:, :, sps), hfSize, sps)
     end do
 
     ! Copy out the residual derivative into the provided dwDot
@@ -551,7 +559,7 @@ contains
     deallocate(forces)
   end subroutine master_d
 
-  subroutine master_b(wbar, xbar, extraBar, forcesBar, dwBar, nState, famLists, &
+  subroutine master_b(wbar, xbar, extraBar, forcesBar, heatfluxBar, dwBar, nState, famLists, &
        funcValues, funcValuesd, bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
 
     ! This is the main reverse mode differentiaion of master. It
@@ -615,7 +623,7 @@ contains
 
     ! Input variables:
     real(kind=realType), intent(in), dimension(:) :: dwBar
-    real(kind=realType), intent(in), dimension(:, :, :) :: forcesBar
+    real(kind=realType), intent(in), dimension(:, :, :) :: forcesBar, heatfluxBar
     integer(kind=intType), intent(in) :: nState
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :) :: funcValues, funcValuesd
@@ -668,12 +676,16 @@ contains
     forceSpsLoop: do sps=1, nTimeIntervalsSpectral
        fSize = size(forcesBar, 2)
        call getForces_b(forcesBar(:, :, sps), fSize, sps)
+       call getHeatFlux_b(heatfluxBar(:, :, sps), fSize, sps)
     end do forceSpsLoop
 
     ! Call the final getSolution_b routine
     if (present(famLists)) then
        call getSolution_b(famLists, funcValues, funcValuesd)
     end if
+
+       !print wd
+    write(*,*) 1
 
     spsLoop1: do sps=1, nTimeIntervalsSpectral
 
@@ -683,19 +695,26 @@ contains
           ! Now we start running back through the main residual code:
           call resScale_b
           call sumDwAndFw_b
-
           ! if (lowSpeedPreconditioner) then
           !    call applyLowSpeedPreconditioner_b
           ! end if
 
           ! Note that master_b does not include the first order flux
           ! approxation codes as those are never needed in reverse.
+          write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
+
           if (viscous) then
              call viscousFlux_b
-             call allNodalGradients_b
-             call computeSpeedOfSoundSquared_b
-          end if
+             write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
 
+             call allNodalGradients_b
+             write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
+
+             call computeSpeedOfSoundSquared_b
+             write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
+
+          end if
+          write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
           ! So the all nodal gradients doesnt' perform the final
           ! scaling by the volume since it isn't necessary for the
           ! derivative. We have a special routine to fix that.
@@ -740,6 +759,22 @@ contains
        end do domainLoop1
     end do spsLoop1
 
+
+
+   !print wd
+    write(*,*) 3
+    do nn=1,nDom
+      do sps=1,nTimeIntervalsSpectral
+
+         ! Set pointers and derivative pointers
+         call setPointers_b(nn, 1, sps)
+         ! Set the wbar accumulation
+         write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
+      end do
+   end do
+
+
+
     ! Need to re-apply the BCs. The reason is that BC halos behind
     ! interpolated cells need to be recomputed with their new
     ! interpolated values from actual compute cells. Only needed for
@@ -758,6 +793,20 @@ contains
           end do
        end do
     end if
+
+
+   !print wd
+    write(*,*) 4
+    do nn=1,nDom
+      do sps=1,nTimeIntervalsSpectral
+
+         ! Set pointers and derivative pointers
+         call setPointers_b(nn, 1, sps)
+         ! Set the wbar accumulation
+         write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
+      end do
+   end do
+
 
     ! Exchange the adjoint values.
     call whalo2_b(currentLevel, 1_intType, nw, .True., .True., .True.)
@@ -826,6 +875,19 @@ contains
           call EChk(ierr,__FILE__,__LINE__)
        end if
     end do spsLoop2
+
+
+   !print wd
+    write(*,*) 5
+    do nn=1,nDom
+      do sps=1,nTimeIntervalsSpectral
+
+         ! Set pointers and derivative pointers
+         call setPointers_b(nn, 1, sps)
+         ! Set the wbar accumulation
+         write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
+      end do
+   end do
 
 
     if (present(bcDataNames)) then

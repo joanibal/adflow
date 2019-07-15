@@ -4953,6 +4953,7 @@ end subroutine cross_prod
        if(ierr /= 0) deallocationFailure = .true.
        if( associated(BCData(i)%cellHeatFlux) ) &
             deallocate(BCData(i)%cellHeatFlux, stat=ierr)
+       if(ierr /= 0) deallocationFailure = .true.
        if( associated(BCData(i)%nodeHeatFlux) ) &
             deallocate(BCData(i)%nodeHeatFlux, stat=ierr)
        if(ierr /= 0) deallocationFailure = .true.

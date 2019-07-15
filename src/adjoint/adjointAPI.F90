@@ -2,8 +2,10 @@ module adjointAPI
 
 contains
 #ifndef USE_COMPLEX
-  subroutine computeMatrixFreeProductFwd(xvdot, extradot, wdot, bcDataValuesdot, useSpatial, &
-       useState, famLists, bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty, dwdot, funcsDot, fDot, &
+  subroutine computeMatrixFreeProductFwd(xvdot, extradot, wdot, bcDataValuesdot,&
+       useSpatial, useState, famLists,&
+       bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty,&
+       dwdot, funcsDot, fDot, hfdot, &
        costSize, fSize, nTime)
 
     ! This is the main matrix-free forward mode computation
@@ -37,6 +39,7 @@ contains
     real(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
     real(kind=realType), dimension(costSize, size(famLists,1)), intent(out) :: funcsDot
     real(kind=realType), dimension(3, fSize, nTime), intent(out) :: fDot
+    real(kind=realType), dimension(1, fSize, nTime), intent(out) :: hfDot
 
     ! Working Variables
     integer(kind=intType) :: nn,sps, level
@@ -80,15 +83,16 @@ contains
 
     ! Run the super-dee-duper master forward rotuine
    if (bcVarsEmpty) then
-      call master_d(wDot, xVDot, fDot, dwDot, famLists, funcs, funcsDot)
+      call master_d(wDot, xVDot, fDot, hfDot, dwDot, famLists, funcs, funcsDot)
    else
-      call master_d(wDot, xVDot, fDot, dwDot, &
+      call master_d(wDot, xVDot, fDot, hfDot, dwDot, &
            famLists, funcs, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
     end if
 
+   !  write(*,*) 'hfdot f', hfDot(:,1:3,:), maxval(hfDot)
   end subroutine computeMatrixFreeProductFwd
 
-  subroutine computeMatrixFreeProductBwd(dwbar, funcsBar, fbar, useSpatial, useState, xvbar, &
+  subroutine computeMatrixFreeProductBwd(dwbar, funcsBar, fbar, hfbar,useSpatial, useState, xvbar, &
        extrabar, wbar, spatialSize, extraSize, stateSize, famLists, &
        bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists, BCVarsEmpty)
     use constants
@@ -110,7 +114,7 @@ contains
     integer(kind=intType), intent(in) :: stateSize, extraSize, spatialSize
     real(kind=realType), dimension(:), intent(in) :: dwbar
     real(kind=realType), dimension(:, :), intent(in) :: funcsBar
-    real(kind=realType), dimension(:, :, :) :: fBar
+    real(kind=realType), dimension(:, :, :) :: fBar, hfbar
     logical, intent(in) :: useSpatial, useState
     integer(kind=intType), intent(in) :: famLists(:, :)
     character, dimension(:, :), intent(in) :: bcDataNames
@@ -160,10 +164,10 @@ contains
     end do
 
     if (bcVarsEmpty) then
-       call master_b(wbar, xvbar, extraBar, fBar, dwbar, nState, famLists, &
+       call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar)
     else
-       call master_b(wbar, xvbar, extraBar, fBar, dwbar, nState, famLists, &
+       call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
     end if
 
@@ -965,7 +969,7 @@ contains
             matrixOrdering, FillLevel, innerPreConIts)
     else if (PreCondType == 'mg') then
 
-       call setupStandardMultigrid(adjointKSP, ADjointSolverType, adjRestart, & 
+       call setupStandardMultigrid(adjointKSP, ADjointSolverType, adjRestart, &
             adjointPCSide, overlap, outerPreconIts, matrixOrdering,  fillLevel)
     end if
 
@@ -1154,7 +1158,7 @@ contains
     real(kind=realType), pointer :: dwd_pointer(:)
     integer(kind=intType) :: stateSize, costSize, fSize, fSIzeCell, spatialSize
     real(kind=realType), dimension(:), allocatable :: Xvdot
-    real(kind=realType), dimension(:, :, :), allocatable :: fDot
+    real(kind=realType), dimension(:, :, :), allocatable :: fDot, hfDot
     integer(kind=intType) :: nn, sps
     integer(kind=intType), dimension(:), pointer :: walLFamList
 
@@ -1183,13 +1187,15 @@ contains
 
     allocate(xvdot(spatialSize))
     allocate(fdot(3, fSize, nTimeIntervalsSpectral))
+    allocate(hfDot(1, fSize, nTimeIntervalsSpectral))
 
     xvdot = zero
     fdot = zero
+    hfdot = zero
 
-    call master_d(wd_pointer, xvDot, fDot, dwd_pointer)
+    call master_d(wd_pointer, xvDot, fDot, hfDot, dwd_pointer)
 
-    deallocate(xvDot, Fdot)
+    deallocate(xvDot, Fdot, hfDot)
 
     call VecRestoreArrayReadF90(vecX, wd_pointer, ierr)
     call EChk(ierr,__FILE__,__LINE__)
@@ -1254,7 +1260,7 @@ contains
     nDimW = nState * nCellsLocal(1_intType)*nTimeIntervalsSpectral
     nDimX = 3 * nNodesLocal(1_intType)*nTimeIntervalsSpectral
 
-   
+
     if (.not. useMatrixFreedRdw) then
        ! Setup matrix-based dRdwT
        allocate(nnzDiagonal(nCellsLocal(1_intType)*nTimeIntervalsSpectral), &
@@ -1324,7 +1330,7 @@ contains
        deallocate(nnzDiagonal, nnzOffDiag)
     end if
 
-   
+
     call setupAGMG(drdwpret, nDimW/nState, nState)
 
     ! Create the KSP Object
