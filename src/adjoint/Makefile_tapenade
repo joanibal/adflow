@@ -199,7 +199,7 @@ flowUtils%allNodalGradients(w, vol, si, sj, sk, aa) > \
                            (w, vol, si, sj, sk, aa, ux, uy, uz, vx, vy, vz, wx, wy, wz, qx, qy, qz) \
 \
 fluxes%viscousFlux(w, x, si, sj, sk, rlv, rev, aa, ux, uy, uz, vx, vy, vz, wx, wy, wz, qx, qy, qz, fw) > \
-                  (w, x, si, sj, sk, fw, viscsubface%tau) \
+                  (w, x, si, sj, sk, fw, viscsubface%tau, viscsubface%q) \
 \
 fluxes%viscousFluxApprox(w, x, rlv, rev, aa, fw) > \
                         (w, x, fw) \
@@ -208,8 +208,8 @@ adjointExtra%sumDwandFw(fw, dw) > (dw) \
 \
 adjointExtra%resScale(dw) > (dw) \
 \
-surfaceIntegrations%wallIntegrationFace(Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, localValues, BCData%Fp, bcData%Fv, BCData%area, localValues) > \
-                                       (Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, localValues, BCdata%Fp, bcData%Fv, BCData%area, localValues)\
+surfaceIntegrations%wallIntegrationFace(Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, viscSubface%q, localValues, BCData%Fp, bcData%Fv, BCdata%cellHeatFlux, BCData%area, localValues) > \
+                                       (Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, viscSubface%q, localValues, BCdata%Fp, bcData%Fv, BCdata%cellHeatFlux, BCData%area, localValues)\
 \
 surfaceIntegrations%flowIntegrationFace(Pref, rhoRef, timeRef, TRef, rGas, ww1, ww2, pp1, pp2, xx, ssi, pointRef, localValues) > \
                                        (Pref, rhoRef, timeRef, TRef, rGas, ww1, ww2, pp1, pp2, xx, ssi, pointRef, localValues)\

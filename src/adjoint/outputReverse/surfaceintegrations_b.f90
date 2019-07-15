@@ -196,6 +196,8 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+      funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
+&       ovrnts*globalvals(iheatflux, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -657,6 +659,8 @@ contains
         end if
         globalvalsd(imassflow, sps) = globalvalsd(imassflow, sps) + &
 &         mflowd
+        globalvalsd(iheatflux, sps) = globalvalsd(iheatflux, sps) + &
+&         ovrnts*funcvaluesd(costfuncheatflux)
         globalvalsd(icperror2, sps) = globalvalsd(icperror2, sps) + &
 &         ovrnts*funcvaluesd(costfunccperror2)
         globalvalsd(ipower, sps) = globalvalsd(ipower, sps) + ovrnts*&
@@ -895,6 +899,8 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+      funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
+&       ovrnts*globalvals(iheatflux, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -1025,18 +1031,22 @@ contains
 !  differentiation of wallintegrationface in reverse (adjoint) mode (with options i4 dr8 r8 noisize):
 !   gradient     of useful results: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
-!                *(*bcdata.fv) *(*bcdata.fp) *(*bcdata.area) localvalues
+!                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
+!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
 !   with respect to varying inputs: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
-!                *(*bcdata.fv) *(*bcdata.fp) *(*bcdata.area) localvalues
+!                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
+!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
 !   rw status of diff variables: veldirfreestream:incr machcoef:incr
 !                pointref:incr pinf:incr pref:incr *xx:incr *pp1:incr
 !                *pp2:incr *ssi:incr *ww2:incr *(*viscsubface.tau):incr
-!                *(*bcdata.fv):in-out *(*bcdata.fp):in-out *(*bcdata.area):in-out
+!                *(*viscsubface.q):incr *(*bcdata.fv):in-out *(*bcdata.fp):in-out
+!                *(*bcdata.area):in-out *(*bcdata.cellheatflux):in-out
 !                localvalues:in-out
 !   plus diff mem management of: xx:in pp1:in pp2:in ssi:in ww2:in
-!                viscsubface:in *viscsubface.tau:in bcdata:in *bcdata.fv:in
-!                *bcdata.fp:in *bcdata.area:in
+!                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
+!                bcdata:in *bcdata.fv:in *bcdata.fp:in *bcdata.area:in
+!                *bcdata.cellheatflux:in
   subroutine wallintegrationface_b(localvalues, localvaluesd, mm)
 !
 !       wallintegrations computes the contribution of the block
@@ -1054,7 +1064,8 @@ contains
     use flowvarrefstate
     use inputcostfunctions
     use inputphysics, only : machcoef, machcoefd, pointref, pointrefd,&
-&   veldirfreestream, veldirfreestreamd, equations, momentaxis, cavitationnumber
+&   veldirfreestream, veldirfreestreamd, equations, momentaxis, &
+&   cavitationnumber
     use bcpointers_b
     implicit none
 ! input/output variables
@@ -1085,14 +1096,16 @@ contains
     real(kind=realtype), dimension(3) :: refpointd
     real(kind=realtype), dimension(3, 2) :: axispoints
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis
+&   mpaxis, qw
     real(kind=realtype) :: mxd, myd, mzd, cellaread, m0xd, m0yd, m0zd, &
-&   mvaxisd, mpaxisd
+&   mvaxisd, mpaxisd, qwd
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: cperrord, cperror2d
+    real(kind=realtype) :: q, scaledim
+    real(kind=realtype) :: qd, scaledimd
+    intrinsic sqrt
     intrinsic mod
     intrinsic max
-    intrinsic sqrt
     intrinsic exp
     real(kind=realtype), dimension(3) :: tmp0
     integer :: branch
@@ -1105,6 +1118,7 @@ contains
     real(kind=realtype) :: temp0
     real(kind=realtype) :: tempd11
     real(kind=realtype) :: tempd10
+    real(kind=realtype) :: temp10
     real(kind=realtype) :: tempd9
     real(kind=realtype) :: tempd
     real(kind=realtype) :: tempd8(3)
@@ -1117,13 +1131,17 @@ contains
     real(kind=realtype) :: tempd1
     real(kind=realtype) :: tempd0
     real(kind=realtype) :: tmpd0(3)
+    real(kind=realtype) :: tempd25
     real(kind=realtype) :: tempd24
     real(kind=realtype) :: tempd23
     real(kind=realtype) :: tempd22
     real(kind=realtype) :: tempd21
     real(kind=realtype) :: tempd20
     real(kind=realtype) :: temp
+    real(kind=realtype) :: temp9
+    real(kind=realtype) :: temp8
     real(kind=realtype) :: tempd19
+    real(kind=realtype) :: temp7
     real(kind=realtype) :: tempd18
     real(kind=realtype) :: temp6
     real(kind=realtype) :: tempd17
@@ -1151,6 +1169,7 @@ contains
     axispoints(3, 2) = lref*momentaxis(3, 2)
 ! initialize the force and moment coefficients to 0 as well as
 ! yplusmax.
+    scaledim = pref*sqrt(pref/rhoref)
     call pushreal8array(n, 3)
     call pushreal8array(r, 3)
     call pushreal8array(v, 3)
@@ -1294,6 +1313,7 @@ contains
       call pushcontrol1b(1)
     end if
     cperror2d = localvaluesd(icperror2)
+    qd = localvaluesd(iheatflux)
     mpaxisd = localvaluesd(iaxismoment)
     mvaxisd = localvaluesd(iaxismoment)
     sepsensoravgd = 0.0_8
@@ -1312,6 +1332,7 @@ contains
     if (branch .eq. 0) then
       rd = 0.0_8
       refpointd = 0.0_8
+      scaledimd = 0.0_8
       do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
 &         bcdata(mm)%inbeg)-1
         i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
@@ -1348,6 +1369,9 @@ contains
         zc = fourth*(xx(i, j, 3)+xx(i+1, j, 3)+xx(i, j+1, 3)+xx(i+1, j+1&
 &         , 3)) - refpoint(3)
 ! update the viscous force and moment coefficients, blanking as we go.
+! cell heat flux
+! total heat flux thought that surface
+! save the face based heatflux
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -1414,49 +1438,67 @@ contains
         xxd(i, j+1, 1) = xxd(i, j+1, 1) + tempd18
         xxd(i+1, j+1, 1) = xxd(i+1, j+1, 1) + tempd18
         rd(1) = 0.0_8
+        qd = qd + bcdatad(mm)%cellheatflux(i, j)
+        bcdatad(mm)%cellheatflux(i, j) = 0.0_8
+        qwd = blk*qd
+        temp10 = viscsubface(mm)%q(i, j, 3)
+        temp9 = viscsubface(mm)%q(i, j, 2)
+        temp8 = viscsubface(mm)%q(i, j, 1)
+        tempd19 = -(fact*scaledim*qwd)
+        scaledimd = scaledimd - fact*(temp8*ssi(i, j, 1)+temp9*ssi(i, j&
+&         , 2)+temp10*ssi(i, j, 3))*qwd
+        viscsubfaced(mm)%q(i, j, 1) = viscsubfaced(mm)%q(i, j, 1) + ssi(&
+&         i, j, 1)*tempd19
+        ssid(i, j, 1) = ssid(i, j, 1) + temp8*tempd19
+        viscsubfaced(mm)%q(i, j, 2) = viscsubfaced(mm)%q(i, j, 2) + ssi(&
+&         i, j, 2)*tempd19
+        ssid(i, j, 2) = ssid(i, j, 2) + temp9*tempd19
+        viscsubfaced(mm)%q(i, j, 3) = viscsubfaced(mm)%q(i, j, 3) + ssi(&
+&         i, j, 3)*tempd19
+        ssid(i, j, 3) = ssid(i, j, 3) + temp10*tempd19
         xcd = fy*mzd - fz*myd
         ycd = fz*mxd - fx*mzd
         zcd = fx*myd - fy*mxd
-        tempd19 = fourth*zcd
-        xxd(i, j, 3) = xxd(i, j, 3) + tempd19
-        xxd(i+1, j, 3) = xxd(i+1, j, 3) + tempd19
-        xxd(i, j+1, 3) = xxd(i, j+1, 3) + tempd19
-        xxd(i+1, j+1, 3) = xxd(i+1, j+1, 3) + tempd19
+        tempd20 = fourth*zcd
+        xxd(i, j, 3) = xxd(i, j, 3) + tempd20
+        xxd(i+1, j, 3) = xxd(i+1, j, 3) + tempd20
+        xxd(i, j+1, 3) = xxd(i, j+1, 3) + tempd20
+        xxd(i+1, j+1, 3) = xxd(i+1, j+1, 3) + tempd20
         refpointd(3) = refpointd(3) - zcd
-        tempd20 = fourth*ycd
-        xxd(i, j, 2) = xxd(i, j, 2) + tempd20
-        xxd(i+1, j, 2) = xxd(i+1, j, 2) + tempd20
-        xxd(i, j+1, 2) = xxd(i, j+1, 2) + tempd20
-        xxd(i+1, j+1, 2) = xxd(i+1, j+1, 2) + tempd20
+        tempd21 = fourth*ycd
+        xxd(i, j, 2) = xxd(i, j, 2) + tempd21
+        xxd(i+1, j, 2) = xxd(i+1, j, 2) + tempd21
+        xxd(i, j+1, 2) = xxd(i, j+1, 2) + tempd21
+        xxd(i+1, j+1, 2) = xxd(i+1, j+1, 2) + tempd21
         refpointd(2) = refpointd(2) - ycd
-        tempd21 = fourth*xcd
-        xxd(i, j, 1) = xxd(i, j, 1) + tempd21
-        xxd(i+1, j, 1) = xxd(i+1, j, 1) + tempd21
-        xxd(i, j+1, 1) = xxd(i, j+1, 1) + tempd21
-        xxd(i+1, j+1, 1) = xxd(i+1, j+1, 1) + tempd21
+        tempd22 = fourth*xcd
+        xxd(i, j, 1) = xxd(i, j, 1) + tempd22
+        xxd(i+1, j, 1) = xxd(i+1, j, 1) + tempd22
+        xxd(i, j+1, 1) = xxd(i, j+1, 1) + tempd22
+        xxd(i+1, j+1, 1) = xxd(i+1, j+1, 1) + tempd22
         refpointd(1) = refpointd(1) - xcd
-        tempd22 = -(fact*pref*fzd)
-        ssid(i, j, 1) = ssid(i, j, 1) + tauxz*tempd22
-        ssid(i, j, 2) = ssid(i, j, 2) + tauyz*tempd22
-        tauzzd = ssi(i, j, 3)*tempd22
-        ssid(i, j, 3) = ssid(i, j, 3) + tauzz*tempd22
+        tempd23 = -(fact*pref*fzd)
+        ssid(i, j, 1) = ssid(i, j, 1) + tauxz*tempd23
+        ssid(i, j, 2) = ssid(i, j, 2) + tauyz*tempd23
+        tauzzd = ssi(i, j, 3)*tempd23
+        ssid(i, j, 3) = ssid(i, j, 3) + tauzz*tempd23
         prefd = prefd - fact*(tauxz*ssi(i, j, 1)+tauyz*ssi(i, j, 2)+&
 &         tauzz*ssi(i, j, 3))*fzd
-        tempd24 = -(fact*pref*fyd)
-        tauyzd = ssi(i, j, 3)*tempd24 + ssi(i, j, 2)*tempd22
-        ssid(i, j, 1) = ssid(i, j, 1) + tauxy*tempd24
-        tauyyd = ssi(i, j, 2)*tempd24
-        ssid(i, j, 2) = ssid(i, j, 2) + tauyy*tempd24
-        ssid(i, j, 3) = ssid(i, j, 3) + tauyz*tempd24
+        tempd25 = -(fact*pref*fyd)
+        tauyzd = ssi(i, j, 3)*tempd25 + ssi(i, j, 2)*tempd23
+        ssid(i, j, 1) = ssid(i, j, 1) + tauxy*tempd25
+        tauyyd = ssi(i, j, 2)*tempd25
+        ssid(i, j, 2) = ssid(i, j, 2) + tauyy*tempd25
+        ssid(i, j, 3) = ssid(i, j, 3) + tauyz*tempd25
         prefd = prefd - fact*(tauxy*ssi(i, j, 1)+tauyy*ssi(i, j, 2)+&
 &         tauyz*ssi(i, j, 3))*fyd
-        tempd23 = -(fact*pref*fxd)
-        tauxzd = ssi(i, j, 3)*tempd23 + ssi(i, j, 1)*tempd22
-        tauxyd = ssi(i, j, 2)*tempd23 + ssi(i, j, 1)*tempd24
-        tauxxd = ssi(i, j, 1)*tempd23
-        ssid(i, j, 1) = ssid(i, j, 1) + tauxx*tempd23
-        ssid(i, j, 2) = ssid(i, j, 2) + tauxy*tempd23
-        ssid(i, j, 3) = ssid(i, j, 3) + tauxz*tempd23
+        tempd24 = -(fact*pref*fxd)
+        tauxzd = ssi(i, j, 3)*tempd24 + ssi(i, j, 1)*tempd23
+        tauxyd = ssi(i, j, 2)*tempd24 + ssi(i, j, 1)*tempd25
+        tauxxd = ssi(i, j, 1)*tempd24
+        ssid(i, j, 1) = ssid(i, j, 1) + tauxx*tempd24
+        ssid(i, j, 2) = ssid(i, j, 2) + tauxy*tempd24
+        ssid(i, j, 3) = ssid(i, j, 3) + tauxz*tempd24
         prefd = prefd - fact*(tauxx*ssi(i, j, 1)+tauxy*ssi(i, j, 2)+&
 &         tauxz*ssi(i, j, 3))*fxd
         viscsubfaced(mm)%tau(i, j, 6) = viscsubfaced(mm)%tau(i, j, 6) + &
@@ -1484,6 +1526,7 @@ contains
       bcdatad(mm)%fv = 0.0_8
       rd = 0.0_8
       refpointd = 0.0_8
+      scaledimd = 0.0_8
     end if
     vd = 0.0_8
     call popreal8array(v, 3)
@@ -1579,15 +1622,15 @@ contains
         cellaread = blk*sensor1*sensor1d
         sensor1d = blk*cellarea*sensor1d
         call popreal8(sensor1)
-        temp6 = -(10*2*sensor1)
-        temp5 = one + exp(temp6)
-        sensor1d = exp(temp6)*one*10*2*sensor1d/temp5**2
+        temp7 = -(10*2*sensor1)
+        temp6 = one + exp(temp7)
+        sensor1d = exp(temp7)*one*10*2*sensor1d/temp6**2
         cpd = -sensor1d
         tmpd = (plocal-pinf)*cpd
         plocald = tmp*cpd
         pinfd = pinfd - tmp*cpd
-        temp4 = gammainf*machcoef**2
-        machcoefd = machcoefd - gammainf*two*2*machcoef*tmpd/temp4**2
+        temp5 = gammainf*machcoef**2
+        machcoefd = machcoefd - gammainf*two*2*machcoef*tmpd/temp5**2
         tmp = two/(gammainf*pinf*machcoef*machcoef)
         pp2d(i, j) = pp2d(i, j) + plocald
       else
@@ -1627,9 +1670,9 @@ contains
       cellaread = cellaread + blk*sensor*sensord
       sensord = blk*cellarea*sensord
       call popreal8(sensor)
-      temp3 = -(2*sepsensorsharpness*(sensor-sepsensoroffset))
-      temp2 = one + exp(temp3)
-      sensord = exp(temp3)*one*sepsensorsharpness*2*sensord/temp2**2
+      temp4 = -(2*sepsensorsharpness*(sensor-sepsensoroffset))
+      temp3 = one + exp(temp4)
+      sensord = exp(temp4)*one*sepsensorsharpness*2*sensord/temp3**2
       vd(1) = vd(1) - veldirfreestream(1)*sensord
       veldirfreestreamd(1) = veldirfreestreamd(1) - v(1)*sensord
       vd(2) = vd(2) - veldirfreestream(2)*sensord
@@ -1638,14 +1681,14 @@ contains
       veldirfreestreamd(3) = veldirfreestreamd(3) - v(3)*sensord
       call popreal8array(v, 3)
       tmpd0 = vd
-      temp0 = v(1)**2 + v(2)**2 + v(3)**2
-      temp1 = sqrt(temp0)
-      tempd8 = tmpd0/(temp1+1e-16)
+      temp1 = v(1)**2 + v(2)**2 + v(3)**2
+      temp2 = sqrt(temp1)
+      tempd8 = tmpd0/(temp2+1e-16)
       vd = tempd8
-      if (temp0 .eq. 0.0_8) then
+      if (temp1 .eq. 0.0_8) then
         tempd9 = 0.0
       else
-        tempd9 = sum(-(v*tempd8/(temp1+1e-16)))/(2.0*temp1)
+        tempd9 = sum(-(v*tempd8/(temp2+1e-16)))/(2.0*temp2)
       end if
       vd(1) = vd(1) + 2*v(1)*tempd9
       vd(2) = vd(2) + 2*v(2)*tempd9
@@ -1732,8 +1775,8 @@ contains
       pp2d(i, j) = pp2d(i, j) + half*tempd2
       pp1d(i, j) = pp1d(i, j) + half*tempd2
       tmpd = (half*(pp2(i, j)+pp1(i, j))-pinf)*cpd
-      temp = gammainf*pinf*machcoef**2
-      tempd3 = -(two*tmpd/temp**2)
+      temp0 = gammainf*pinf*machcoef**2
+      tempd3 = -(two*tmpd/temp0**2)
       pinfd = pinfd + machcoef**2*gammainf*tempd3 - tempd2
       machcoefd = machcoefd + gammainf*pinf*2*machcoef*tempd3
       tempd4 = fact*pref*pm1d
@@ -1742,6 +1785,12 @@ contains
       pinfd = pinfd - tempd4
       prefd = prefd + fact*(half*(pp2(i, j)+pp1(i, j))-pinf)*pm1d
     end do
+    temp = sqrt(pref/rhoref)
+    if (pref/rhoref .eq. 0.0_8) then
+      prefd = prefd + temp*scaledimd
+    else
+      prefd = prefd + (pref/(2.0*temp*rhoref)+temp)*scaledimd
+    end if
     pointrefd(3) = pointrefd(3) + lref*refpointd(3)
     refpointd(3) = 0.0_8
     pointrefd(2) = pointrefd(2) + lref*refpointd(2)
@@ -1786,11 +1835,12 @@ contains
     real(kind=realtype), dimension(3) :: refpoint
     real(kind=realtype), dimension(3, 2) :: axispoints
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis
+&   mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
+    real(kind=realtype) :: q, scaledim
+    intrinsic sqrt
     intrinsic mod
     intrinsic max
-    intrinsic sqrt
     intrinsic exp
     select case  (bcfaceid(mm)) 
     case (imin, jmin, kmin) 
@@ -1823,6 +1873,8 @@ contains
     mpaxis = zero
     mvaxis = zero
     cperror2 = zero
+    q = zero
+    scaledim = pref*sqrt(pref/rhoref)
 !
 !         integrate the inviscid contribution over the solid walls,
 !         either inviscid or viscous. the integration is done with
@@ -2001,6 +2053,14 @@ contains
         mv(1) = mv(1) + mx*blk
         mv(2) = mv(2) + my*blk
         mv(3) = mv(3) + mz*blk
+! cell heat flux
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat flux thought that surface
+        q = q + qw*blk
+! save the face based heatflux
+        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -2063,6 +2123,7 @@ contains
 &     sepsensoravg
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
+    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvalues(icperror2) = localvalues(icperror2) + cperror2
   end subroutine wallintegrationface
 !  differentiation of flowintegrationface in reverse (adjoint) mode (with options i4 dr8 r8 noisize):

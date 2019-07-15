@@ -1783,6 +1783,12 @@ contains
          exch%nodeValLocal, ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
+    call VecDuplicate(exch%nodeValLocal, exch%nodeValLocal_d,  ierr)
+    call EChk(ierr,__FILE__,__LINE__)
+
+    call VecDuplicate(exch%nodeValLocal, exch%nodeValLocal_b,  ierr)
+    call EChk(ierr,__FILE__,__LINE__)
+
     ! Create the basic global vector. This is slightly tricker than it
     ! sounds. We could just make it uniform, but then there would be
     ! more communicaiton than necessary. Instead what we do is determine
@@ -1842,7 +1848,19 @@ contains
          exch%nodeValGlobal, ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
+    call VecDuplicate(exch%nodeValGlobal, exch%nodeValGlobal_d,  ierr)
+    call EChk(ierr,__FILE__,__LINE__)
+
+    call VecDuplicate(exch%nodeValGlobal, exch%nodeValGlobal_b,  ierr)
+    call EChk(ierr,__FILE__,__LINE__)
+
     call VecDuplicate(exch%nodeValGlobal, exch%sumGlobal, ierr)
+    call EChk(ierr,__FILE__,__LINE__)
+
+    call VecDuplicate(exch%sumGlobal, exch%sumGlobal_d, ierr)
+    call EChk(ierr,__FILE__,__LINE__)
+
+    call VecDuplicate(exch%sumGlobal, exch%sumGlobal_b, ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     ! Now create the scatter that goes from the local vec to the global

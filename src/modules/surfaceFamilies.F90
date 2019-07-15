@@ -20,7 +20,31 @@ module surfaceFamilies
      ! Sum global. Same size as nodeValGlobal
      Vec sumGlobal
 
-     ! Scatter from nodeValLocal to NodeValGlobal
+
+     ! --- vectors for forwardmode derivative computation ---
+     Vec nodeValLocal_d
+
+     ! Parallel vector of uniqueifed values.
+     Vec nodeValGlobal_d
+
+     ! Sum global. Same size as nodeValGlobal
+     Vec sumGlobal_d
+
+
+     ! --- vectors for reversemode derivative computation ---
+     Vec nodeValLocal_b
+
+     ! Parallel vector of uniqueifed values.
+     Vec nodeValGlobal_b
+
+     ! Sum global. Same size as nodeValGlobal
+     Vec sumGlobal_b
+
+
+
+
+
+     ! Scatter from nodeValLocal to nodeValGlobal
      VecScatter scatter
 
      ! Flag for allocated petsc variables

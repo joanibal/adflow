@@ -590,6 +590,8 @@ contains
 
                ! total heat flux thought that surface
                Q = Q + qw * blk
+               ! Save the face based heatflux
+               bcData(mm)%cellHeatFlux(i, j) = Q
 
                ! Compute the r and n vectors for the moment around an
                ! axis computation where r is the distance from the

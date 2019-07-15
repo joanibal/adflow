@@ -639,7 +639,7 @@ python module libadflow
          end subroutine createpetscvars
 
 #ifndef USE_COMPLEX
-            subroutine computematrixfreeproductfwd(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,costsize,fsize,ntime) ! in :test:adjointAPI.F90:adjointapi
+            subroutine computematrixfreeproductfwd(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime) ! in :test:adjointAPI.F90:adjointapi
                 real(kind=realtype) dimension(:),intent(in) :: xvdot
                 real(kind=realtype) dimension(:),intent(in) :: extradot
                 real(kind=realtype) dimension(:),intent(in) :: wdot
@@ -654,14 +654,16 @@ python module libadflow
                 real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
                 real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
                 real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
+                real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
                 integer(kind=inttype) :: costsize
                 integer(kind=inttype) :: fsize
                 integer(kind=inttype) :: ntime
             end subroutine computematrixfreeproductfwd
-           subroutine computematrixfreeproductbwd(dwbar,funcsbar,fbar,usespatial,usestate,xvbar,extrabar,wbar,spatialsize,extrasize,statesize,famlists,bcdatanames,bcdatavalues,bcdatavaluesbar,bcdatafamlists,bcvarsempty) ! in :test:adjointAPI.F90:adjointapi
+           subroutine computematrixfreeproductbwd(dwbar,funcsbar,fbar,hfbar,usespatial,usestate,xvbar,extrabar,wbar,spatialsize,extrasize,statesize,famlists,bcdatanames,bcdatavalues,bcdatavaluesbar,bcdatafamlists,bcvarsempty) ! in :test:adjointAPI.F90:adjointapi
                 real(kind=realtype) dimension(:),intent(in) :: dwbar
                 real(kind=realtype) dimension(:,:),intent(in) :: funcsbar
                 real(kind=realtype) dimension(:,:,:) :: fbar
+                real(kind=realtype) dimension(:,:,:) :: hfbar
                 logical intent(in) :: usespatial
                 logical intent(in) :: usestate
                 real(kind=realtype) dimension(spatialsize),intent(out),depend(spatialsize) :: xvbar

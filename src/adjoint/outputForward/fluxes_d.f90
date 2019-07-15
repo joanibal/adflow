@@ -6304,18 +6304,18 @@ contains
     end subroutine riemannflux
   end subroutine inviscidupwindflux_d
 !  differentiation of viscousflux in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: *fw *(*viscsubface.tau)
+!   variations   of useful results: *fw *(*viscsubface.tau) *(*viscsubface.q)
 !   with respect to varying inputs: *rev *aa *wx *wy *wz *w *rlv
 !                *x *qx *qy *qz *ux *uy *uz *si *sj *sk *vx *vy
 !                *vz *fw
 !   rw status of diff variables: *rev:in *aa:in *wx:in *wy:in *wz:in
 !                *w:in *rlv:in *x:in *qx:in *qy:in *qz:in *ux:in
 !                *uy:in *uz:in *si:in *sj:in *sk:in *vx:in *vy:in
-!                *vz:in *fw:in-out *(*viscsubface.tau):out
+!                *vz:in *fw:in-out *(*viscsubface.tau):out *(*viscsubface.q):out
 !   plus diff mem management of: rev:in aa:in wx:in wy:in wz:in
 !                w:in rlv:in x:in qx:in qy:in qz:in ux:in uy:in
 !                uz:in si:in sj:in sk:in vx:in vy:in vz:in fw:in
-!                viscsubface:in *viscsubface.tau:in
+!                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
   subroutine viscousflux_d()
 !
 !       viscousflux computes the viscous fluxes using a central
@@ -6395,6 +6395,9 @@ contains
       do ii1=1,isize1ofdrfviscsubface
         viscsubfaced(ii1)%tau = 0.0_8
       end do
+      do ii1=1,isize1ofdrfviscsubface
+        viscsubfaced(ii1)%q = 0.0_8
+      end do
       return
     else
 ! determine whether or not the wall stress tensor and wall heat
@@ -6411,6 +6414,9 @@ contains
       mue = zero
       do ii1=1,isize1ofdrfviscsubface
         viscsubfaced(ii1)%tau = 0.0_8
+      end do
+      do ii1=1,isize1ofdrfviscsubface
+        viscsubfaced(ii1)%q = 0.0_8
       end do
       mued = 0.0_8
       do k=1,kl
@@ -6782,8 +6788,11 @@ contains
               viscsubface(visckminpointer(i, j))%tau(i, j, 5) = tauxz
               viscsubfaced(visckminpointer(i, j))%tau(i, j, 6) = tauyzd
               viscsubface(visckminpointer(i, j))%tau(i, j, 6) = tauyz
+              viscsubfaced(visckminpointer(i, j))%q(i, j, 1) = q_xd
               viscsubface(visckminpointer(i, j))%q(i, j, 1) = q_x
+              viscsubfaced(visckminpointer(i, j))%q(i, j, 2) = q_yd
               viscsubface(visckminpointer(i, j))%q(i, j, 2) = q_y
+              viscsubfaced(visckminpointer(i, j))%q(i, j, 3) = q_zd
               viscsubface(visckminpointer(i, j))%q(i, j, 3) = q_z
             end if
 ! and the k == kl case.
@@ -6801,8 +6810,11 @@ contains
               viscsubface(visckmaxpointer(i, j))%tau(i, j, 5) = tauxz
               viscsubfaced(visckmaxpointer(i, j))%tau(i, j, 6) = tauyzd
               viscsubface(visckmaxpointer(i, j))%tau(i, j, 6) = tauyz
+              viscsubfaced(visckmaxpointer(i, j))%q(i, j, 1) = q_xd
               viscsubface(visckmaxpointer(i, j))%q(i, j, 1) = q_x
+              viscsubfaced(visckmaxpointer(i, j))%q(i, j, 2) = q_yd
               viscsubface(visckmaxpointer(i, j))%q(i, j, 2) = q_y
+              viscsubfaced(visckmaxpointer(i, j))%q(i, j, 3) = q_zd
               viscsubface(visckmaxpointer(i, j))%q(i, j, 3) = q_z
             end if
           end do
@@ -7177,8 +7189,11 @@ contains
               viscsubface(viscjminpointer(i, k))%tau(i, k, 5) = tauxz
               viscsubfaced(viscjminpointer(i, k))%tau(i, k, 6) = tauyzd
               viscsubface(viscjminpointer(i, k))%tau(i, k, 6) = tauyz
+              viscsubfaced(viscjminpointer(i, k))%q(i, k, 1) = q_xd
               viscsubface(viscjminpointer(i, k))%q(i, k, 1) = q_x
+              viscsubfaced(viscjminpointer(i, k))%q(i, k, 2) = q_yd
               viscsubface(viscjminpointer(i, k))%q(i, k, 2) = q_y
+              viscsubfaced(viscjminpointer(i, k))%q(i, k, 3) = q_zd
               viscsubface(viscjminpointer(i, k))%q(i, k, 3) = q_z
             end if
 ! and the j == jl case.
@@ -7196,8 +7211,11 @@ contains
               viscsubface(viscjmaxpointer(i, k))%tau(i, k, 5) = tauxz
               viscsubfaced(viscjmaxpointer(i, k))%tau(i, k, 6) = tauyzd
               viscsubface(viscjmaxpointer(i, k))%tau(i, k, 6) = tauyz
+              viscsubfaced(viscjmaxpointer(i, k))%q(i, k, 1) = q_xd
               viscsubface(viscjmaxpointer(i, k))%q(i, k, 1) = q_x
+              viscsubfaced(viscjmaxpointer(i, k))%q(i, k, 2) = q_yd
               viscsubface(viscjmaxpointer(i, k))%q(i, k, 2) = q_y
+              viscsubfaced(viscjmaxpointer(i, k))%q(i, k, 3) = q_zd
               viscsubface(viscjmaxpointer(i, k))%q(i, k, 3) = q_z
             end if
           end do
@@ -7572,8 +7590,11 @@ contains
               viscsubface(visciminpointer(j, k))%tau(j, k, 5) = tauxz
               viscsubfaced(visciminpointer(j, k))%tau(j, k, 6) = tauyzd
               viscsubface(visciminpointer(j, k))%tau(j, k, 6) = tauyz
+              viscsubfaced(visciminpointer(j, k))%q(j, k, 1) = q_xd
               viscsubface(visciminpointer(j, k))%q(j, k, 1) = q_x
+              viscsubfaced(visciminpointer(j, k))%q(j, k, 2) = q_yd
               viscsubface(visciminpointer(j, k))%q(j, k, 2) = q_y
+              viscsubfaced(visciminpointer(j, k))%q(j, k, 3) = q_zd
               viscsubface(visciminpointer(j, k))%q(j, k, 3) = q_z
             end if
 ! and the i == il case.
@@ -7593,8 +7614,11 @@ contains
               viscsubface(viscimaxpointer(j, k))%tau(j, k, 5) = tauxz
               viscsubfaced(viscimaxpointer(j, k))%tau(j, k, 6) = tauyzd
               viscsubface(viscimaxpointer(j, k))%tau(j, k, 6) = tauyz
+              viscsubfaced(viscimaxpointer(j, k))%q(j, k, 1) = q_xd
               viscsubface(viscimaxpointer(j, k))%q(j, k, 1) = q_x
+              viscsubfaced(viscimaxpointer(j, k))%q(j, k, 2) = q_yd
               viscsubface(viscimaxpointer(j, k))%q(j, k, 2) = q_y
+              viscsubfaced(viscimaxpointer(j, k))%q(j, k, 3) = q_zd
               viscsubface(viscimaxpointer(j, k))%q(j, k, 3) = q_z
             end if
           end do
