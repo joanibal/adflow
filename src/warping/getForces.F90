@@ -1682,6 +1682,10 @@ subroutine getHeatFlux(hflux, npts, sps)
 end subroutine getHeatFlux
 
 subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
+   ! forward mode differenitaion of getHeatFlux
+   ! the inputs are BCDdatad%area and BCdatad%cellHeatFlux
+   ! the output is hfluxd
+
    use constants
    use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
    use surfaceFamilies, only : BCFamExchange, familyExchange, &
@@ -1703,13 +1707,15 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
    exch => BCFamExchange(iBCGroupWalls, sps)
 
 
-   ! compute BCData(mm)%cellHeatFlux for the cells
+   ! write out the seed
    ! do nn=1, nDom
-   !  call setPointers_d(nn, 1_intType, sps)
-   !  call heatFluxes_d()
+   !    call setPointers_d(nn, 1_intType, sps)
+   !    do mm=1, nBocos
+
+   !    write(*,*)  'area', BCDatad(mm)%area(:, :)
+   !    write(*,*)  'heatflux', BCDatad(mm)%cellHeatFlux(:, :)
+   !    end do
    ! end do
-
-
 
    ! Set the weighting factors. In this case, area
    ! the adiabatic wall cells have a weighting factor of zero
@@ -1717,20 +1723,16 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
       call setPointers_d(nn, 1_intType, sps)
       do mm=1, nBocos
 
-         write(*,*) mm, 'hfluxd ', minval(BCDatad(mm)%cellHeatFlux), maxval(BCDatad(mm)%cellHeatFlux)
-         ! if (BCType(mm) == NSWallIsoThermal) then
-         !    BCData(mm)%cellVal => BCData(mm)%area(:, :)
-         !    BCDatad(mm)%cellVal => BCDatad(mm)%area(:, :)
-
-         ! else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
-         !    BCData(mm)%cellVal => zeroCellVal
-         !    BCData(mm)%nodeVal => zeroNodeVal
-
-         !    BCDatad(mm)%cellVal => zeroCellVal
-         !    BCDatad(mm)%nodeVal => zeroNodeVal
-         if (isWallType(BCType(mm))) then
+         if (BCType(mm) == NSWallIsoThermal) then
             BCData(mm)%cellVal => BCData(mm)%area(:, :)
             BCDatad(mm)%cellVal => BCDatad(mm)%area(:, :)
+
+         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
+            BCData(mm)%cellVal => zeroCellVal
+            BCData(mm)%nodeVal => zeroNodeVal
+
+            BCDatad(mm)%cellVal => zeroCellVal
+            BCDatad(mm)%nodeVal => zeroNodeVal
 
          end if
       end do
@@ -1744,22 +1746,13 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
    do nn=1, nDom
       call setPointers_d(nn, 1_intType, sps)
       do mm=1, nBocos
-         write(*,*) mm, 'hfluxd ', minval(BCDatad(mm)%cellHeatFlux), maxval(BCDatad(mm)%cellHeatFlux)
 
-         ! if (BCType(mm) == NSWallIsoThermal) then
-         !    BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
-         !    BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
-
-         !    BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
-         !    BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
-
-         if (isWallType(BCType(mm))) then
+         if (BCType(mm) == NSWallIsoThermal) then
             BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
             BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
-
          end if
       end do
    end do
@@ -1775,43 +1768,29 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
       ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
       ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
       do mm=1,nBocos
-         write(*,*) mm, 'hfluxd ', minval(BCDatad(mm)%cellHeatFlux), maxval(BCDatad(mm)%cellHeatFlux)
 
-         ! if (BCType(mm) == NSWallIsoThermal) then
-         !    do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-         !       do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-         !          ii = ii + 1
-         !          hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
-         !          hfluxd(ii) = BCDatad(mm)%nodeHeatFlux(i, j)
-         !          write(*,*) ii, hflux(ii), hfluxd(ii)
-         !       end do
-         !    end do
-
-         !  ! Simply put in zeros for the other wall BCs
-         ! else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-         !    do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-         !       do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-         !          ii = ii + 1
-         !          hflux(ii) = zero
-         !          hflux(ii) = zero
-         !       end do
-         !    end do
-         ! end if
-
-         if (isWallType(BCType(mm))) then
+         if (BCType(mm) == NSWallIsoThermal) then
             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                   ii = ii + 1
                   hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
                   hfluxd(ii) = BCDatad(mm)%nodeHeatFlux(i, j)
-                  write(*,*) ii, hflux(ii), hfluxd(ii)
+               end do
+            end do
+
+          ! Simply put in zeros for the other wall BCs
+         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
+            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+                  ii = ii + 1
+                  hflux(ii) = zero
+                  hfluxd(ii) = zero
                end do
             end do
          end if
+
       end do
    end do
-   write(*,*) 'hfluxd ', minval(hfluxd), maxval(hfluxd)
-   write(*,*)
 end subroutine getHeatFlux_d
 
 
@@ -1965,7 +1944,6 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
 
    !             ! cellHeatFlux = q vector dotted with the Area vector
 
-   !             write(*,*) mm, i, jBCDatad(mm)%cellHeatFlux(i,j)
 
    !          enddo
    !       end do
@@ -1976,195 +1954,6 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
 end subroutine getHeatFlux_b
 
 
-
-! subroutine heatFluxes
-!    use constants
-!    use blockPointers, only : BCData, nDom, nBocos, BCType, BCFaceID, viscSubFace
-!    use BCPointers, only : ssi
-!    use flowVarRefState, only : pRef, rhoRef
-!    use utils, only : setBCPointers
-!    implicit none
-!    !
-!    !      Local variables.
-!    !
-!    integer(kind=intType) :: i, j, ii, mm
-!    real(kind=realType) :: fact, scaleDim, Q
-!    real(kind=realType) :: qw, qA
-!    logical :: heatedSubface
-
-!    ! Set the actual scaling factor such that ACTUAL heat flux is computed
-!    ! The factor is determined from stanton number
-!    scaleDim = pRef*sqrt(pRef/rhoRef)
-
-!    ! Loop over the boundary subfaces of this block.
-!    bocos: do mm=1, nBocos
-
-!       ! Only do this on isoThermalWalls
-!       if (BCType(mm) == NSWallIsoThermal) then
-
-!          call setBCPointers(mm, .True.)
-
-!          select case (BCFaceID(mm))
-!          case (iMin, jMin, kMin)
-!             fact = -one
-!          case (iMax, jMax, kMax)
-!             fact = one
-!          end select
-
-!          ! Loop over the quadrilateral faces of the subface. Note that
-!          ! the nodal range of BCData must be used and not the cell
-!          ! range, because the latter may include the halo's in i and
-!          ! j-direction. The offset +1 is there, because inBeg and jnBeg
-!          ! refer to nodal ranges and not to cell ranges.
-!          !
-!          do j=(BCData(mm)%jnBeg+1), BCData(mm)%jnEnd
-!             do i=(BCData(mm)%inBeg+1), BCData(mm)%inEnd
-
-!                ! Compute the normal heat flux on the face. Inward positive.
-
-!                ! cellHeatFlux = q vector dotted with the Area vector
-
-!                BCData(mm)%cellHeatFlux(i,j) = -fact*scaleDim* &
-!                     ( viscSubface(mm)%q(i,j,1)*ssi(i,j,1) &
-!                     + viscSubface(mm)%q(i,j,2)*ssi(i,j,2) &
-!                     + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
-
-!             enddo
-!          end do
-!       end if
-!    enddo bocos
-
-!  end subroutine heatFluxes
-
-
-!  subroutine heatFluxes_d
-!    ! forward mode differenitaion of heatfluexes
-!    ! the inputs are ssid, viscSubFaced%q, and BCDatad(mm)%norm
-!    ! the output is BCDatad(mm)%cellHeatFlux
-
-!    use constants
-!    use blockPointers, only : BCData, BCDatad, nDom, nBocos, BCType, BCFaceID, viscSubFace, viscSubFaced
-!    use BCPointers, only : ssi, ssid
-!    use flowVarRefState, only : pRef, rhoRef
-!    use utils, only : setBCPointers_d
-!    implicit none
-!    !
-!    !      Local variables.
-!    !
-!    integer(kind=intType) :: i, j, ii, mm
-!    real(kind=realType) :: fact, scaleDim
-!    real(kind=realType) :: qw, qA
-!    logical :: heatedSubface
-
-!    ! Set the actual scaling factor such that ACTUAL heat flux is computed
-!    ! The factor is determined from stanton number
-!    scaleDim = pRef*sqrt(pRef/rhoRef)
-
-!    ! Loop over the boundary subfaces of this block.
-!    bocos: do mm=1, nBocos
-
-!       ! Only do this on isoThermalWalls
-!       if (BCType(mm) == NSWallIsoThermal) then
-
-!          call setBCPointers_d(mm, .True.)
-
-!          select case (BCFaceID(mm))
-!          case (iMin, jMin, kMin)
-!             fact = -one
-!          case (iMax, jMax, kMax)
-!             fact = one
-!          end select
-
-!          ! Loop over the quadrilateral faces of the subface. Note that
-!          ! the nodal range of BCData must be used and not the cell
-!          ! range, because the latter may include the halo's in i and
-!          ! j-direction. The offset +1 is there, because inBeg and jnBeg
-!          ! refer to nodal ranges and not to cell ranges.
-!          !
-!          do j=(BCData(mm)%jnBeg+1), BCData(mm)%jnEnd
-!             do i=(BCData(mm)%inBeg+1), BCData(mm)%inEnd
-
-!                ! Compute the normal heat flux on the face. Inward positive.
-!                BCDatad(mm)%cellHeatFlux(i,j) = -fact*scaleDim* &
-!                     ( viscSubfaced(mm)%q(i,j,1)*ssi(i,j,1) &
-!                     + viscSubface(mm)%q(i,j,1)*ssid(i,j,1) &
-!                     + viscSubfaced(mm)%q(i,j,2)*ssi(i,j,2) &
-!                     + viscSubface(mm)%q(i,j,2)*ssid(i,j,2) &
-!                     + viscSubfaced(mm)%q(i,j,3)*ssi(i,j,3) &
-!                     + viscSubface(mm)%q(i,j,3)*ssid(i,j,3))
-!                write(*,*) 'BCDatad(mm)%cellHeatFlux', i, j, BCDatad(mm)%cellHeatFlux(i,j)
-!                write(*,*) 'viscSubFace', viscSubfaced(mm)%q(i,j,:)
-!             enddo
-!          end do
-!       end if
-!    enddo bocos
-
-!  end subroutine heatFluxes_d
-
-
-!  subroutine heatFluxes_b
-!    ! forward mode differenitaion of heatfluexes
-!    ! the inputs are ssid, viscSubFaced%q, and BCDatad(mm)%norm
-!    ! the output is BCDatad(mm)%cellHeatFlux
-
-!    use constants
-!    use blockPointers, only : BCData, BCDatad, nDom, nBocos, BCType, BCFaceID, viscSubFace, viscSubFaced
-!    use BCPointers, only : ssi, ssid
-!    use flowVarRefState, only : pRef, rhoRef
-!    use utils, only :  setBCPointers_d
-!    implicit none
-!    !
-!    !      Local variables.
-!    !
-!    integer(kind=intType) :: i, j, ii, mm
-!    real(kind=realType) :: fact, scaleDim
-!    real(kind=realType) :: qw, qA
-!    logical :: heatedSubface
-
-!    ! Set the actual scaling factor such that ACTUAL heat flux is computed
-!    ! The factor is determined from stanton number
-!    scaleDim = pRef*sqrt(pRef/rhoRef)
-
-!    ! Loop over the boundary subfaces of this block.
-!    bocos: do mm=1, nBocos
-
-!       ! Only do this on isoThermalWalls
-!       if (BCType(mm) == NSWallIsoThermal) then
-
-!          call setBCPointers_d(mm, .True.)
-
-!          select case (BCFaceID(mm))
-!          case (iMin, jMin, kMin)
-!             fact = -one
-!          case (iMax, jMax, kMax)
-!             fact = one
-!          end select
-
-!          ! Loop over the quadrilateral faces of the subface. Note that
-!          ! the nodal range of BCData must be used and not the cell
-!          ! range, because the latter may include the halo's in i and
-!          ! j-direction. The offset +1 is there, because inBeg and jnBeg
-!          ! refer to nodal ranges and not to cell ranges.
-!          !
-!          do j=(BCData(mm)%jnBeg+1), BCData(mm)%jnEnd
-!             do i=(BCData(mm)%inBeg+1), BCData(mm)%inEnd
-
-!                ! Compute the normal heat flux on the face. Inward positive.
-!                ssid(i,j,1) = ssid(i,j,1) + viscSubface(mm)%q(i,j,1)*BCDatad(mm)%cellHeatFlux(i,j)
-!                viscSubfaced(mm)%q(i,j,1) = viscSubfaced(mm)%q(i,j,1) + ssi(i,j,1)*BCDatad(mm)%cellHeatFlux(i,j)
-
-!                ssid(i,j,2) = ssid(i,j,2) + viscSubface(mm)%q(i,j,2)*BCDatad(mm)%cellHeatFlux(i,j)
-!                viscSubfaced(mm)%q(i,j,2) = viscSubfaced(mm)%q(i,j,2) + ssi(i,j,2)*BCDatad(mm)%cellHeatFlux(i,j)
-
-!                ssid(i,j,3) = ssid(i,j,3) + viscSubface(mm)%q(i,j,3)*BCDatad(mm)%cellHeatFlux(i,j)
-!                viscSubfaced(mm)%q(i,j,3) = viscSubfaced(mm)%q(i,j,3) + ssi(i,j,3)*BCDatad(mm)%cellHeatFlux(i,j)
-
-!             enddo
-!          end do
-!       end if
-!    enddo bocos
-
-!  end subroutine heatFluxes_b
 
 
 subroutine getTNSWall(tnsw, npts, sps)
@@ -2305,3 +2094,75 @@ subroutine getWallTemperature(wallTempNodes, npts, sps)
     end do
  end do
 end subroutine getWallTemperature
+
+
+subroutine testSubroutine()
+   ! used to call other subroutines for testing purposes
+   !
+   !
+
+      ! forward mode differenitaion of getHeatFlux
+      ! the inputs are BCDdatad%area and BCdatad%cellHeatFlux
+      ! the output is hfluxd
+   use constants
+   use adjointvars
+   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
+   use inputTimeSpectral, only : nTimeIntervalsSpectral
+   use inputPhysics, only :pointRefd, alphad, betad, equations, machCoefd, &
+        machd, machGridd, rgasdimd
+   use iteration, only : currentLevel, groundLevel
+   use flowVarRefState, only : pInfDimd, rhoInfDimd, TinfDimd
+   use adjointUtils, only : allocDerivativeValues, zeroADSeeds
+   use utils, only : setPointers, setPointers_d, isWallType
+   implicit none
+
+   integer(kind=intType):: npts, sps, nn, level, mm
+   real(kind=realType) :: hflux(10),  hfluxd(10)
+
+   npts = 10
+   sps = 1
+
+   level = 1
+   currentLevel = level
+   groundLevel = level
+
+      if (.not. derivVarsAllocated) then
+         call allocDerivativeValues(level)
+      end if
+
+      ! Zero all AD seesd.
+      do nn=1,nDom
+         call zeroADSeeds(nn,level, sps)
+      end do
+
+      ! Set the extra seeds now do the extra ones. Note that we are assuming the
+      ! machNumber used for the coefficients follows the Mach number,
+      ! not the grid mach number.
+      alphad = 0
+      betad = 0
+      machd = 0
+      machCoefd = 0
+      machGridd = 0
+      PinfDimd = 0
+      rhoinfDimd = 0
+      tinfdimd = 0
+      pointrefd(1) = 0
+      pointrefd(2) = 0
+      pointrefd(3) = 0
+      rgasdimd = zero
+
+      nn=1
+      mm=1
+      call setPointers_d(nn,1_intType,sps)
+      BCDatad(mm)%cellHeatFlux = reshape((/1, 0, 1, 0/), (/2,2/))
+      BCDatad(mm)%area = reshape((/1, 1, 1, 0/), (/2,2/))
+
+      call getHeatFlux_d(hflux, hfluxd, npts, sps)
+
+      write(*,*) hflux
+      write(*,*) hfluxd
+
+end subroutine testSubroutine
+
+
+

@@ -1131,7 +1131,6 @@ contains
 ! initialize dwall for the laminar case and set the pointer
 ! for the unit normals.
       dwall = zero
-      qd = 0.0_8
       mvaxisd = 0.0_8
       fvd = 0.0_8
       mvd = 0.0_8
@@ -1216,23 +1215,6 @@ contains
         mv(2) = mv(2) + my*blk
         mvd(3) = mvd(3) + blk*mzd
         mv(3) = mv(3) + mz*blk
-! cell heat flux
-        qwd = -(fact*(scaledimd*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)&
-&         +viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, &
-&         j, 3)*ssi(i, j, 3))+scaledim*(viscsubfaced(mm)%q(i, j, 1)*ssi(&
-&         i, j, 1)+viscsubface(mm)%q(i, j, 1)*ssid(i, j, 1)+viscsubfaced&
-&         (mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j, 2)*ssid(i&
-&         , j, 2)+viscsubfaced(mm)%q(i, j, 3)*ssi(i, j, 3)+viscsubface(&
-&         mm)%q(i, j, 3)*ssid(i, j, 3))))
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
-&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
-! total heat flux thought that surface
-        qd = qd + blk*qwd
-        q = q + qw*blk
-! save the face based heatflux
-        bcdatad(mm)%cellheatflux(i, j) = qd
-        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -1298,10 +1280,51 @@ contains
 ! if we had no viscous force, set the viscous component to zero
       bcdatad(mm)%fv = 0.0_8
       bcdata(mm)%fv = zero
-      qd = 0.0_8
       mvaxisd = 0.0_8
       fvd = 0.0_8
       mvd = 0.0_8
+    end if
+! heat flux done is seperate loop to prevent the type check from being run for each cell
+    if (bctype(mm) .eq. nswallisothermal) then
+      qd = 0.0_8
+! loop over the quadrilateral faces of the subface and
+! compute the heat flux
+      do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
+&         bcdata(mm)%inbeg)-1
+        i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
+&         inbeg + 1
+        j = ii/(bcdata(mm)%inend-bcdata(mm)%inbeg) + bcdata(mm)%jnbeg + &
+&         1
+        if (bcdata(mm)%iblank(i, j) .lt. 0) then
+          blk = 0
+        else
+          blk = bcdata(mm)%iblank(i, j)
+        end if
+! wall heat flux dotted with the area vector and scaled
+        qwd = -(fact*(scaledimd*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)&
+&         +viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, &
+&         j, 3)*ssi(i, j, 3))+scaledim*(viscsubfaced(mm)%q(i, j, 1)*ssi(&
+&         i, j, 1)+viscsubface(mm)%q(i, j, 1)*ssid(i, j, 1)+viscsubfaced&
+&         (mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j, 2)*ssid(i&
+&         , j, 2)+viscsubfaced(mm)%q(i, j, 3)*ssi(i, j, 3)+viscsubface(&
+&         mm)%q(i, j, 3)*ssid(i, j, 3))))
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat though the surface
+        qd = qd + blk*qwd
+        q = q + qw*blk
+! save the face based heatflux
+        bcdatad(mm)%cellheatflux(i, j) = qd
+        bcdata(mm)%cellheatflux(i, j) = q
+      end do
+    else if (bctype(mm) .eq. nswalladiabatic) then
+! if we an adiabatic wall, set the heat flux to zero
+      bcdatad(mm)%cellheatflux = 0.0_8
+      bcdata(mm)%cellheatflux = zero
+      qd = 0.0_8
+    else
+      qd = 0.0_8
     end if
 ! increment the local values array with the values we computed here.
     localvaluesd(ifp:ifp+2) = localvaluesd(ifp:ifp+2) + fpd
@@ -1592,14 +1615,6 @@ contains
         mv(1) = mv(1) + mx*blk
         mv(2) = mv(2) + my*blk
         mv(3) = mv(3) + mz*blk
-! cell heat flux
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
-&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
-! total heat flux thought that surface
-        q = q + qw*blk
-! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -1651,6 +1666,34 @@ contains
 ! of pointers there is on offset of -1 in dd2wall..
 ! if we had no viscous force, set the viscous component to zero
       bcdata(mm)%fv = zero
+    end if
+! heat flux done is seperate loop to prevent the type check from being run for each cell
+    if (bctype(mm) .eq. nswallisothermal) then
+! loop over the quadrilateral faces of the subface and
+! compute the heat flux
+      do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
+&         bcdata(mm)%inbeg)-1
+        i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
+&         inbeg + 1
+        j = ii/(bcdata(mm)%inend-bcdata(mm)%inbeg) + bcdata(mm)%jnbeg + &
+&         1
+        if (bcdata(mm)%iblank(i, j) .lt. 0) then
+          blk = 0
+        else
+          blk = bcdata(mm)%iblank(i, j)
+        end if
+! wall heat flux dotted with the area vector and scaled
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat though the surface
+        q = q + qw*blk
+! save the face based heatflux
+        bcdata(mm)%cellheatflux(i, j) = q
+      end do
+    else if (bctype(mm) .eq. nswalladiabatic) then
+! if we an adiabatic wall, set the heat flux to zero
+      bcdata(mm)%cellheatflux = zero
     end if
 ! increment the local values array with the values we computed here.
     localvalues(ifp:ifp+2) = localvalues(ifp:ifp+2) + fp

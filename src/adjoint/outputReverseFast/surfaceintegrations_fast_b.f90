@@ -516,14 +516,6 @@ contains
         mv(1) = mv(1) + mx*blk
         mv(2) = mv(2) + my*blk
         mv(3) = mv(3) + mz*blk
-! cell heat flux
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
-&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
-! total heat flux thought that surface
-        q = q + qw*blk
-! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -574,6 +566,34 @@ contains
 ! of pointers there is on offset of -1 in dd2wall..
 ! if we had no viscous force, set the viscous component to zero
       bcdata(mm)%fv = zero
+    end if
+! heat flux done is seperate loop to prevent the type check from being run for each cell
+    if (bctype(mm) .eq. nswallisothermal) then
+! loop over the quadrilateral faces of the subface and
+! compute the heat flux
+      do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
+&         bcdata(mm)%inbeg)-1
+        i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
+&         inbeg + 1
+        j = ii/(bcdata(mm)%inend-bcdata(mm)%inbeg) + bcdata(mm)%jnbeg + &
+&         1
+        if (bcdata(mm)%iblank(i, j) .lt. 0) then
+          blk = 0
+        else
+          blk = bcdata(mm)%iblank(i, j)
+        end if
+! wall heat flux dotted with the area vector and scaled
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat though the surface
+        q = q + qw*blk
+! save the face based heatflux
+        bcdata(mm)%cellheatflux(i, j) = q
+      end do
+    else if (bctype(mm) .eq. nswalladiabatic) then
+! if we an adiabatic wall, set the heat flux to zero
+      bcdata(mm)%cellheatflux = zero
     end if
 ! increment the local values array with the values we computed here.
     localvalues(ifp:ifp+2) = localvalues(ifp:ifp+2) + fp

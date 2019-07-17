@@ -89,7 +89,6 @@ contains
            famLists, funcs, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
     end if
 
-   !  write(*,*) 'hfdot f', hfDot(:,1:3,:), maxval(hfDot)
   end subroutine computeMatrixFreeProductFwd
 
   subroutine computeMatrixFreeProductBwd(dwbar, funcsBar, fbar, hfbar,useSpatial, useState, xvbar, &
