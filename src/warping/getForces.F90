@@ -534,6 +534,16 @@ subroutine surfaceCellCenterToNode_d(exch)
    call VecDuplicate(exch%sumGlobal, tmp, ierr)
    call EChk(ierr,__FILE__,__LINE__)
 
+
+   ! call vecGetArrayF90(exch%sumGlobal, nodeValLocPtr, ierr)
+   ! call EChk(ierr,__FILE__,__LINE__)
+
+   ! write(*,*) 'sum global', nodeValLocPtr
+
+   ! call vecRestoreArrayF90(exch%sumGlobal, nodeValLocPtr, ierr)
+   ! call EChk(ierr,__FILE__,__LINE__)
+
+
    ! We assume that normalization factor is already computed
    call vecGetArrayF90(exch%nodeValLocal, nodeValLocPtr, ierr)
    call EChk(ierr,__FILE__,__LINE__)
@@ -1199,7 +1209,6 @@ subroutine computeWeighting_b(exch)
    call vecGetArrayF90(exch%nodeValLocal_b, nodeValLocPtr_b, ierr)
    call EChk(ierr,__FILE__,__LINE__)
 
-
    ! ii is the running counter through the pointer array.
    ii = 0
    do nn=1, nDom
@@ -1223,9 +1232,8 @@ subroutine computeWeighting_b(exch)
                   do jj=1,4
                      qa_b = qa_b + nodeValLocPtr_b(ind(jj))
                   end do
-                  qa_b = fourth*qa_b
                   BCDatad(mm)%cellVal(i+1, j+1) = &
-                                           BCDatad(mm)%cellVal(i+1, j+1) + qa_b
+                                  BCDatad(mm)%cellVal(i+1, j+1) + fourth*qa_b
                end do
             end do
             ii = ii + ni*nj
@@ -2113,11 +2121,34 @@ subroutine testSubroutine()
    use iteration, only : currentLevel, groundLevel
    use flowVarRefState, only : pInfDimd, rhoInfDimd, TinfDimd
    use adjointUtils, only : allocDerivativeValues, zeroADSeeds
-   use utils, only : setPointers, setPointers_d, isWallType
+   use surfaceFamilies, only : BCFamExchange, familyExchange, &
+   zeroCellVal, zeroNodeVal
+   use utils, only : EChk, setPointers, setPointers_d, isWallType
+#include <petscversion.h>
+#if PETSC_VERSION_GE(3,8,0)
+#include <petsc/finclude/petsc.h>
+   use petsc
    implicit none
+#else
+   implicit none
+#define PETSC_AVOID_MPIF_H
+#include "petsc/finclude/petsc.h"
+#include "petsc/finclude/petscvec.h90"
+#endif
 
-   integer(kind=intType):: npts, sps, nn, level, mm
-   real(kind=realType) :: hflux(10),  hfluxd(10)
+   integer(kind=intType):: npts, sps, nn, level, mm, ierr, ii
+   real(kind=realType) :: hflux(10),  hflux_d(10), hflux_b(10)
+
+   real(kind=realType) :: cellhf_b(4), cellhf_d(4)
+   real(kind=realType) :: area_b(4), area_d(4)
+   real(kind=realType) :: nodehf_b(10), nodehf_d(10)
+
+
+   type(familyExchange), pointer :: exch
+   real(kind=realType), dimension(:), pointer ::  localPtr
+   real(kind=realType), dimension(:), pointer :: nodeValLocPtr,   sumGlobalPtr,&
+                                                 nodeValLocPtr_b, sumGlobalPtr_b
+   Vec sum_b, sum_d
 
    npts = 10
    sps = 1
@@ -2151,16 +2182,294 @@ subroutine testSubroutine()
       pointrefd(3) = 0
       rgasdimd = zero
 
-      nn=1
-      mm=1
-      call setPointers_d(nn,1_intType,sps)
-      BCDatad(mm)%cellHeatFlux = reshape((/1, 0, 1, 0/), (/2,2/))
-      BCDatad(mm)%area = reshape((/1, 1, 1, 0/), (/2,2/))
+      ! nn=1
+      ! mm=1
+      ! call setPointers_d(1,1_intType,sps)
+      ! ! BCDatad(mm)%cellHeatFlux = reshape((/1, 0, 1, 0/), (/2,2/))
+      ! BCDatad(1)%area = reshape((/0, 1, 0, 1/), (/4,1/))
+      ! write(*,*) 'BCDarad%area', BCDatad(1)%area
 
-      call getHeatFlux_d(hflux, hfluxd, npts, sps)
+      ! ! call getHeatFlux_d(hflux, hfluxd, npts, sps)
 
-      write(*,*) hflux
-      write(*,*) hfluxd
+      ! ! write(*,*) hflux
+      ! ! write(*,*) hfluxd
+
+
+      ! ===============================
+      ! test the computeWeighting_b
+      ! ===============================
+      ! nn=1
+      ! mm=1
+      ! call setPointers_d(1,1_intType,sps)
+      ! ! BCDatad(mm)%cellHeatFlux = reshape((/1, 0, 1, 0/), (/2,2/))
+      ! BCDatad(1)%area = reshape((/0, 1, 0, 1/), (/4,1/))
+      ! write(*,*) 'BCDarad%area', BCDatad(1)%area
+
+      ! exch => BCFamExchange(iBCGroupWalls, sps)
+
+
+      ! do nn=1, nDom
+      !    call setPointers_d(nn, 1_intType, sps)
+      !    do mm=1, nBocos
+
+      !       if (BCType(mm) == NSWallIsoThermal) then
+      !          BCData(mm)%cellVal => BCData(mm)%area(:, :)
+      !          BCDatad(mm)%cellVal => BCDatad(mm)%area(:, :)
+
+      !       else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
+      !          BCData(mm)%cellVal => zeroCellVal
+      !          BCData(mm)%nodeVal => zeroNodeVal
+
+      !          BCDatad(mm)%cellVal => zeroCellVal
+      !          BCDatad(mm)%nodeVal => zeroNodeVal
+
+      !       end if
+      !    end do
+      ! end do
+
+      ! call computeWeighting_d(exch)
+
+
+      ! call vecGetArrayF90(exch%sumGlobal_d, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! write(*,*) 'exch%sumGlobal_d', localPtr, shape(localPtr)
+      ! ! localPtr = (/1, 0, 0, 0, 0, 0, 0, 0/)
+
+      ! call vecRestoreArrayF90(exch%sumGlobal_d, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+
+      ! do nn=1,nDom
+      !    call zeroADSeeds(nn,level, sps)
+      ! end do
+
+
+
+      ! call vecGetArrayF90(exch%sumGlobal_b, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! localPtr = (/1, 0, 0, 0, 0, 0, 0, 0/)
+      ! write(*,*) 'exch%sumGlobal_b', localPtr, shape(localPtr)
+
+      ! call vecRestoreArrayF90(exch%sumGlobal_b, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+
+
+
+      ! call computeWeighting_b(exch)
+      ! call setPointers_d(1, 1_intType, sps)
+      ! write(*,*) 'BCDarad%area', BCDatad(1)%area
+
+      ! ===============================
+      ! test the surfaceCellCenterToNode_b
+      ! ===============================
+      ! exch => BCFamExchange(iBCGroupWalls, sps)
+
+      ! do nn=1, nDom
+      !    call setPointers(nn, 1_intType, sps)
+      !    do mm=1, nBocos
+
+      !       bocoType1: if (BCType(mm) == NSWallIsoThermal) then
+      !          BCData(mm)%cellVal => BCData(mm)%area(:, :)
+      !       else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
+      !          BCData(mm)%cellVal => zeroCellVal
+      !          BCData(mm)%nodeVal => zeroNodeVal
+      !       end if bocoType1
+      !    end do
+      ! end do
+
+      ! call computeWeighting(exch)
+
+      ! write(*,*) '======================fwd in================================='
+
+      ! call setPointers_d(1,1_intType,sps)
+      ! BCDatad(1)%cellHeatFlux = reshape((/1, 9, 2, 3/), (/4,1/))
+      ! write(*,*) 'cellHeatFlux', BCDatad(1)%cellHeatFlux
+      ! cellhf_d = reshape(BCDatad(1)%cellHeatFlux, (/4/))
+
+      ! ! set the petsc vector
+      ! call vecSetValue(exch%sumGlobal_d, 0, 3.0, ADD_VALUES, ierr )
+      ! call EChk(ierr,__FILE__,__LINE__)
+      ! call vecSetValue(exch%sumGlobal_d, 4, 689.0, ADD_VALUES, ierr )
+      ! call EChk(ierr,__FILE__,__LINE__)
+      ! call vecSetValue(exch%sumGlobal_d, 7, 123.0, ADD_VALUES, ierr )
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! call VecAssemblyBegin(exch%sumGlobal_d, ierr)
+      ! call EChk(ierr, __FILE__, __LINE__)
+
+      ! call VecAssemblyEnd  (exch%sumGlobal_d, ierr)
+      ! call EChk(ierr, __FILE__, __LINE__)
+
+
+      ! !print the vector
+      ! call vecGetArrayF90(exch%sumGlobal_d, nodeValLocPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! ! nodeValLocPtr = 1
+      ! write(*,*) 'sum global', nodeValLocPtr,shape(nodeValLocPtr)
+
+      ! call vecRestoreArrayF90(exch%sumGlobal_d, nodeValLocPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+
+      ! !save the vector
+      ! call VecDuplicate(exch%sumGlobal_d, sum_d, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+      ! call vecCopy(exch%sumGlobal_d, sum_d, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! write(*,*) '============================================================='
+
+
+
+      ! ! set pointers
+      ! do nn=1, nDom
+      !    call setPointers_d(nn, 1_intType, sps)
+      !    do mm=1, nBocos
+
+      !       if (BCType(mm) == NSWallIsoThermal) then
+      !          BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
+      !          BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
+
+      !          BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
+      !          BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
+      !       end if
+      !    end do
+      ! end do
+
+      ! call surfaceCellCenterToNode_d(exch)
+
+      ! write(*,*) '=====================fwd out=================================='
+
+      ! ! set pointers
+      ! do nn=1, nDom
+      !    call setPointers_d(nn, 1_intType, sps)
+      !    do mm=1, nBocos
+
+      !       if (BCType(mm) == NSWallIsoThermal) then
+
+      !          write(*,*) 'BCDatad(mm)%nodeHeatFlux', BCDatad(mm)%nodeHeatFlux(:, :)
+      !       end if
+      !    end do
+      ! end do
+      ! nodehf_d = reshape(BCDatad(1)%nodeHeatFlux, (/10/))
+      ! write(*,*) '============================================================'
+
+      ! ! reset the ad seeds
+
+      ! ! Zero all AD seesd.
+      ! do nn=1,nDom
+      !    call zeroADSeeds(nn,level, sps)
+      ! end do
+
+
+      ! write(*,*) '======================bck in================================'
+
+      ! call setPointers_d(1,1_intType,sps)
+      ! ! write(*,*) BCData(1)%inBeg,  BCData(1)%inEnd,  BCData(1)%jnBeg,  BCData(1)%jnEnd
+      ! BCDatad(1)%nodeHeatFlux = reshape((/1, 0, 0, 0, 84, &
+      !                                     420, 0, 0, 1, 0 /),  (/5,2/))
+      ! write(*,*) 'nodeHeatFlux', BCDatad(1)%nodeHeatFlux
+      ! nodehf_b = reshape(BCDatad(1)%nodeHeatFlux, (/10/))
+      ! write(*,*) '============================================================'
+
+
+
+      ! call surfaceCellCenterToNode_b(exch)
+
+
+      ! write(*,*) '====================bck out==================================='
+      !       ! set pointers
+      ! do nn=1, nDom
+      !    call setPointers_d(nn, 1_intType, sps)
+      !    do mm=1, nBocos
+
+      !       if (BCType(mm) == NSWallIsoThermal) then
+
+      !          write(*,*) 'cellHeatFlux', BCDatad(mm)%cellHeatFlux(:, :)
+
+      !       end if
+      !    end do
+      ! end do
+      ! cellhf_b = reshape(BCDatad(1)%cellHeatFlux, (/4/))
+
+
+      ! call vecGetArrayF90(exch%sumGlobal_b, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! write(*,*) 'sum global_b', localPtr
+
+      ! call vecRestoreArrayF90(exch%sumGlobal_b, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+
+      ! call VecDuplicate(exch%sumGlobal_b, sum_b, ierr)
+      ! call vecCopy(exch%sumGlobal_b, sum_b, ierr)
+
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! write(*,*) '============================================================'
+
+      ! write(*,*) '====================dot prod================================'
+      ! call vecPointwiseMult(sum_b, sum_b, sum_d, ierr)
+
+      ! call vecGetArrayF90(sum_b, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! write(*,*) 'sum global_b', sum(localPtr)
+
+
+      ! write(*,*) 'cellheatflux', sum(cellhf_b*cellhf_d)
+
+      ! write(*,*) 'nodeheatflux', sum(nodehf_b*nodehf_d)
+
+      ! write(*,*) 'comparison'
+      ! write(*,*)  sum(nodehf_b*nodehf_d), sum(localPtr) + sum(cellhf_b*cellhf_d)
+
+      ! call vecRestoreArrayF90(sum_b, localPtr, ierr)
+      ! call EChk(ierr,__FILE__,__LINE__)
+
+      ! ! ===================================================================
+      ! ! check getHeatFluxes
+      ! !===================================================================
+      ! call setPointers_d(1,1_intType,sps)
+      ! BCDatad(1)%cellHeatFlux = reshape((/1, 7, 58, 123/), (/4,1/))
+      ! BCDatad(1)%area = reshape((/0.2, 1.0, 0.0, 69.0/), (/4,1/))
+      ! write(*,*) 'BCDarad%cellHeatFlux', BCDatad(1)%cellHeatFlux
+      ! cellhf_d = reshape(BCDatad(1)%cellHeatFlux, (/4/))
+      ! write(*,*) 'BCDarad%area', BCDatad(1)%area
+      ! area_d = reshape(BCDatad(1)%area, (/4/))
+
+      ! call getHeatFlux_d(hflux, hflux_d, npts, sps)
+
+      ! ! write(*,*) hflux
+      ! write(*,*) 'hflux_d', hflux_d
+
+      ! do nn=1,nDom
+      !    call zeroADSeeds(nn,level, sps)
+      ! end do
+
+      ! hflux_b = (/1, 0, 2, 0, 0, 0 , 5, 0, 7, 0/)
+      ! call getHeatFlux_b(hflux_b, npts, sps)
+      ! write(*,*) 'BCDarad%cellHeatFlux', BCDatad(1)%cellHeatFlux
+      ! cellhf_b = reshape(BCDatad(1)%cellHeatFlux, (/4/))
+      ! write(*,*) 'BCDarad%area', BCDatad(1)%area
+      ! area_b = reshape(BCDatad(1)%area, (/4/))
+
+      ! write(*,*) '====================dot prod================================'
+
+      ! write(*,*) 'hflux', sum(hflux_d*hflux_b)
+
+
+      ! write(*,*) 'cellheatflux', sum(cellhf_b*cellhf_d)
+
+      ! write(*,*) 'area', sum(area_b*area_d)
+
+      ! write(*,*) 'comparison'
+      ! write(*,*)  sum(area_b*area_d) + sum(cellhf_b*cellhf_d), sum(hflux_d*hflux_b)
 
 end subroutine testSubroutine
 
