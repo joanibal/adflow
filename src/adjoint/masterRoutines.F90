@@ -523,7 +523,6 @@ contains
     if (present(famLists)) then
        call getSolution_d(famLists, funcValues, funcValuesd)
     end if
-    write(*,*) 'hfdot ', minval(heatfluxesDot), maxval(heatfluxesDot)
 
     do sps=1, nTimeIntervalsSpectral
        call getForces_d(forces(:, :, sps), forcesDot(:, :, sps), fSize, sps)
@@ -669,8 +668,6 @@ contains
        call getSolution_b(famLists, funcValues, funcValuesd)
     end if
 
-       !print wd
-    write(*,*) 1
 
     spsLoop1: do sps=1, nTimeIntervalsSpectral
 
@@ -686,20 +683,12 @@ contains
 
           ! Note that master_b does not include the first order flux
           ! approxation codes as those are never needed in reverse.
-          write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
 
           if (viscous) then
              call viscousFlux_b
-             write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
-
              call allNodalGradients_b
-             write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
-
              call computeSpeedOfSoundSquared_b
-             write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
-
           end if
-          write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
           ! So the all nodal gradients doesnt' perform the final
           ! scaling by the volume since it isn't necessary for the
           ! derivative. We have a special routine to fix that.
@@ -746,20 +735,6 @@ contains
 
 
 
-   !print wd
-    write(*,*) 3
-    do nn=1,nDom
-      do sps=1,nTimeIntervalsSpectral
-
-         ! Set pointers and derivative pointers
-         call setPointers_b(nn, 1, sps)
-         ! Set the wbar accumulation
-         write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
-      end do
-   end do
-
-
-
     ! Need to re-apply the BCs. The reason is that BC halos behind
     ! interpolated cells need to be recomputed with their new
     ! interpolated values from actual compute cells. Only needed for
@@ -780,17 +755,6 @@ contains
     end if
 
 
-   !print wd
-    write(*,*) 4
-    do nn=1,nDom
-      do sps=1,nTimeIntervalsSpectral
-
-         ! Set pointers and derivative pointers
-         call setPointers_b(nn, 1, sps)
-         ! Set the wbar accumulation
-         write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
-      end do
-   end do
 
 
     ! Exchange the adjoint values.
@@ -861,18 +825,6 @@ contains
        end if
     end do spsLoop2
 
-
-   !print wd
-    write(*,*) 5
-    do nn=1,nDom
-      do sps=1,nTimeIntervalsSpectral
-
-         ! Set pointers and derivative pointers
-         call setPointers_b(nn, 1, sps)
-         ! Set the wbar accumulation
-         write(*,*) nn, minval(wd(:,:,:,:)), maxval(wd(:,:,:,:))
-      end do
-   end do
 
 
     if (present(bcDataNames)) then

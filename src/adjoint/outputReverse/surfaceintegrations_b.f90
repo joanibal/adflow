@@ -1139,8 +1139,8 @@ contains
     real(kind=realtype) :: tempd20
     real(kind=realtype) :: temp
     real(kind=realtype) :: temp9
-    real(kind=realtype) :: temp8
     real(kind=realtype) :: tempd19
+    real(kind=realtype) :: temp8
     real(kind=realtype) :: temp7
     real(kind=realtype) :: tempd18
     real(kind=realtype) :: temp6
@@ -1312,6 +1312,17 @@ contains
     else
       call pushcontrol1b(1)
     end if
+! heat flux done is seperate loop to prevent the type check from being run for each cell
+    if (bctype(mm) .eq. nswallisothermal) then
+      call pushinteger4(i)
+      call pushinteger4(j)
+      call pushinteger4(blk)
+      call pushcontrol2b(0)
+    else if (bctype(mm) .eq. nswalladiabatic) then
+      call pushcontrol2b(1)
+    else
+      call pushcontrol2b(2)
+    end if
     cperror2d = localvaluesd(icperror2)
     qd = localvaluesd(iheatflux)
     mpaxisd = localvaluesd(iaxismoment)
@@ -1328,11 +1339,50 @@ contains
     fvd = localvaluesd(ifv:ifv+2)
     fpd = 0.0_8
     fpd = localvaluesd(ifp:ifp+2)
+    call popcontrol2b(branch)
+    if (branch .eq. 0) then
+      scaledimd = 0.0_8
+      do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
+&         bcdata(mm)%inbeg)-1
+        i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
+&         inbeg + 1
+        j = ii/(bcdata(mm)%inend-bcdata(mm)%inbeg) + bcdata(mm)%jnbeg + &
+&         1
+        if (bcdata(mm)%iblank(i, j) .lt. 0) then
+          blk = 0
+        else
+          blk = bcdata(mm)%iblank(i, j)
+        end if
+        qd = qd + bcdatad(mm)%cellheatflux(i, j)
+        bcdatad(mm)%cellheatflux(i, j) = 0.0_8
+        qwd = blk*qd
+        temp10 = viscsubface(mm)%q(i, j, 3)
+        temp9 = viscsubface(mm)%q(i, j, 2)
+        temp8 = viscsubface(mm)%q(i, j, 1)
+        tempd25 = -(fact*scaledim*qwd)
+        scaledimd = scaledimd - fact*(temp8*ssi(i, j, 1)+temp9*ssi(i, j&
+&         , 2)+temp10*ssi(i, j, 3))*qwd
+        viscsubfaced(mm)%q(i, j, 1) = viscsubfaced(mm)%q(i, j, 1) + ssi(&
+&         i, j, 1)*tempd25
+        ssid(i, j, 1) = ssid(i, j, 1) + temp8*tempd25
+        viscsubfaced(mm)%q(i, j, 2) = viscsubfaced(mm)%q(i, j, 2) + ssi(&
+&         i, j, 2)*tempd25
+        ssid(i, j, 2) = ssid(i, j, 2) + temp9*tempd25
+        viscsubfaced(mm)%q(i, j, 3) = viscsubfaced(mm)%q(i, j, 3) + ssi(&
+&         i, j, 3)*tempd25
+        ssid(i, j, 3) = ssid(i, j, 3) + temp10*tempd25
+      end do
+      call popinteger4(blk)
+      call popinteger4(j)
+      call popinteger4(i)
+    else
+      if (branch .eq. 1) bcdatad(mm)%cellheatflux = 0.0_8
+      scaledimd = 0.0_8
+    end if
     call popcontrol1b(branch)
     if (branch .eq. 0) then
       rd = 0.0_8
       refpointd = 0.0_8
-      scaledimd = 0.0_8
       do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
 &         bcdata(mm)%inbeg)-1
         i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
@@ -1369,9 +1419,6 @@ contains
         zc = fourth*(xx(i, j, 3)+xx(i+1, j, 3)+xx(i, j+1, 3)+xx(i+1, j+1&
 &         , 3)) - refpoint(3)
 ! update the viscous force and moment coefficients, blanking as we go.
-! cell heat flux
-! total heat flux thought that surface
-! save the face based heatflux
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -1438,67 +1485,49 @@ contains
         xxd(i, j+1, 1) = xxd(i, j+1, 1) + tempd18
         xxd(i+1, j+1, 1) = xxd(i+1, j+1, 1) + tempd18
         rd(1) = 0.0_8
-        qd = qd + bcdatad(mm)%cellheatflux(i, j)
-        bcdatad(mm)%cellheatflux(i, j) = 0.0_8
-        qwd = blk*qd
-        temp10 = viscsubface(mm)%q(i, j, 3)
-        temp9 = viscsubface(mm)%q(i, j, 2)
-        temp8 = viscsubface(mm)%q(i, j, 1)
-        tempd19 = -(fact*scaledim*qwd)
-        scaledimd = scaledimd - fact*(temp8*ssi(i, j, 1)+temp9*ssi(i, j&
-&         , 2)+temp10*ssi(i, j, 3))*qwd
-        viscsubfaced(mm)%q(i, j, 1) = viscsubfaced(mm)%q(i, j, 1) + ssi(&
-&         i, j, 1)*tempd19
-        ssid(i, j, 1) = ssid(i, j, 1) + temp8*tempd19
-        viscsubfaced(mm)%q(i, j, 2) = viscsubfaced(mm)%q(i, j, 2) + ssi(&
-&         i, j, 2)*tempd19
-        ssid(i, j, 2) = ssid(i, j, 2) + temp9*tempd19
-        viscsubfaced(mm)%q(i, j, 3) = viscsubfaced(mm)%q(i, j, 3) + ssi(&
-&         i, j, 3)*tempd19
-        ssid(i, j, 3) = ssid(i, j, 3) + temp10*tempd19
         xcd = fy*mzd - fz*myd
         ycd = fz*mxd - fx*mzd
         zcd = fx*myd - fy*mxd
-        tempd20 = fourth*zcd
-        xxd(i, j, 3) = xxd(i, j, 3) + tempd20
-        xxd(i+1, j, 3) = xxd(i+1, j, 3) + tempd20
-        xxd(i, j+1, 3) = xxd(i, j+1, 3) + tempd20
-        xxd(i+1, j+1, 3) = xxd(i+1, j+1, 3) + tempd20
+        tempd19 = fourth*zcd
+        xxd(i, j, 3) = xxd(i, j, 3) + tempd19
+        xxd(i+1, j, 3) = xxd(i+1, j, 3) + tempd19
+        xxd(i, j+1, 3) = xxd(i, j+1, 3) + tempd19
+        xxd(i+1, j+1, 3) = xxd(i+1, j+1, 3) + tempd19
         refpointd(3) = refpointd(3) - zcd
-        tempd21 = fourth*ycd
-        xxd(i, j, 2) = xxd(i, j, 2) + tempd21
-        xxd(i+1, j, 2) = xxd(i+1, j, 2) + tempd21
-        xxd(i, j+1, 2) = xxd(i, j+1, 2) + tempd21
-        xxd(i+1, j+1, 2) = xxd(i+1, j+1, 2) + tempd21
+        tempd20 = fourth*ycd
+        xxd(i, j, 2) = xxd(i, j, 2) + tempd20
+        xxd(i+1, j, 2) = xxd(i+1, j, 2) + tempd20
+        xxd(i, j+1, 2) = xxd(i, j+1, 2) + tempd20
+        xxd(i+1, j+1, 2) = xxd(i+1, j+1, 2) + tempd20
         refpointd(2) = refpointd(2) - ycd
-        tempd22 = fourth*xcd
-        xxd(i, j, 1) = xxd(i, j, 1) + tempd22
-        xxd(i+1, j, 1) = xxd(i+1, j, 1) + tempd22
-        xxd(i, j+1, 1) = xxd(i, j+1, 1) + tempd22
-        xxd(i+1, j+1, 1) = xxd(i+1, j+1, 1) + tempd22
+        tempd21 = fourth*xcd
+        xxd(i, j, 1) = xxd(i, j, 1) + tempd21
+        xxd(i+1, j, 1) = xxd(i+1, j, 1) + tempd21
+        xxd(i, j+1, 1) = xxd(i, j+1, 1) + tempd21
+        xxd(i+1, j+1, 1) = xxd(i+1, j+1, 1) + tempd21
         refpointd(1) = refpointd(1) - xcd
-        tempd23 = -(fact*pref*fzd)
-        ssid(i, j, 1) = ssid(i, j, 1) + tauxz*tempd23
-        ssid(i, j, 2) = ssid(i, j, 2) + tauyz*tempd23
-        tauzzd = ssi(i, j, 3)*tempd23
-        ssid(i, j, 3) = ssid(i, j, 3) + tauzz*tempd23
+        tempd22 = -(fact*pref*fzd)
+        ssid(i, j, 1) = ssid(i, j, 1) + tauxz*tempd22
+        ssid(i, j, 2) = ssid(i, j, 2) + tauyz*tempd22
+        tauzzd = ssi(i, j, 3)*tempd22
+        ssid(i, j, 3) = ssid(i, j, 3) + tauzz*tempd22
         prefd = prefd - fact*(tauxz*ssi(i, j, 1)+tauyz*ssi(i, j, 2)+&
 &         tauzz*ssi(i, j, 3))*fzd
-        tempd25 = -(fact*pref*fyd)
-        tauyzd = ssi(i, j, 3)*tempd25 + ssi(i, j, 2)*tempd23
-        ssid(i, j, 1) = ssid(i, j, 1) + tauxy*tempd25
-        tauyyd = ssi(i, j, 2)*tempd25
-        ssid(i, j, 2) = ssid(i, j, 2) + tauyy*tempd25
-        ssid(i, j, 3) = ssid(i, j, 3) + tauyz*tempd25
+        tempd24 = -(fact*pref*fyd)
+        tauyzd = ssi(i, j, 3)*tempd24 + ssi(i, j, 2)*tempd22
+        ssid(i, j, 1) = ssid(i, j, 1) + tauxy*tempd24
+        tauyyd = ssi(i, j, 2)*tempd24
+        ssid(i, j, 2) = ssid(i, j, 2) + tauyy*tempd24
+        ssid(i, j, 3) = ssid(i, j, 3) + tauyz*tempd24
         prefd = prefd - fact*(tauxy*ssi(i, j, 1)+tauyy*ssi(i, j, 2)+&
 &         tauyz*ssi(i, j, 3))*fyd
-        tempd24 = -(fact*pref*fxd)
-        tauxzd = ssi(i, j, 3)*tempd24 + ssi(i, j, 1)*tempd23
-        tauxyd = ssi(i, j, 2)*tempd24 + ssi(i, j, 1)*tempd25
-        tauxxd = ssi(i, j, 1)*tempd24
-        ssid(i, j, 1) = ssid(i, j, 1) + tauxx*tempd24
-        ssid(i, j, 2) = ssid(i, j, 2) + tauxy*tempd24
-        ssid(i, j, 3) = ssid(i, j, 3) + tauxz*tempd24
+        tempd23 = -(fact*pref*fxd)
+        tauxzd = ssi(i, j, 3)*tempd23 + ssi(i, j, 1)*tempd22
+        tauxyd = ssi(i, j, 2)*tempd23 + ssi(i, j, 1)*tempd24
+        tauxxd = ssi(i, j, 1)*tempd23
+        ssid(i, j, 1) = ssid(i, j, 1) + tauxx*tempd23
+        ssid(i, j, 2) = ssid(i, j, 2) + tauxy*tempd23
+        ssid(i, j, 3) = ssid(i, j, 3) + tauxz*tempd23
         prefd = prefd - fact*(tauxx*ssi(i, j, 1)+tauxy*ssi(i, j, 2)+&
 &         tauxz*ssi(i, j, 3))*fxd
         viscsubfaced(mm)%tau(i, j, 6) = viscsubfaced(mm)%tau(i, j, 6) + &
@@ -1526,7 +1555,6 @@ contains
       bcdatad(mm)%fv = 0.0_8
       rd = 0.0_8
       refpointd = 0.0_8
-      scaledimd = 0.0_8
     end if
     vd = 0.0_8
     call popreal8array(v, 3)
@@ -2053,14 +2081,6 @@ contains
         mv(1) = mv(1) + mx*blk
         mv(2) = mv(2) + my*blk
         mv(3) = mv(3) + mz*blk
-! cell heat flux
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
-&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
-! total heat flux thought that surface
-        q = q + qw*blk
-! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = q
 ! compute the r and n vectors for the moment around an
 ! axis computation where r is the distance from the
 ! force to the first point on the axis and n is a unit
@@ -2111,6 +2131,34 @@ contains
 ! of pointers there is on offset of -1 in dd2wall..
 ! if we had no viscous force, set the viscous component to zero
       bcdata(mm)%fv = zero
+    end if
+! heat flux done is seperate loop to prevent the type check from being run for each cell
+    if (bctype(mm) .eq. nswallisothermal) then
+! loop over the quadrilateral faces of the subface and
+! compute the heat flux
+      do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
+&         bcdata(mm)%inbeg)-1
+        i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
+&         inbeg + 1
+        j = ii/(bcdata(mm)%inend-bcdata(mm)%inbeg) + bcdata(mm)%jnbeg + &
+&         1
+        if (bcdata(mm)%iblank(i, j) .lt. 0) then
+          blk = 0
+        else
+          blk = bcdata(mm)%iblank(i, j)
+        end if
+! wall heat flux dotted with the area vector and scaled
+        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3)))
+! total heat though the surface
+        q = q + qw*blk
+! save the face based heatflux
+        bcdata(mm)%cellheatflux(i, j) = q
+      end do
+    else if (bctype(mm) .eq. nswalladiabatic) then
+! if we an adiabatic wall, set the heat flux to zero
+      bcdata(mm)%cellheatflux = zero
     end if
 ! increment the local values array with the values we computed here.
     localvalues(ifp:ifp+2) = localvalues(ifp:ifp+2) + fp

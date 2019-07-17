@@ -338,6 +338,7 @@ contains
     real(kind=realType) :: CpError, CpError2
 
     real(kind=realType):: Q, scaleDim
+
     select case (BCFaceID(mm))
     case (iMin, jMin, kMin)
        fact = -one
@@ -583,15 +584,6 @@ contains
                Mv(2) = Mv(2) + my * blk
                Mv(3) = Mv(3) + mz * blk
 
-               ! Cell heat flux
-               qw = -fact*scaleDim*(viscSubface(mm)%q(i,j,1)*ssi(i,j,1) &
-               + viscSubface(mm)%q(i,j,2)*ssi(i,j,2) &
-               + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
-
-               ! total heat flux thought that surface
-               Q = Q + qw * blk
-               ! Save the face based heatflux
-               bcData(mm)%cellHeatFlux(i, j) = Q
 
                ! Compute the r and n vectors for the moment around an
                ! axis computation where r is the distance from the
@@ -666,17 +658,49 @@ contains
           bcData(mm)%Fv = zero
      end if visForce
 
+
+     ! heat flux done is seperate loop to prevent the type check from being run for each cell
+     viscHeatFlux: if(BCType(mm) == NSWallIsoThermal) then
+
+          ! Loop over the quadrilateral faces of the subface and
+          ! compute the heat flux
+
+          !$AD II-LOOP
+          do ii=0,(BCData(mm)%jnEnd - bcData(mm)%jnBeg)*(bcData(mm)%inEnd - bcData(mm)%inBeg) -1
+               i = mod(ii, (bcData(mm)%inEnd-bcData(mm)%inBeg)) + bcData(mm)%inBeg + 1
+               j = ii/(bcData(mm)%inEnd-bcData(mm)%inBeg) + bcData(mm)%jnBeg + 1
+
+               ! get cell blanking value
+               blk = max(BCData(mm)%iblank(i,j), 0)
+
+               ! wall heat flux dotted with the area vector and scaled
+               qw = -fact*scaleDim*(viscSubface(mm)%q(i,j,1)*ssi(i,j,1) &
+               + viscSubface(mm)%q(i,j,2)*ssi(i,j,2) &
+               + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
+
+               ! total heat though the surface
+               Q = Q + qw * blk
+
+               ! Save the face based heatflux
+               bcData(mm)%cellHeatFlux(i, j) = Q
+          enddo
+     else if( BCType(mm) == NSWallAdiabatic) Then
+          ! If we an adiabatic wall, set the heat flux to zero
+          bcData(mm)%cellHeatFlux = zero
+     end if viscHeatFlux
+
+
      ! Increment the local values array with the values we computed here.
      localValues(iFp:iFp+2) = localValues(iFp:iFp+2) + Fp
      localValues(iFv:iFv+2) = localValues(iFv:iFv+2) + Fv
-    localValues(iMp:iMp+2) = localValues(iMp:iMp+2) + Mp
-    localValues(iMv:iMv+2) = localValues(iMv:iMv+2) + Mv
-    localValues(iSepSensor) = localValues(iSepSensor) + sepSensor
-    localValues(iCavitation) = localValues(iCavitation) + cavitation
-    localValues(iSepAvg:iSepAvg+2) = localValues(iSepAvg:iSepAvg+2) + sepSensorAvg
-    localValues(iAxisMoment) = localValues(iAxisMoment) + Mpaxis + Mvaxis
-    localValues(iHeatFlux) = localValues(iHeatFlux) + Q
-    localValues(iCpError2) = localValues(iCpError2) + CpError2
+     localValues(iMp:iMp+2) = localValues(iMp:iMp+2) + Mp
+     localValues(iMv:iMv+2) = localValues(iMv:iMv+2) + Mv
+     localValues(iSepSensor) = localValues(iSepSensor) + sepSensor
+     localValues(iCavitation) = localValues(iCavitation) + cavitation
+     localValues(iSepAvg:iSepAvg+2) = localValues(iSepAvg:iSepAvg+2) + sepSensorAvg
+     localValues(iAxisMoment) = localValues(iAxisMoment) + Mpaxis + Mvaxis
+     localValues(iHeatFlux) = localValues(iHeatFlux) + Q
+     localValues(iCpError2) = localValues(iCpError2) + CpError2
 
 #ifndef USE_TAPENADE
     localValues(iyPlus) = max(localValues(iyPlus), yplusMax)

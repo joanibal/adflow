@@ -2461,7 +2461,7 @@ class ADFLOW(AeroSolver):
         # The aeroProblem we're resetting to has an oldWinf in it, we
         # must invalidate it since it would try to use that the next
         # time this AP is used.
-        if hasattr(aeroProblem.adflowData, 'oldWinf'):
+        if hasattr(aeroProblem, 'adflowData'):
             aeroProblem.adflowData.oldWinf = None
 
         self.setAeroProblem(aeroProblem, releaseAdjointMemory)
@@ -3028,10 +3028,10 @@ class ADFLOW(AeroSolver):
             groupName = self.allWallsGroup
 
         # Map vector expects and Nx3 array. So we will do just that.
-        tmp = numpy.zeros((npts, 3))
-        tmp[:, 0] = fluxes
-        tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
-        fluxes = tmp[:, 0]
+        # tmp = numpy.zeros((npts, 3))
+        # tmp[:, 0] = fluxes
+        # tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
+        # fluxes = tmp[:, 0]
         return fluxes
 
     def getWallTemperature(self, groupName=None, TS=0):
@@ -3842,7 +3842,6 @@ class ADFLOW(AeroSolver):
             returns.append(fdot.T)
         if hfDeriv:
             returns.append(hfdot.T)
-            print(hfdot.T[:,1:10])
         return tuple(returns) if len(returns) > 1 else returns[0]
 
     def computeJacobianVectorProductBwd(self, resBar=None, funcsBar=None, fBar=None, hfBar=None,
