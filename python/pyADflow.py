@@ -1124,7 +1124,7 @@ class ADFLOW(AeroSolver):
             self.solveTimeStep()
             self.writeSolution()
 
-    def callMasterRoutine(self, aeroProblem, useSpatial = False):
+    def callMasterRoutine(self, aeroProblem, useSpatial = True):
         """
             calls the master routine on the fortran level.
             This routine contains all the steps necessary to update the state
@@ -1158,13 +1158,14 @@ class ADFLOW(AeroSolver):
         else:
             famLists = self._expandGroupNames(groupNames)
 
-        funcvalues = numpy.zeros((self.adflow.constants.ncostfunction, 1))
+        funcvalues = numpy.zeros((self.adflow.constants.ncostfunction, 1), self.dtype)
 
 
         npts, _ = self._getSurfaceSize(self.allWallsGroup)
 
         fluxes = numpy.zeros((1, npts, 1), self.dtype, order='F')
         forces = numpy.zeros((3, npts, 1), self.dtype, order='F')
+
         self.adflow.masterroutines.master(useSpatial, famLists,
                                           bcDataNames, bcDataValues, bcDataFamLists,
                                           funcvalues, forces, fluxes)
@@ -1338,6 +1339,10 @@ class ADFLOW(AeroSolver):
         'funcSens'. The keys in the funcs dictioary will be have an
         _<ap.name> appended to them.
 
+        This is the one and only gateway to the getting derivatives
+        out of adflow. If you want a derivative, it should come from
+        here.
+
         Parameters
         ----------
         funcSens : dict
@@ -1355,10 +1360,6 @@ class ADFLOW(AeroSolver):
         >>> funcSens = {}
         >>> CFDsolver.evalFunctionsSens(ap1, funcSens, ['cl', 'cd'])
         """
-
-        # This is the one and only gateway to the getting derivatives
-        # out of adflow. If you want a derivative, it should come from
-        # here.
 
         startEvalSensTime = time.time()
 
@@ -2337,7 +2338,7 @@ class ADFLOW(AeroSolver):
         # end if (root proc )
 
     def writeSurfaceSensitivity(self, fileName, func, groupName=None):
-        """Write a tecplot file of the surface sensitivty. It is up to the use
+        """Write a tecplot file of the surface sensitivty. It is up to the user
         to make sure the adjoint already computed before calling this
         function.
 
@@ -3665,7 +3666,7 @@ class ADFLOW(AeroSolver):
 
     def computeJacobianVectorProductFwd(self, xDvDot=None, xSDot=None, xVDot=None, wDot=None,
                                         residualDeriv=False, funcDeriv=False, fDeriv=False, hfDeriv=False,
-                                        groupName=None):
+                                        groupName=None, mode='AD', h=1e-8):
         """This the main python gateway for producing forward mode jacobian
         vector products. It is not generally called by the user by
         rather internally or from another solver. A DVGeo object and a
@@ -3697,6 +3698,10 @@ class ADFLOW(AeroSolver):
         groupName : str
             Optional group name to use for evaluating functions. Defaults to all
             surfaces.
+
+        mode : str
+            FD, CS, or AD
+
 
         Returns
         -------
@@ -3802,9 +3807,22 @@ class ADFLOW(AeroSolver):
             famLists = self._expandGroupNames(groupNames)
 
         # Extract any possibly BC daa
-        dwdot, tmp, fdot, hfdot = self.adflow.adjointapi.computematrixfreeproductfwd(
-            xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
-            bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime)
+        if mode == 'FD':
+            dwdot, tmp, fdot, hfdot = self.adflow.adjointdebugging.computematrixfreeproductfwdfd(
+                xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
+                bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime, h)
+        elif mode == 'CS':
+            if self.dtype == 'D':
+                dwdot, tmp, fdot, hfdot = self.adflow.adjointdebugging.computematrixfreeproductfwdcs(
+                    xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
+                    bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime)
+            else:
+                raise Error("Complexified ADflow must be used to apply the complex step")
+
+        elif mode == 'AD':
+            dwdot, tmp, fdot, hfdot = self.adflow.adjointapi.computematrixfreeproductfwd(
+                xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
+                bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime)
         # Explictly put fdot to nothing if size is zero
         if fSize==0:
             fdot = numpy.zeros((0, 3))
@@ -4045,6 +4063,77 @@ class ADFLOW(AeroSolver):
         # Single return (most frequent) is 'clean', otherwise a tuple.
         return tuple(returns) if len(returns) > 1 else returns[0]
 
+    def computeDotProductTest( self, xDvDot=False, xVDot=False, wDot=False,
+                               resBar=False, funcsBar=False, fBar=False, hfBar=False):
+        # Create a set of seeds
+        # Sizes for output arrays
+        costSize = self.adflow.constants.ncostfunction
+        fSize, nCell = self._getSurfaceSize(self.allWallsGroup, includeZipper=True)
+        nTime  = self.adflow.inputtimespectral.ntimeintervalsspectral
+
+        if xVDot:
+            xVDot = self.getSpatialPerturbation(314)
+        else:
+            xVDot = self.getSpatialPerturbation(314)*0
+
+        if wDot:
+            wDot = self.getStatePerturbation(314)
+        else:
+            wDot = self.getStatePerturbation(314)*0
+
+        if resBar:
+            resBar = self.getStatePerturbation(314)
+        else:
+            resBar = self.getStatePerturbation(314)*0
+
+        if fBar:
+            fBar = self.getSurfacePerturbation(314)
+        else:
+            fBar = self.getSurfacePerturbation(314)*0
+
+        if hfBar:
+            hfBar = self.getSurfacePerturbation(314)[:, 1].reshape((len(fBar),1))
+        else:
+            hfBar = self.getSurfacePerturbation(314)[:, 1].reshape((len(fBar),1))*0
+
+        funcsBar = numpy.zeros((self.adflow.constants.ncostfunction, 1))
+        famLists = self._expandGroupNames([self.allWallsGroup])
+
+        # Process the extra variable perturbation....this comes from
+        # xDvDot
+        extradot = numpy.zeros(self.adflow.adjointvars.ndesignextra)
+        bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty = (
+            self._getBCDataFromAeroProblem(self.curAP))
+        bcDataValuesdot = numpy.zeros_like(bcDataValues)
+
+        if xDvDot:
+            useSpatial = True
+            for xKey in xDvDot:
+                # We need to split out the family from the key.
+                key = xKey.split('_')
+                if len(key) == 1:
+                    key = key[0].lower()
+                    if key in self.possibleAeroDVs:
+                        val = xDvDot[xKey]
+                        if key.lower() == 'alpha':
+                            val *= numpy.pi/180
+                        extradot[self.possibleAeroDVs[key.lower()]] = val
+
+                else:
+                    fam = '_'.join(key[1:])
+                    key = key[0].lower()
+                    if key in self.possibleBCDvs and not bcVarsEmpty:
+                        # Figure out what index this should be:
+                        for i in range(len(bcDataNames)):
+                            if key.lower() == ''.join(bcDataNames[i]).strip().lower() and \
+                               fam.lower() == bcDataFams[i].lower():
+                                bcDataValuesdot[i] = xDvDot[xKey]
+        self.adflow.adjointdebugging.computedotproducttest(wDot, xVDot, bcDataValuesdot,
+        fBar.T, hfBar.T, resBar, funcsBar,
+        famLists, bcVarsEmpty, bcDataNames, bcDataValues, bcDataFamLists,
+        costSize, max(1, fSize), nTime,
+        self.getSpatialSize(), self.adflow.adjointvars.ndesignextra, self.getAdjointStateSize())
+
     def mapVector(self, vec1, groupName1, groupName2, vec2=None, includeZipper=True):
         """This is the main workhorse routine of everything that deals with
         families in ADflow. The purpose of this routine is to convert a
@@ -4189,7 +4278,7 @@ class ADFLOW(AeroSolver):
         """
         nPts, nCell = self._getSurfaceSize(self.allWallsGroup, includeZipper=True)
         xRand = self.getSpatialPerturbation(seed)
-        surfRand = numpy.zeros((nPts, 3))
+        surfRand = numpy.zeros((nPts, 3),dtype=self.dtype)
         famList = self._getFamilyList(self.allWallsGroup)
         # Only coded for 1 spectal instance currently.
         self.adflow.warping.getsurfaceperturbation(xRand, numpy.ravel(surfRand), famList, 1)

@@ -679,10 +679,10 @@ contains
                + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
 
                ! total heat though the surface
-               Q = Q + qw * blk
+               Q = Q + qw* blk
 
                ! Save the face based heatflux
-               bcData(mm)%cellHeatFlux(i, j) = Q
+               bcData(mm)%cellHeatFlux(i, j) = qw
           enddo
      else if( BCType(mm) == NSWallAdiabatic) Then
           ! If we an adiabatic wall, set the heat flux to zero
@@ -1184,7 +1184,7 @@ contains
                BCType(mm) == SupersonicOutflow) then
              call flowIntegrationFace_b(.false., localValues, localValuesd, mm)
           end if isInflowOutflow
-       end if famInclude
+     end if famInclude
     end do
   end subroutine integrateSurfaces_b
 

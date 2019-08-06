@@ -1353,9 +1353,8 @@ contains
         else
           blk = bcdata(mm)%iblank(i, j)
         end if
-        qd = qd + bcdatad(mm)%cellheatflux(i, j)
+        qwd = blk*qd + bcdatad(mm)%cellheatflux(i, j)
         bcdatad(mm)%cellheatflux(i, j) = 0.0_8
-        qwd = blk*qd
         temp10 = viscsubface(mm)%q(i, j, 3)
         temp9 = viscsubface(mm)%q(i, j, 2)
         temp8 = viscsubface(mm)%q(i, j, 1)
@@ -2154,7 +2153,7 @@ contains
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = q
+        bcdata(mm)%cellheatflux(i, j) = qw
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
 ! if we an adiabatic wall, set the heat flux to zero

@@ -688,7 +688,82 @@ python module libadflow
 
          subroutine destroypetscvars
          end subroutine destroypetscvars
+
        end module adjointutils
+       module adjointdebugging
+
+        subroutine computematrixfreeproductfwdfd(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime,h)
+          real(kind=realtype) dimension(:),intent(in) :: xvdot
+          real(kind=realtype) dimension(:),intent(in) :: extradot
+          real(kind=realtype) dimension(:),intent(in) :: wdot
+          real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+          logical intent(in) :: usespatial
+          logical intent(in) :: usestate
+          integer(kind=inttype) dimension(:,:) :: famlists
+          character dimension(:,:),intent(in) :: bcdatanames
+          real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
+          integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+          logical intent(in) :: bcvarsempty
+          real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
+          real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
+          real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
+          real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
+          integer(kind=inttype) :: costsize
+          integer(kind=inttype) :: fsize
+          integer(kind=inttype) :: ntime
+          real(kind=realtype) :: h
+      end subroutine computematrixfreeproductfwdfd
+
+    !   subroutine computematrixfreeproductfwdcs(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime)
+    !     real(kind=realtype) dimension(:),intent(in) :: xvdot
+    !     real(kind=realtype) dimension(:),intent(in) :: extradot
+    !     real(kind=realtype) dimension(:),intent(in) :: wdot
+    !     real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+    !     logical intent(in) :: usespatial
+    !     logical intent(in) :: usestate
+    !     integer(kind=inttype) dimension(:,:) :: famlists
+    !     character dimension(:,:),intent(in) :: bcdatanames
+    !     real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
+    !     integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+    !     logical intent(in) :: bcvarsempty
+    !     real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
+    !     real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
+    !     real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
+    !     real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
+    !     integer(kind=inttype) :: costsize
+    !     integer(kind=inttype) :: fsize
+    !     integer(kind=inttype) :: ntime
+    ! end subroutine computematrixfreeproductfwdcs
+
+
+
+      subroutine computedotproducttest(wdot, xvdot, bcdatavaluesdot, &
+        fbar, hfbar, dwbar, funcsbar, &
+        famlists, bcvarsempty, bcdatanames, bcdatavalues, bcdatafamlists, &
+        costsize, fsize, ntime,  spatialsize, extrasize, statesize)
+        real(kind=realtype), dimension(:), intent(in) :: wdot
+        real(kind=realtype), dimension(:), intent(in) :: xvdot
+        real(kind=realtype), dimension(:), intent(in) :: bcdatavaluesdot
+
+        real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
+        real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
+        real(kind=realtype), dimension(:), intent(in) :: dwbar
+
+        real(kind=realtype), dimension(:, :), intent(in) :: funcsbar
+
+        integer(kind=inttype), dimension(:,:) :: famlists
+        character, dimension(:,:), intent(in) :: bcdatanames
+        real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+        integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+        logical, intent(in) :: bcvarsempty
+
+
+        integer(kind=inttype), intent(in) :: statesize, extrasize, spatialsize
+        integer(kind=inttype), intent(in) :: costsize, fsize, ntime
+
+      end subroutine computedotproducttest
+
+       end module adjointdebugging
 
        module zippermesh
          subroutine createzippermesh(zipperfamlist,nzipfam) ! in :test:createZipperMesh.F90
@@ -705,19 +780,19 @@ python module libadflow
          real(kind=realtype) dimension(16) :: oversettimes
        end module oversetdata
 
-       module masterroutines
-          subroutine master(usespatial, famlists, bcdatanames, bcdatavalues, &
-            bcdatafamlists, funcvalues, forces, heatfluxes)
-              logical intent(in) :: usespatial
-              integer(kind=inttype) dimension(:,:) :: famlists
-              character dimension(:,:),intent(in) :: bcdatanames
-              real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
-              integer(kind=inttype), dimension(:,:) :: bcdatafamlists
-              real(kind=realtype), dimension(:, :), intent(inout) :: funcvalues
-              real(kind=realtype), dimension(:, :, :), intent(inout) :: forces
-              real(kind=realtype), dimension(:, :, :), intent(inout) :: heatfluxes
-          end subroutine master
-       end module masterroutines
+      !  module masterroutines
+      !     subroutine master(usespatial, famlists, bcdatanames, bcdatavalues, &
+      !       bcdatafamlists, funcvalues, forces, heatfluxes)
+      !         logical intent(in) :: usespatial
+      !         integer(kind=inttype) dimension(:,:) :: famlists
+      !         character dimension(:,:),intent(in) :: bcdatanames
+      !         real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+      !         integer(kind=inttype), dimension(:,:) :: bcdatafamlists
+      !         real(kind=realtype), dimension(:, :), intent(inout) :: funcvalues
+      !         real(kind=realtype), dimension(:, :, :), intent(inout) :: forces
+      !         real(kind=realtype), dimension(:, :, :), intent(inout) :: heatfluxes
+      !     end subroutine master
+      !  end module masterroutines
 
 
 ! ================ bare subroutines =============
@@ -738,9 +813,6 @@ python module libadflow
          integer(kind=inttype), optional,intent(in),depend(hflux) :: npts=len(hflux)
          integer(kind=inttype) intent(in) :: sps_in
        end subroutine getheatflux
-
-       subroutine testsubroutine()
-       end subroutine testsubroutine
 
       !  subroutine settnswall(tnsw,npts,sps_in) ! in :test:getForces.F90
       !    real(kind=realtype) dimension(npts),intent(in) :: tnsw

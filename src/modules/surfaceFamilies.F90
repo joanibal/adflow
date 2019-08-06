@@ -22,23 +22,14 @@ module surfaceFamilies
 
 
      ! --- vectors for forwardmode derivative computation ---
-     Vec nodeValLocal_d
+     Vec nodeValLocald
 
      ! Parallel vector of uniqueifed values.
-     Vec nodeValGlobal_d
+     Vec nodeValGlobald
 
      ! Sum global. Same size as nodeValGlobal
-     Vec sumGlobal_d
+     Vec sumGlobald
 
-
-     ! --- vectors for reversemode derivative computation ---
-     Vec nodeValLocal_b
-
-     ! Parallel vector of uniqueifed values.
-     Vec nodeValGlobal_b
-
-     ! Sum global. Same size as nodeValGlobal
-     Vec sumGlobal_b
 
 
 
