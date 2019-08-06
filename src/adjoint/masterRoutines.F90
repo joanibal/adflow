@@ -1,7 +1,7 @@
 module masterRoutines
 contains
-   subroutine master(useSpatial, famLists, bcDataNames, bcDataValues, &
-      bcDataFamLists, funcValues, forces, heatfluxes)
+   subroutine master(useSpatial, famLists, funcValues, forces, heatfluxes, bcDataNames, bcDataValues, &
+      bcDataFamLists)
 
     use constants
     use communication, only : adflow_comm_world
@@ -38,8 +38,18 @@ contains
     use inputOverset, only : oversetUpdateMode
     use oversetCommUtilities, only : updateOversetConnectivity
     use actuatorRegionData, only : nActuatorRegions
+    use wallDistanceData, only : xSurfVec, xSurf, wallScatter
+#include <petscversion.h>
+#if PETSC_VERSION_GE(3,8,0)
+#include <petsc/finclude/petsc.h>
+    use petsc
     implicit none
-
+#else
+    implicit none
+#define PETSC_AVOID_MPIF_H
+#include "petsc/finclude/petsc.h"
+#include "petsc/finclude/petscvec.h90"
+#endif
     ! Input Arguments:
     logical, intent(in) :: useSpatial
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
@@ -96,6 +106,10 @@ contains
        do nn=1,nDom
          call setPointers(nn, 1, sps)
          if (useSpatial) then
+
+            call VecGetArrayF90(xSurfVec(1, sps), xSurf, ierr)
+            call EChk(ierr,__FILE__,__LINE__)
+
             call volume_block
             call metric_block
             call boundaryNormals
@@ -103,6 +117,11 @@ contains
              if (equations == RANSEquations .and. useApproxWallDistance) then
                 call updateWallDistancesQuickly(nn, 1, sps)
              end if
+
+            ! These arrays need to be restored before we can move to the next spectral instance.
+            call VecRestoreArrayF90(xSurfVec(1, sps), xSurf, ierr)
+            call EChk(ierr,__FILE__,__LINE__)
+
          end if
 
           ! Compute the pressures/viscositites
@@ -146,6 +165,7 @@ contains
     do sps=1, nTimeIntervalsSpectral
        do nn=1, nDom
           call setPointers(nn, 1, sps)
+          call timeStep_block(.false.)
           call initRes_block(1, nw, nn, sps)
           do iRegion=1, nActuatorRegions
              call sourceTerms_block(nn, .True., iRegion, dummyReal)
@@ -312,11 +332,10 @@ contains
     hfSize = size(heatfluxesDot, 2)
     allocate(heatfluxes(1, hfSize, nTimeIntervalsSpectral))
 
-
     call VecPlaceArray(x_like, xdot, ierr)
     call EChk(ierr, __FILE__, __LINE__)
 
-    ! Set the provided w and x seeds:
+    ! Set the provided w and x seeds
     ii = 0
     jj = 0
     domainLoop1: do nn=1,nDom
@@ -353,7 +372,7 @@ contains
     end do
 
     ! Now exchange the coordinates. Note that we *must* exhchange the
-    ! actual coordinates as well becuase xhao_block overwrites all
+    ! actual coordinates as well becuase xhalo_block overwrites all
     ! halo nodes and exchange coor corrects them.
     call exchangecoor_d(1)
     call exchangecoor(1)
@@ -558,7 +577,7 @@ contains
     deallocate(forces)
   end subroutine master_d
 
-  subroutine master_b(wbar, xbar, extraBar, forcesBar, heatfluxBar, dwBar, nState, famLists, &
+ subroutine master_b(wbar, xbar, extraBar, forcesBar, heatfluxBar, dwBar, nState, famLists, &
        funcValues, funcValuesd, bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
 
     ! This is the main reverse mode differentiaion of master. It
@@ -768,8 +787,6 @@ contains
           end do
        end do
     end if
-
-
 
 
     ! Exchange the adjoint values.

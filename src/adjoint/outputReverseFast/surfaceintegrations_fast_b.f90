@@ -589,7 +589,7 @@ contains
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = q
+        bcdata(mm)%cellheatflux(i, j) = qw
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
 ! if we an adiabatic wall, set the heat flux to zero

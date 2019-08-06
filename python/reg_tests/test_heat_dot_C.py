@@ -11,12 +11,11 @@ from baseclasses import AeroProblem
 from mpi4py import MPI
 import copy
 import os
-import subprocess
 import sys
-import numpy as np
+# sys.path.append(os.path.abspath('../../../adflow_2'))
 sys.path.append(os.path.abspath('../../'))
 from python.pyADflow import ADFLOW
-# subprocess.call('export PETSC_DIR=/home/josh/packages/petsc-3.7.7_complex', shell=True)
+# from python.pyADflow_C import ADFLOW_C as ADFLOW
 
 # ###################################################################
 # DO NOT USE THIS IMPORT STRATEGY! THIS IS ONLY USED FOR REGRESSION
@@ -30,14 +29,13 @@ print('Test Heat: MDO tutorial -- Rans -- Scalar JST')
 # ****************************************************************************
 # hot plate floating in space (only one sym plane)
 # gridFile = '../inputFiles/floating_plate_hot.cgns'
-# gridFile = '../inputFiles/nacelle_coarsestestest_vol.cgns'
 
 # plate with an array of temperatures
 # gridFile = '../inputFiles/plate_array_temp.cgns'
 
-gridFile = '../inputFiles/debug.cgns'
+# gridFile = '../inputFiles/debug.cgns'
 # gridFile = '../inputFiles/debug_cold.cgns'
-# gridFile = '../inputFiles/debug_fric.cgns'
+gridFile = '../inputFiles/debug_fric.cgns'
 
 # mdo tutorial wing
 # gridFile = '../inputFiles/mdo_tutorial_viscous_scalar_jst.cgns'
@@ -98,73 +96,39 @@ ap = AeroProblem(name='fc_therm', V=u_inf, T=temp_air,
 
 
 # Create the solver
-
 CFDSolver = ADFLOW(options=options, debug=False)
-#
+# res = CFDSolver.getResidual(ap)
+# totalR0 = CFDSolver.getFreeStreamResidual(ap)
+# res /= totalR0
+# print('Norm of residual')
+# reducedSum = MPI.COMM_WORLD.reduce(numpy.sum(res**2))
+# print(reducedSum)
 
-res = CFDSolver.getResidual(ap)
-# CFDSolver.callMasterRoutine(ap)
+# res = CFDSolver.getResidual(ap)
+CFDSolver.callMasterRoutine(ap)
 # CFDSolver(ap)
 
-# # Create a common set of seeds
+print('# ---------------------------------------------------#')
+print('#                 Dot product Tests                  #')
+print('# ---------------------------------------------------#')
+
+# Create a common set of seeds
 wDot = CFDSolver.getStatePerturbation(314)
 xVDot = CFDSolver.getSpatialPerturbation(314)
 dwBar = CFDSolver.getStatePerturbation(314)
 fBar = CFDSolver.getSurfacePerturbation(314)
-hfBar = CFDSolver.getSurfacePerturbation(314)[:, 1].reshape((len(fBar), 1))
+hfBar = CFDSolver.getSurfacePerturbation(314)[:, 1]
 
-# wBar = CFDSolver.computeJacobianVectorProductBwd(resBar=dwBar, wDeriv=True)
-
-# CFDSolver.computeDotProductTest(fBar=True, xVDot=True)
-# CFDSolver.computeDotProductTest(hfBar=True, xVDot=True)
-# CFDSolver.computeDotProductTest(hfBar=True, wDot=True)
-# quit()
-
-# dwDot1, fDot1, hfDot1 = CFDSolver.computeJacobianVectorProductFwd(
-#     wDot=wDot, fDeriv=True, hfDeriv=True, residualDeriv=True)
-# dwDot2, fDot2, hfDot2 = CFDSolver.computeJacobianVectorProductFwd(
-#     wDot=wDot, fDeriv=True, hfDeriv=True, residualDeriv=True, mode='FD', h=1e-8)
-# print(np.real(dwDot2), np.real(fDot2), np.real(hfDot2))
-
-# print(np.real(fDot1))
-
-# # print(np.real(fDot2))
-# print(np.max(np.abs(fDot2 - fDot1) / fDot1))
-
-# print(np.real(hfDot1))
-# # print(np.real(fDot2))
-
-# # print(np.max(np.abs(dwDot2 - dwDot1) / dwDot1))
-# print(np.max(np.abs(fDot2 - fDot1) / fDot1))
-# # print(np.max(np.abs(hfDot2 - hfDot1) / hfDot1))
-
-# # print(dwDot1)
-# # print(dwDot2)
-# print(np.abs(dwDot2 - dwDot1)/dwDot1)
-
-# dwDot1, fDot1, hfDot1 = CFDSolver.computeJacobianVectorProductFwd(
-#     xVDot=xVDot, fDeriv=True, hfDeriv=True, residualDeriv=True)
-# dwDot2, fDot2, hfDot2 = CFDSolver.computeJacobianVectorProductFwd(
-#     xVDot=xVDot, fDeriv=True, hfDeriv=True, residualDeriv=True, mode='FD', h=3e-8)
-# print(np.max(np.abs(dwDot2 - dwDot1) / dwDot1))
-# print(np.max(np.abs(fDot2 - fDot1) / fDot1))
-# print(np.max(np.abs(hfDot2 - hfDot1) / hfDot1))
-
-
-# # print('# ---------------------------------------------------#')
-# # print('#                 Dot product Tests                  #')
-# # print('# ---------------------------------------------------#')
-
+print('Dot product test for w -> R')
 
 dwDot = CFDSolver.computeJacobianVectorProductFwd(wDot=wDot, residualDeriv=True)
 wBar = CFDSolver.computeJacobianVectorProductBwd(resBar=dwBar, wDeriv=True)
 
 dotLocal1 = numpy.sum(dwDot * dwBar)
 dotLocal2 = numpy.sum(wDot * wBar)
-print('Dot product test for w -> R')
 
-print(dotLocal1, 1e-10, 1e-10)
-print(dotLocal2, 1e-10, 1e-10)
+reg_par_write_sum(dotLocal1, 1e-10, 1e-10)
+reg_par_write_sum(dotLocal2, 1e-10, 1e-10)
 
 print('Dot product test for Xv -> R')
 dwDot = CFDSolver.computeJacobianVectorProductFwd(xVDot=xVDot, residualDeriv=True)
@@ -174,15 +138,17 @@ dotLocal1 = numpy.sum(dwDot * dwBar)
 dotLocal2 = numpy.sum(xVDot * xVBar)
 
 # For laminar/Rans the DP test for nodes is generally appears a
-# # little less accurate. This is ok. It has to do with the very
-# # small offwall spacing on laminar/RANS meshes.
-print(dotLocal1, 1e-9, 1e-9)
-print(dotLocal2, 1e-9, 1e-9)
+# little less accurate. This is ok. It has to do with the very
+# small offwall spacing on laminar/RANS meshes.
+reg_par_write_sum(dotLocal1, 1e-9, 1e-9)
+reg_par_write_sum(dotLocal2, 1e-9, 1e-9)
 
 
 print('Dot product test for w -> HF')
 hfDot = CFDSolver.computeJacobianVectorProductFwd(wDot=wDot, hfDeriv=True)
 wBar = CFDSolver.computeJacobianVectorProductBwd(hfBar=hfBar, wDeriv=True)
+# import ipdb
+# ipdb.set_trace()
 dotLocal1 = numpy.sum(hfDot.flatten() * hfBar.flatten())
 dotLocal2 = numpy.sum(wDot * wBar)
 
@@ -193,6 +159,8 @@ print('Dot product test for xV -> HF')
 
 hfDot = CFDSolver.computeJacobianVectorProductFwd(xVDot=xVDot, hfDeriv=True)
 xVBar = CFDSolver.computeJacobianVectorProductBwd(hfBar=hfBar, xVDeriv=True)
+
+
 dotLocal1 = numpy.sum(hfDot.flatten() * hfBar.flatten())
 dotLocal2 = numpy.sum(xVDot * xVBar)
 
@@ -222,7 +190,6 @@ reg_par_write_sum(dotLocal1, 1e-10, 1e-10)
 reg_par_write_sum(dotLocal2, 1e-10, 1e-10)
 
 print('Dot product test for (w, xV) -> (dw, F)')
-
 
 dwDot, fDot = CFDSolver.computeJacobianVectorProductFwd(wDot=wDot, xVDot=xVDot,
                                                         residualDeriv=True, fDeriv=True)

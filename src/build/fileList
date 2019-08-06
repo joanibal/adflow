@@ -5,6 +5,7 @@ fortranFiles=	ADT/adtUtils.F90\
 		ADT/adtAPI.F90\
 		\
 		adjoint/adjointUtils.F90\
+		adjoint/adjointDebugging.F90\
 		adjoint/adjointAPI.F90\
 		adjoint/fortranPC.F90\
 		adjoint/masterRoutines.F90\
