@@ -1639,10 +1639,7 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
 
          else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
             BCData(mm)%cellVal => zeroCellVal
-            BCData(mm)%nodeVal => zeroNodeVal
-
             BCDatad(mm)%cellVal => zeroCellVal
-            BCDatad(mm)%nodeVal => zeroNodeVal
 
          end if
       end do
@@ -1662,6 +1659,13 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
             BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
+            BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
+
+         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
+            BCData(mm)%cellVal => zeroCellVal
+            BCData(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
+
+            BCDatad(mm)%cellVal => zeroCellVal
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
          end if
       end do
@@ -1711,7 +1715,7 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
    use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad, BCFaceID
    use surfaceFamilies, only : BCFamExchange, familyExchange, &
          zeroCellVal, zeroNodeVal, fullfamList
-   use utils, only : EChk, setPointers, setPointers_b, setBCPointers
+   use utils, only : EChk, setPointers, setPointers_b, setBCPointers, isWallType
 #include <petscversion.h>
 #if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
@@ -1731,6 +1735,7 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
 
    integer(kind=intType) :: mm, nn, i, j, ii,  ierr
    type(familyExchange), pointer :: exch
+   real(kind=realType) :: hflux(npts)
 
    ! Set the pointer to the wall exchange:
    exch => BCFamExchange(iBCGroupWalls, sps)
@@ -1738,20 +1743,23 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
    ! Initalize the weighting seed
    call vecSet(exch%sumGlobald, zero, ierr)
    call EChk(ierr,__FILE__,__LINE__)
+
+   ! ====================
+   ! forward pass:
+   ! ====================
+   call getHeatFlux(hflux, npts, sps)
+
    ! ====================
    ! Do the reverse pass:
    ! ====================
 
-   ! Now extract into the flat array:
+   ! Now extract the seeds:
    ii = 0
    do nn=1,nDom
       call setPointers_b(nn,1_intType,sps)
 
-      ! Loop over the number of viscous boundary subfaces of this block.
-      ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
-      ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
       do mm=1,nBocos
-         if (BCType(mm) == NSWallIsoThermal) then
+         if(BCType(mm) == NSWallIsothermal) then
             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                   ii = ii + 1
@@ -1759,6 +1767,16 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
                end do
             end do
 
+
+         else if (BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic) then
+            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+                  ii = ii + 1
+
+                  ! should already be zeroed... but I think this is clearer
+                  BCDatad(mm)%nodeHeatFlux(i, j) = zero
+               end do
+            end do
             ! Simply put in zeros for the other wall BCs
          end if
       end do
@@ -1768,19 +1786,13 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
    do nn=1, nDom
       call setPointers_b(nn, 1_intType, sps)
       do mm=1, nBocos
-         if (BCType(mm) == NSWallIsoThermal) then
+         if (isWallType(BCType(mm))) then
             BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
             BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
 
-         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
-            BCData(mm)%cellVal => zeroCellVal
-            BCData(mm)%nodeVal => zeroNodeVal
-
-            BCDatad(mm)%cellVal => zeroCellVal
-            BCDatad(mm)%nodeVal => zeroNodeVal
          end if
       end do
    end do

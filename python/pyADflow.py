@@ -3942,7 +3942,7 @@ class ADFLOW(AeroSolver):
             fBar= fBar.reshape((nTime, nPts, 3))
 
         if hfBar is None:
-            hfBar = numpy.zeros((nTime, nPts, 3))
+            hfBar = numpy.zeros((nTime, nPts, 1))
         else:
             # Expand out to the sps direction in case there were only
             # 2 dimensions.
@@ -4442,7 +4442,7 @@ class ADFLOW(AeroSolver):
         analysis"""
         self.setAeroProblem(aeroProblem, releaseAdjointMemory)
         if res is None:
-            res = numpy.zeros(self.getStateSize())
+            res = numpy.zeros(self.getStateSize(), dtype=self.dtype)
         res = self.adflow.nksolver.getres(res)
 
         return res
@@ -5300,8 +5300,8 @@ class ADFLOW(AeroSolver):
         for key in iDV:
             iDV[key] = iDV[key] - 1
 
-            # Extra DVs for the Boundary condition variables
-        BCDV = ['pressure', 'pressurestagnation', 'temperaturestagnation', 'thrust']
+        # Extra DVs for the Boundary condition variables
+        BCDV = ['temperature', 'pressure', 'pressurestagnation', 'temperaturestagnation', 'thrust']
 
         # This is ADflow's internal mapping for cost functions
         adflowCostFunctions = {

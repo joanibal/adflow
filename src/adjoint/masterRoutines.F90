@@ -191,7 +191,6 @@ contains
           endif
 
           ! Compute the mean flow residuals
-          call timeStep_block(.false.)
           call inviscidCentralFlux
           if (lumpedDiss) then
              select case (spaceDiscr)
@@ -315,15 +314,13 @@ contains
     ! Working Variables
     real(kind=realType), dimension(:, :, :), allocatable :: forces
     real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
-    integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, hfSize, ii, jj, iRegion
+    integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj, iRegion
     real(kind=realType), dimension(nSections) :: t
     real(kind=realType) :: dummyReal, dummyReald
 
     fSize = size(forcesDot, 2)
     allocate(forces(3, fSize, nTimeIntervalsSpectral))
-
-    hfSize = size(heatfluxesDot, 2)
-    allocate(heatfluxes(1, hfSize, nTimeIntervalsSpectral))
+    allocate(heatfluxes(1, fsize, nTimeIntervalsSpectral))
 
     call VecPlaceArray(x_like, xdot, ierr)
     call EChk(ierr, __FILE__, __LINE__)
@@ -450,6 +447,7 @@ contains
     end do
 
     ! Just exchange the derivative values.
+    call whalo2(1, 1, nw, .True., .True., .True.)
     call whalo2_d(1, 1, nw, .True., .True., .True.)
 
     ! Need to re-apply the BCs. The reason is that BC halos behind
@@ -545,7 +543,7 @@ contains
 
     do sps=1, nTimeIntervalsSpectral
        call getForces_d(forces(:, :, sps), forcesDot(:, :, sps), fSize, sps)
-       call getHeatFlux_d(heatfluxes(:, :, sps), heatfluxesDot(:, :, sps), hfSize, sps)
+       call getHeatFlux_d(heatfluxes(:, :, sps), heatfluxesDot(:, :, sps), fSize, sps)
     end do
 
     ! Copy out the residual derivative into the provided dwDot
@@ -643,6 +641,19 @@ contains
     real(kind=realType), dimension(:), allocatable :: extraLocalBar, bcDataValuesdLocal
     real(kind=realType) :: dummyReal, dummyReald
     logical ::resetToRans
+    real(kind=realType), dimension(:, :, :), allocatable :: forces
+    real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
+
+    fSize = size(forcesBar, 2)
+    allocate(forces(3, fSize, nTimeIntervalsSpectral))
+    allocate(heatfluxes(1, fsize, nTimeIntervalsSpectral))
+
+    ! do the foreward pass
+    call master(.true., famLists, funcValues, forces, heatfluxes, bcDataNames, bcDataValues, &
+      bcDataFamLists)
+    ! you may be thinking we do we need this when we always do a forward pass before solving the
+    ! adjoint? well it is because we run this code multiple times to setup the adjoint. On each
+    ! reverse pass the varibles can be changed so it is import to reset them with another forward pass.
 
     ! extraLocalBar accumulates the seeds onto the extra variables
     allocate(extraLocalBar(size(extrabar)))
@@ -776,6 +787,7 @@ contains
 
     ! Exchange the adjoint values.
     call whalo2_b(currentLevel, 1_intType, nw, .True., .True., .True.)
+   !  call whalo2(currentLevel, 1_intType, nw, .True., .True., .True.)
 
     spsLoop2: do sps=1,nTimeIntervalsSpectral
 
@@ -993,6 +1005,9 @@ contains
     ! Working Variables
     integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj,  level, iRegion
     real(kind=realType) :: dummyReal
+
+    ! do the foreward pass
+    call master(.true.)
 
     ! Set the residual seeds.
     ii = 0
