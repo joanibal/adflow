@@ -1613,6 +1613,10 @@ contains
          nMon = nMon + 1; nMonSum = nMonSum + 1
          tmpNames(nMon) = cgnsHeatFlux
 
+      case("heattransfercoef")
+         nMon = nMon + 1; nMonSum = nMonSum + 1
+         tmpNames(nMon) = cgnsHeatTransferCoef
+
       case("StantonNumber")
          nMon = nMon + 1; nMonSum = nMonSum + 1
          tmpNames(nMon) = cgnsStanton
@@ -2339,7 +2343,7 @@ contains
     !
     integer :: nVarSpecified, pos
 
-    character(len=15) :: keyword
+    character(len=16) :: keyword
     character(len=maxStringLen) :: errorMessage
 
     ! Convert the string variables to lower case.
@@ -2376,6 +2380,7 @@ contains
     surfWriteAxisMoment = .false.
     surfWriteGC = .false.
     surfWriteHeatFlux = .false.
+    surfWriteHeatTransferCoef = .false.
 
 
     ! Initialize nVarSpecified to 0. This serves as a test
@@ -2384,7 +2389,7 @@ contains
     nVarSpecified = 0
 
     ! Loop to extract the info from the string variables.
-
+    write(*,*) 'variables', variables
     do
        ! Condition to exit the loop.
 
@@ -2504,9 +2509,13 @@ contains
           surfWriteGC = .True.
           nVarSpecified = nVarSpecified + 1
 
-        case ("heatflux")
-           surfWriteHeatFlux = .True.
-           nVarSpecified = nVarSpecified + 1
+       case ("heatflux")
+          surfWriteHeatFlux = .True.
+          nVarSpecified = nVarSpecified + 1
+
+       case ("heattransfercoef")
+         surfWriteHeatTransferCoef = .True.
+         nVarSpecified = nVarSpecified + 1
 
        case default
           pos = len_trim(keyword)
