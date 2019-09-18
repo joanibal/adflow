@@ -1416,10 +1416,14 @@ class ADFLOW(AeroSolver):
             # These are the reverse mode seeds
             psi = -self.getAdjoint(f)
 
+            resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
+            xDvBar = self.computeJacobianVectorProductBwd(resBar=psi, funcsBar=self._getFuncsBar(f), xDvDeriv=True)
+            # import ipdb; ipdb.set_trace()
+            print(numpy.sum(resDot*psi))
             # Compute everything and update into the dictionary
-            funcsSens[key].update(self.computeJacobianVectorProductBwd(
-                resBar=psi, funcsBar=self._getFuncsBar(f), xDvDeriv=True
-                ))
+            funcsSens[key].update(xDvBar)
+
+
 
             totalSensEndTime[f] = time.time()
 
@@ -2682,7 +2686,8 @@ class ADFLOW(AeroSolver):
                 # Save this state information
                 aeroProblem.adflowData.stateInfo = self._getInfo()
             else:
-                self._resetFlow()
+                # self._resetFlow()
+                pass
 
         if failedMesh:
             self.adflow.killsignals.fatalfail = True
@@ -3314,6 +3319,8 @@ class ADFLOW(AeroSolver):
 
         # Check to see if the RHS Partials have been computed
         if objective not in self.curAP.adflowData.adjointRHS:
+            resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
+
             RHS = self.computeJacobianVectorProductBwd(
                 funcsBar=self._getFuncsBar(objective), wDeriv=True)
             self.curAP.adflowData.adjointRHS[objective] = RHS.copy()
@@ -4212,6 +4219,11 @@ class ADFLOW(AeroSolver):
         self.adflow.surfaceutils.mapvector(vec1.T, famList1, vec2.T, famList2, includeZipper)
 
         return vec2
+
+    def getMeshSize(self):
+        ncells = self.adflow.adjointvars.ncellslocal[0]
+        nCellTotal = self.comm.allreduce(ncells)
+        return nCellTotal
 
     def getStateSize(self):
         """Return the number of degrees of freedom (states) that are on this
@@ -5388,6 +5400,7 @@ class ADFLOW(AeroSolver):
             'mavgvz': self.adflow.constants.costfuncmavgvz,
             'cperror2':self.adflow.constants.costfunccperror2,
             'heatflux':self.adflow.constants.costfuncheatflux,
+            'havg':self.adflow.constants.costfuncheattransfercoef,
             }
 
         return iDV, BCDV, adflowCostFunctions

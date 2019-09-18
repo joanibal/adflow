@@ -113,7 +113,11 @@ contains
        funcValues(costFuncFlowPower) = funcValues(costFuncFlowPower) + ovrNTS*globalVals(iPower, sps)
 
        funcValues(costFuncCpError2) = funcValues(costFuncCpError2) + ovrNTS*globalVals(iCpError2,sps)
+
+       ! heat transfer cost functions
        funcValues(costFuncHeatFlux) = funcValues(costFuncHeatFlux) + ovrNTS*globalVals(iHeatFlux,sps)
+       funcValues(costFuncHeatTransferCoef) = funcValues(costFuncHeatTransferCoef) + &
+                                              ovrNTS*globalVals(iHeatTransferCoef,sps)/globalVals(iHeatedArea,sps)
 
        ! Mass flow like objective
        mFlow = globalVals(iMassFlow, sps)
@@ -337,7 +341,7 @@ contains
     real(kind=realType) :: mx, my, mz, cellArea, m0x, m0y, m0z, Mvaxis, Mpaxis, qw
     real(kind=realType) :: CpError, CpError2
 
-    real(kind=realType):: Q, scaleDim
+    real(kind=realType):: Q, scaleDim, hAvg, areaHeated
 
     select case (BCFaceID(mm))
     case (iMin, jMin, kMin)
@@ -374,6 +378,8 @@ contains
     CpError2 = zero;
 
     Q = zero
+    hAvg = zero
+    areaHeated = zero
     scaleDim = pRef*sqrt(pRef/rhoRef)
 
     !
@@ -505,7 +511,7 @@ contains
        sepSensorAvg(1) = sepSensorAvg(1)  + sensor * xc
        sepSensorAvg(2) = sepSensorAvg(2)  + sensor * yc
        sepSensorAvg(3) = sepSensorAvg(3)  + sensor * zc
-
+      
        if (computeCavitation) then
           plocal = pp2(i,j)
           tmp = two/(gammaInf*MachCoef*MachCoef)
@@ -674,7 +680,7 @@ contains
                blk = max(BCData(mm)%iblank(i,j), 0)
 
                ! wall heat flux dotted with the area vector and scaled
-               qw = -fact*scaleDim*(viscSubface(mm)%q(i,j,1)*ssi(i,j,1) &
+               qw = fact*scaleDim*(viscSubface(mm)%q(i,j,1)*ssi(i,j,1) &
                + viscSubface(mm)%q(i,j,2)*ssi(i,j,2) &
                + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
 
@@ -683,6 +689,10 @@ contains
 
                ! Save the face based heatflux
                bcData(mm)%cellHeatFlux(i, j) = qw
+               
+               hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)))* blk
+               ! write(*,*) i, j , 'h', qw, (Tref*(1 - BCData(mm)%TNS_Wall(i,j))), scaleDim
+               areaHeated = areaHeated + BCData(mm)%area(i,j)* blk
           enddo
      else if( BCType(mm) == NSWallAdiabatic) Then
           ! If we an adiabatic wall, set the heat flux to zero
@@ -699,8 +709,10 @@ contains
      localValues(iCavitation) = localValues(iCavitation) + cavitation
      localValues(iSepAvg:iSepAvg+2) = localValues(iSepAvg:iSepAvg+2) + sepSensorAvg
      localValues(iAxisMoment) = localValues(iAxisMoment) + Mpaxis + Mvaxis
-     localValues(iHeatFlux) = localValues(iHeatFlux) + Q
      localValues(iCpError2) = localValues(iCpError2) + CpError2
+     localValues(iHeatFlux) = localValues(iHeatFlux) + Q
+     localValues(iHeatTransferCoef) = localValues(iHeatTransferCoef) + hAvg
+     localValues(iHeatedArea) = localValues(iHeatedArea) + areaHeated
 
 #ifndef USE_TAPENADE
     localValues(iyPlus) = max(localValues(iyPlus), yplusMax)

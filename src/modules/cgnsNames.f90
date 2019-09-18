@@ -113,8 +113,7 @@
                              cgnsSkinFY    = "SkinFrictionY"
        character(len=maxCGNSNameLen), parameter :: &
                              cgnsSkinFZ    = "SkinFrictionZ"
-       character(len=maxCGNSNameLen), parameter :: &
-                             cgnsStanton   = "StantonNumber"
+
        character(len=maxCGNSNameLen), parameter :: &
                              cgnsYPlus     = "YPlus"
 
@@ -280,7 +279,10 @@
 !       Names of the heat transfer parameters
 !
        character(len=maxCGNSNameLen), parameter :: cgnsHeatFlux = "HeatFlux"
-
+       character(len=maxCGNSNameLen), parameter :: &
+                             cgnsHeatTransferCoef = "HeatTransferCoef"
+       character(len=maxCGNSNameLen), parameter :: &
+                             cgnsStanton   = "StantonNumber"
        !
 !       Names for the convergence history and time history.
 !

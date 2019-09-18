@@ -168,6 +168,7 @@ contains
     if( surfWriteCavitation )     nsolVar = nsolVar +1
     if( surfWriteGC )             nsolVar = nsolVar +1
     if( surfWriteHeatFlux )       nsolVar = nsolVar +1
+    if( surfWriteHeatTransferCoef )   nsolVar = nsolVar +1
 
   end subroutine numberOfSurfSolVariables
 
@@ -720,6 +721,11 @@ contains
       nn = nn + 1
       solNames(nn) = cgnsHeatFlux
    end if
+
+   if( surfWriteHeatTransferCoef ) then
+      nn = nn + 1
+      solNames(nn) = cgnsHeatTransferCoef
+   endif
 
 
   end subroutine surfSolNames
@@ -1471,7 +1477,7 @@ contains
        select case (solName)
 
        case (cgnsSkinFmag, cgnsStanton, cgnsYplus, &
-            cgnsSkinFx, cgnsSkinFy, cgnsSkinFz, cgnsHeatFlux)
+            cgnsSkinFx, cgnsSkinFy, cgnsSkinFz, cgnsHeatFlux, cgnsHeatTransferCoef)
 
           ! Update the counter and set this entry of buffer to 0.
 
@@ -1973,64 +1979,114 @@ contains
 
        !        ================================================================
 
-    case (cgnsStanton)
+      case (cgnsStanton)
 
-       ! Some constants needed to compute the stanton number.
+         ! Some constants needed to compute the stanton number.
+  
+         gm1   = gammaInf - one
+         a2Tot = gammaInf*pInf*(one + half*gm1*MachCoef*MachCoef) &
+              / rhoInf
+         fact   = MachCoef*sqrt(gammaInf*pInf*rhoInf)/gm1
+  
+         ! Loop over the given range of faces. As the viscous data is
+         ! only present in the owned faces, the values of the halo's
+         ! are set equal to the nearest physical face. Therefore the
+         ! working indices are ii and jj.
+         do j=rangeFace(2,1), rangeFace(2,2)
+            if(j == rangeFace(2,1)) then
+               jj = min(j + offVis, rangeFace(2,2))
+            else if(j == rangeFace(2,2)) then
+               jj = max(j - offVis, rangeFace(2, 1))
+            else
+               jj = j
+            endif
+  
+            do i=rangeFace(1,1), rangeFace(1,2)
+               if(i == rangeFace(1,1)) then
+                  ii = min(i + offVis, rangeFace(1,2))
+               else if(i == rangeFace(1,2)) then
+                  ii = max(i - offVis, rangeFace(1,1))
+               else
+                  ii = i
+               endif
+  
+               ! Determine the viscous subface on which this
+               ! face is located.
+  
+               mm = viscPointer(ii,jj)
+  
+               ! Compute the heat flux. Multipy with the sign of the
+               ! normal to obtain the correct value.
+  
+               qw = viscSubface(mm)%q(ii,jj,1)*BCData(mm)%norm(ii,jj,1) &
+                    + viscSubface(mm)%q(ii,jj,2)*BCData(mm)%norm(ii,jj,2) &
+                    + viscSubface(mm)%q(ii,jj,3)*BCData(mm)%norm(ii,jj,3)
+  
+               ! Compute the speed of sound squared at the wall and
+               ! the stanton number, which is stored in buffer.
+  
+               a2 = half*(gamma1(ii,jj)   + gamma2(ii,jj)) &
+                    *      (pp1(ii,jj)      + pp2(ii,jj))    &
+                    /      (ww1(ii,jj,irho) + ww2(ii,jj,irho))
+  
+               nn = nn + 1
+               buffer(nn) = qw/(fact*(a2Tot-a2))
+  
+            enddo
+         enddo
+  
+         !        ================================================================
+      case (cgnsHeatTransferCoef)
 
-       gm1   = gammaInf - one
-       a2Tot = gammaInf*pInf*(one + half*gm1*MachCoef*MachCoef) &
-            / rhoInf
-       fact   = MachCoef*sqrt(gammaInf*pInf*rhoInf)/gm1
+         ! Some constants needed to compute the stanton number.
+  
+         fact = pRef*sqrt(pRef/rhoRef)
 
-       ! Loop over the given range of faces. As the viscous data is
-       ! only present in the owned faces, the values of the halo's
-       ! are set equal to the nearest physical face. Therefore the
-       ! working indices are ii and jj.
-       do j=rangeFace(2,1), rangeFace(2,2)
-          if(j == rangeFace(2,1)) then
-             jj = min(j + offVis, rangeFace(2,2))
-          else if(j == rangeFace(2,2)) then
-             jj = max(j - offVis, rangeFace(2, 1))
-          else
-             jj = j
-          endif
+         ! Loop over the given range of faces. As the viscous data is
+         ! only present in the owned faces, the values of the halo's
+         ! are set equal to the nearest physical face. Therefore the
+         ! working indices are ii and jj.
+         do j=rangeFace(2,1), rangeFace(2,2)
+            if(j == rangeFace(2,1)) then
+               jj = min(j + offVis, rangeFace(2,2))
+            else if(j == rangeFace(2,2)) then
+               jj = max(j - offVis, rangeFace(2, 1))
+            else
+               jj = j
+            endif
+  
+            do i=rangeFace(1,1), rangeFace(1,2)
+               if(i == rangeFace(1,1)) then
+                  ii = min(i + offVis, rangeFace(1,2))
+               else if(i == rangeFace(1,2)) then
+                  ii = max(i - offVis, rangeFace(1,1))
+               else
+                  ii = i
+               endif
+  
+               ! Determine the viscous subface on which this
+               ! face is located.
+  
+               mm = viscPointer(ii,jj)
+  
+               ! Compute the heat flux. Multipy with the sign of the
+               ! normal to obtain the correct value.
+  
+               qw = fact*(viscSubface(mm)%q(ii,jj,1)*BCData(mm)%norm(ii,jj,1) &
+               + viscSubface(mm)%q(ii,jj,2)*BCData(mm)%norm(ii,jj,2) &
+               + viscSubface(mm)%q(ii,jj,3)*BCData(mm)%norm(ii,jj,3))
 
-          do i=rangeFace(1,1), rangeFace(1,2)
-             if(i == rangeFace(1,1)) then
-                ii = min(i + offVis, rangeFace(1,2))
-             else if(i == rangeFace(1,2)) then
-                ii = max(i - offVis, rangeFace(1,1))
-             else
-                ii = i
-             endif
-
-             ! Determine the viscous subface on which this
-             ! face is located.
-
-             mm = viscPointer(ii,jj)
-
-             ! Compute the heat flux. Multipy with the sign of the
-             ! normal to obtain the correct value.
-
-             qw = viscSubface(mm)%q(ii,jj,1)*BCData(mm)%norm(ii,jj,1) &
-                  + viscSubface(mm)%q(ii,jj,2)*BCData(mm)%norm(ii,jj,2) &
-                  + viscSubface(mm)%q(ii,jj,3)*BCData(mm)%norm(ii,jj,3)
-
-             ! Compute the speed of sound squared at the wall and
-             ! the stanton number, which is stored in buffer.
-
-             a2 = half*(gamma1(ii,jj)   + gamma2(ii,jj)) &
-                  *      (pp1(ii,jj)      + pp2(ii,jj))    &
-                  /      (ww1(ii,jj,irho) + ww2(ii,jj,irho))
-
-             nn = nn + 1
-             buffer(nn) = qw/(fact*(a2Tot-a2))
-
-          enddo
-       enddo
-
-       !        ================================================================
-
+               nn = nn + 1
+               if (BCType(mm) == NSWallIsothermal) then
+                  buffer(nn) = qw/((Tref - BCData(mm)%TNS_Wall(ii,jj)*Tref))
+               else
+                  buffer(nn) = 0.0
+               end if
+            enddo
+         enddo
+  
+         !        ================================================================
+    
     case (cgnsBlank)
 
        ! Loop over the given range of faces. Since iblanks are set
@@ -2131,7 +2187,6 @@ contains
                ! write(*,*) 'qw', qw, viscSubface(mm)%q(ii,jj,1), viscSubface(mm)%q(ii,jj,2), viscSubface(mm)%q(ii,jj,3)
                nn = nn + 1
                buffer(nn) = qw
-
             enddo
          enddo
 

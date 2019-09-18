@@ -592,22 +592,24 @@ contains
     use inputDiscretization, only : lowSpeedPreconditioner, lumpedDiss, spaceDiscr, useAPproxWallDistance
     use inputTimeSpectral, only : nTimeIntervalsSpectral
     use inputAdjoint, only : frozenTurbulence
-    use utils, only : isWallType, setPointers_b, EChk
+    use utils, only : isWallType, setPointers_b, EChk, setPointers
     use adjointPETSc, only : x_like
     use haloExchange, only : whalo2_b, exchangeCoor_b, exchangeCoor, whalo2
     use wallDistanceData, only : xSurfVec, xSurfVecd, xSurf, xSurfd, wallScatter
     use surfaceIntegrations, only : getSolution_b
-    use flowUtils, only : fixAllNodalGradientsFromAD
+    use flowUtils, only : fixAllNodalGradientsFromAD, computePressureSimple, computeLamViscosity
     use adjointextra_b, only : resscale_B, sumdwandfw_b
     use adjointExtra_b, only : xhalo_block_b, volume_block_b, metric_block_b, boundarynormals_b
     use flowutils_b, only : computePressureSimple_b, computeLamViscosity_b, &
          computeSpeedOfSoundSquared_b, allNodalGradients_b, adjustInflowAngle_b
     use solverutils_b, only : timeStep_Block_b
     use turbbcroutines_b, only : applyAllTurbBCthisblock_b,  bcTurbTreatment_b
+    use turbbcroutines, only : applyAllTurbBCthisblock,  bcTurbTreatment
     use initializeflow_b, only : referenceState_b
     use wallDistance_b, only : updateWallDistancesQuickly_b
     use sa_b, only : saSource_b, saViscous_b, saResScale_b, qq
     use turbutils_b, only : turbAdvection_b, computeEddyViscosity_b
+    use turbutils, only :  computeEddyViscosity
     use residuals_b, only : sourceTerms_block_b
     use fluxes_b, only :inviscidUpwindFlux_b, inviscidDissFluxScalar_b, &
          inviscidDissFluxMatrix_b, viscousFlux_b, inviscidCentralFlux_b
@@ -648,12 +650,55 @@ contains
     allocate(forces(3, fSize, nTimeIntervalsSpectral))
     allocate(heatfluxes(1, fsize, nTimeIntervalsSpectral))
 
-    ! do the foreward pass
-    call master(.true., famLists, funcValues, forces, heatfluxes, bcDataNames, bcDataValues, &
-      bcDataFamLists)
+   !  ! do the foreward pass
+   !  call master(.true., famLists, funcValues, forces, heatfluxes, bcDataNames, bcDataValues, &
+   !    bcDataFamLists)
     ! you may be thinking we do we need this when we always do a forward pass before solving the
     ! adjoint? well it is because we run this code multiple times to setup the adjoint. On each
     ! reverse pass the varibles can be changed so it is import to reset them with another forward pass.
+
+      do sps=1,nTimeIntervalsSpectral
+         do nn=1,nDom
+           call setPointers(nn, 1, sps)
+
+            ! Compute the pressures/viscositites
+            call computePressureSimple(.False.)
+  
+            ! Compute Laminar/eddy viscosity if required
+            call computeLamViscosity(.False.)
+            call computeEddyViscosity(.False.)
+  
+            ! Make sure to call the turb BC's first incase we need to
+            ! correct for K
+            if (equations == RANSequations) then
+               call BCTurbTreatment
+               call applyAllTurbBCthisblock(.True.)
+            end if
+            call applyAllBC_block(.True.)
+         end do
+      end do
+  
+      ! Exchange values
+      call whalo2(currentLevel, 1_intType, nw, .True., .True., .True.)
+  
+      ! Need to re-apply the BCs. The reason is that BC halos behind
+      ! interpolated cells need to be recomputed with their new
+      ! interpolated values from actual compute cells. Only needed for
+      ! overset.
+      if (oversetPresent) then
+         do sps=1,nTimeIntervalsSpectral
+            do nn=1,nDom
+               call setPointers(nn, 1, sps)
+               if (equations == RANSequations) then
+                  call BCTurbTreatment
+                  call applyAllTurbBCthisblock(.True.)
+               end if
+               call applyAllBC_block(.True.)
+            end do
+         end do
+      end if
+  
+
 
     ! extraLocalBar accumulates the seeds onto the extra variables
     allocate(extraLocalBar(size(extrabar)))
@@ -972,16 +1017,18 @@ contains
     use inputPhysics, only : equationMode, turbModel, equations
     use inputDiscretization, only : lowSpeedPreconditioner, spaceDiscr
     use inputTimeSpectral, only : nTimeIntervalsSpectral
-    use utils, only : setPointers_d
-    use haloExchange, only : whalo2_b
+    use utils, only : setPointers_d, setPointers
+    use haloExchange, only : whalo2, whalo2_b
     use flowUtils, only : fixAllNodalGradientsFromAD
     use adjointextra_b, only : resscale_B, sumdwandfw_b
     use flowutils_b, only : computePressureSimple_b, computeLamViscosity_b, &
          computeSpeedOfSoundSquared_b
+    use flowutils, only : computePressureSimple, computeLamViscosity
     use turbbcroutines_b, only : applyAllTurbBCthisblock_b,  bcTurbTreatment_b
+    use turbbcroutines, only : applyAllTurbBCthisblock,  bcTurbTreatment
     use turbUtils_b, only : computeEddyViscosity_b
+    use turbUtils, only : computeEddyViscosity
     use BCExtra_b, only : applyAllBC_Block_b
-
     use sa_fast_b, only : saresscale_fast_b, saviscous_fast_b, &
          sasource_fast_b, qq
     use turbutils_fast_b, only : turbAdvection_fast_b
@@ -1007,7 +1054,49 @@ contains
     real(kind=realType) :: dummyReal
 
     ! do the foreward pass
-    call master(.true.)
+   !  call master(.true.)
+    do sps=1,nTimeIntervalsSpectral
+      do nn=1,nDom
+        call setPointers(nn, 1, sps)
+
+         ! Compute the pressures/viscositites
+         call computePressureSimple(.False.)
+
+         ! Compute Laminar/eddy viscosity if required
+         call computeLamViscosity(.False.)
+         call computeEddyViscosity(.False.)
+
+         ! Make sure to call the turb BC's first incase we need to
+         ! correct for K
+         if (equations == RANSequations) then
+            call BCTurbTreatment
+            call applyAllTurbBCthisblock(.True.)
+         end if
+         call applyAllBC_block(.True.)
+      end do
+   end do
+
+   ! Exchange values
+   call whalo2(currentLevel, 1_intType, nw, .True., .True., .True.)
+
+   ! Need to re-apply the BCs. The reason is that BC halos behind
+   ! interpolated cells need to be recomputed with their new
+   ! interpolated values from actual compute cells. Only needed for
+   ! overset.
+   if (oversetPresent) then
+      do sps=1,nTimeIntervalsSpectral
+         do nn=1,nDom
+            call setPointers(nn, 1, sps)
+            if (equations == RANSequations) then
+               call BCTurbTreatment
+               call applyAllTurbBCthisblock(.True.)
+            end if
+            call applyAllBC_block(.True.)
+         end do
+      end do
+   end if
+
+
 
     ! Set the residual seeds.
     ii = 0
