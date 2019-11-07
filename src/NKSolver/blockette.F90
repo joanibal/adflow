@@ -161,10 +161,11 @@ contains
        ! Update all the BCData
        call referenceState
        if (present(bcDataNames)) then
-          do sps=1,nTimeIntervalsSpectral
-             call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
-                  size(bcDataValues), size(bcDataFamLIsts, 2))
-          end do
+         !TODO uncomment when done messing with setBCData
+         !  do sps=1,nTimeIntervalsSpectral
+         !     call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
+         !          size(bcDataValues), size(bcDataFamLIsts, 2))
+         !  end do
           call setBCDataFineGrid(.true.)
        end if
 

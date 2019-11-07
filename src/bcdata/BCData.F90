@@ -1395,16 +1395,19 @@ contains
 
 #ifndef USE_TAPENADE
 
-  subroutine setBCData(bcDataNamesIn, bcDataIn, famLists, sps, &
-       nVar, nFamMax)
+  subroutine setBCData(bcDataName, bcDataArrays, famLists, sps, nFamMax)
+   ! TODO get Sandy's feed back on this code 
+
     !--------------------------------------------------------------
     ! Manual Differentiation Warning: Modifying this routine requires
     ! modifying the hand-written forward and reverse routines.
     ! --------------------------------------------------------------
+
+    !  sets the given bcData array 
+
     use constants
     use cgnsNames
-    use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, &
-         cgnsSubFace, BCType
+    use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, cgnsSubFace, BCType
     use sorting, only : famInList
     use utils, only : setPointers,terminate, char2str
     use communication, only : myid
@@ -1412,15 +1415,27 @@ contains
     !
     !      Subroutine arguments.
     !
-    character, dimension(nVar, maxCGNSNameLen), intent(in) :: bcdatanamesin
-    real(kind=realType), dimension(nVar), intent(in) :: bcDataIn
-    integer(kind=intType), dimension(nVar, nFamMax) :: famLists
-    integer(kind=intType), intent(in) ::  sps , nVar, nFamMax
+    character, dimension(maxCGNSNameLen), intent(in) :: bcDataName
+      ! name of the physical quantity that the data array applies to ('Temperature' , 'Pressure', ect.)
+    real(kind=realType), dimension(:,:), intent(in) :: bcDataArrays
+      ! bc data to be set
+    integer(kind=intType), dimension(nFamMax) :: famLists
+      ! list of surface famlies to apply the bc data to
+    integer(kind=intType), intent(in) ::  nFamMax
+      ! maximum size of the famList
+    integer(kind=intType), intent(in) ::  sps 
+      ! time spectral instance 
+
     !
     !      Local variables.
     !
-    integer(kind=intType) :: i, j, k, iVar, nFam, iRegion
+    integer(kind=intType) :: i, iarray, j, k, iVar, nFam, iRegion
     character(maxCGNSNameLen) :: varName
+
+    ! this keeps track of which row of the bcDataArray will be insertd into the 
+    ! dataset. The data array should have as many rows as there
+    iarray = 1
+
     domainsLoop: do i=1, nDom
 
        ! Set the pointers to this block on groundLevel to make
@@ -1428,7 +1443,6 @@ contains
 
        call setPointers(i, 1_intType, sps)
 
-       varLoop: do iVar=1, nVar
 
           ! Loop over the number of boundary condition subfaces.
 
@@ -1442,56 +1456,59 @@ contains
              dataSet => cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%dataSet
 
              ! Check if this surface should be included or not:
-             nFam = famLists(iVar, 1)
-             famInclude: if (famInList(BCdata(j)%famID, famLists(iVar, 2:2+nFam-1))) then
+             nFam = famLists(1)
+             famInclude: if (famInList(BCdata(j)%famID, famLists( 2:2+nFam-1))) then
 
                 select case (BCType(j))
                 case (NSWallIsothermal)
                    call setBCVarNamesIsothermalWall
-                   call errorCheckbcDataNamesIn("NSWallIsothermal", bcDataNamesIn)
+                   call errorCheckbcDataNamesIn("NSWallIsothermal", bcDataName)
                 case (SupersonicInflow)
                    call setBCVarNamesSupersonicInflow
-                   call errorCheckbcDataNamesIn("SupersonicInflow", bcDataNamesIn)
+                   call errorCheckbcDataNamesIn("SupersonicInflow", bcDataName)
                 case (SubsonicInflow)
                    call setBCVarNamesSubsonicInflow
-                   call errorCheckbcDataNamesIn("SubsonicInflow", bcDataNamesIn)
+                   call errorCheckbcDataNamesIn("SubsonicInflow", bcDataName)
                 case (SubsonicOutflow)
                    call setBCVarNamesSubsonicOutflow
-                   call errorCheckbcDataNamesIn("SubsonicOutflow", bcDataNamesIn)
+                   call errorCheckbcDataNamesIn("SubsonicOutflow", bcDataName)
                 case default
                    call terminate('setBCData', &
                         'This is not a valid boundary condtion for setBCData')
                 end select
-                call insertToDataSet(bcDataNamesIn, bcDataIn)
+                call insertToDataSet(bcDataName, bcDataArrays(iarray,:))
+
+                if (size(bcDataArrays, 1) > 1) then 
+                  iarray = iarray + 1
+                end if
 
              end if famInclude
           end do bocoLoop
-       end do varLoop
     end do domainsLoop
 
     ! Loop over any actuator regions since they also could have to set BCData
     regionLoop: do iRegion=1, nActuatorRegions
-       varLoop2: do iVar=1, nVar
-          nFam = famLists(iVar, 1)
-          famInclude2: if (famInList(actuatorRegions(iRegion)%famID, famLists(iVar, 2:2+nFam-1))) then
+          nFam = famLists(1)
+          famInclude2: if (famInList(actuatorRegions(iRegion)%famID, famLists( 2:2+nFam-1))) then
 
              ! Extract the name
-             varName = char2str(bcDataNamesIn(iVar,:), maxCGNSNameLen)
+             varName = char2str(bcDataName, maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
                 actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
-                     bcDataIn(iVar)
+                     bcDataArrays(iarray,1)
              else if (trim(varName) == "Torque") then
-                actuatorRegions(iRegion)%T = bcDataIn(iVar)
+                actuatorRegions(iRegion)%T = bcDataArrays(iarray,1)
              end if
           end if famInclude2
-       end do varLoop2
     end do regionLoop
 
   end subroutine setBCData
 
   subroutine setBCData_d(bcDataNamesIn, bcDataIn, bcDataInd, famLists, sps, &
        nVar, nFamMax)
+      ! TODO update
+
     !------------------------------------------------------------------------
     ! Manual Differentiation Warning: This routine is differentiated by hand.
     ! -----------------------------------------------------------------------
@@ -1590,6 +1607,7 @@ contains
 
   subroutine setBCData_b(bcDataNamesIn, bcDataIn, bcDataInd, famLists, sps, &
        nVar, nFamMax)
+      !TODO update
     !------------------------------------------------------------------------
     ! Manual Differentiation Warning: This routine is differentiated by hand.
     ! -----------------------------------------------------------------------
@@ -1687,8 +1705,8 @@ contains
 
   end subroutine setBCData_b
 
-  subroutine extractFromDataSet(bcVarArray)
-   ! subroutine extractFromDataSet(bcVarArray)
+!   subroutine extractFromDataSet(bcVarArray)
+subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
       !--------------------------------------------------------------
     ! Manual Differentiation Warning: Modifying this routine requires
     ! modifying the hand-written forward and reverse routines.
@@ -1705,17 +1723,14 @@ contains
     use utils, only : terminate
     implicit none
 
-    ! Input
-    real(kind=realType), dimension(:, :, :) :: bcVarArray
-   !  integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
-   !  real(kind=realType), dimension(iBeg:iEnd,jBeg:jEnd, nbcVarMax) :: bcVarArray
     !
     !      Local variables.
     !
 
     !  real(kind=realType), dimension(iEnd - iBeg + 2,jEnd - jBeg + 2) :: tmp
-
-    integer(kind=intType) :: k, l, m, n, i, j
+    integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, iSize, jSize 
+    real(kind=realType), dimension(iBeg:iEnd,jBeg:jEnd, nbcVarMax) :: bcVarArray
+    integer(kind=intType) :: k, l, m, n, i, j, ii
     integer(kind=intType) :: nInter, nDim, nVarPresent, nCoor
 
     integer(kind=intType), dimension(3) :: dataDim, coor
@@ -1726,7 +1741,7 @@ contains
 
     logical :: xPresent, yPresent, zPresent, rPresent
     logical :: firstVar
-
+    real(kind=realType) :: qn
     ! Determine whether the variables are specified and if so,
     ! where they are located in the data set. As the number of
     ! variables specified is usually not so big, a linear search
@@ -1734,6 +1749,8 @@ contains
     ! arrays are checked.
 
     nVarPresent = 0
+    iSize = iEnd - iBeg - 1
+    jSize = jEnd - jBeg - 1
 
     do m=1,nbcVar
        bcVarPresent(m) = .false.
@@ -1775,51 +1792,52 @@ contains
        if( bcVarPresent(m) ) then
           k = ind(1,m)
           l = ind(2,m)
+         !  write(*,*) 'dataArr', k, l, size( dataSet(k)%dirichletArrays(l)%dataArr), &
+         !                    dataSet(k)%dirichletArrays(l)%dataArr
 
-          bcVarArray(:,:,m) =  dataSet(k)%dirichletArrays(l)%dataArr(1)
+         bcVarArray = 0
 
-         !  if (size(dataSet(k)%dirichletArrays(l)%dataArr) == 1) then
-         !    bcVarArray(:,:,m) =  dataSet(k)%dirichletArrays(l)%dataArr(1)
-         !  else
-         !       ! create a temperary matrix where the middle is the same as the
-         !       ! dataArr and edges are linearly extrapolated to provide 4 nodes
-         !       ! to extrapolate the halo cells from
+          write(*,*) 'bcVarArray'
+          write(*,*) bcVarArray(1, :, m)
+          write(*,*) bcVarArray(2, :, m)
+          write(*,*) bcVarArray(3, :, m)
+          write(*,*) bcVarArray(4, :, m)
+         write(*,*) 'iSize, jSize', iSize, jSize, shape(dataSet(k)%dirichletArrays(l)%dataArr)
+         write(*,*) 'data', dataSet(k)%dirichletArrays(l)%dataArr
 
-         !       ! write(*,*) 'tmp', shape(tmp)
-         !       tmp(2:(iEnd - iBeg + 1), 2:(jEnd - jBeg + 1) ) = &
-         !       reshape(dataSet(k)%dirichletArrays(l)%dataArr, (/iEnd-iBeg , jEnd-jbeg /))
-         !       ! write(*,*) iEnd, iBeg, jEnd, jbeg, (/iEnd-iBeg , jEnd-jbeg /)
-         !       ! write(*,*) reshape(dataSet(k)%dirichletArrays(l)%dataArr, (/iEnd-iBeg , jEnd-jbeg /))
-         !       ! write(*,*) dataSet(k)%dirichletArrays(l)%dataArr
+         if (size(dataSet(k)%dirichletArrays(l)%dataArr,1) .eq. 1) then 
 
-         !       ! do i=1, iEnd - iBeg + 2
-         !       !    write(*,*) 'i', i, tmp(i, :)
-         !       ! end do
+         ! ! else
+            bcVarArray(:, :,m) = dataSet(k)%dirichletArrays(l)%dataArr(1)
+         else
 
-         !       tmp(1, :) = tmp(2, :) -  (tmp(3, :) - tmp(2, :))
-         !       tmp(iEnd - iBeg + 2, :) = tmp(iEnd - iBeg + 1, :) +  (tmp(iEnd - iBeg +1, :) - tmp(iEnd - iBeg, :))
-
-         !       tmp(:, 1) = tmp(:, 2) -  (tmp(:, 3) - tmp(:, 2))
-         !       tmp(: , jEnd - jBeg + 2) = tmp(: , jEnd - jBeg + 1) +  (tmp(: , jEnd - jBeg +1) - tmp(: , jEnd - jBeg))
+            do ii = 1, (iSize+1)*(jSize+1)
+               i = mod((ii-1), (iSize+1)) + 1
+               j = (ii-1)/(iSize +1) + 1
 
 
-         !       ! ! write(*,*) tmp
-         !       ! do i=1, iEnd - iBeg + 2
-         !       !    write(*,*) 'i', i, tmp(i, :)
-         !       ! end do
+               qn  = fourth*dataSet(k)%dirichletArrays(l)%dataArr(ii)
+               bcVarArray(i , j, m) = bcVarArray(i , j, m) + qn
+               bcVarArray(i+1 , j, m) = bcVarArray(i+1 , j, m) + qn
+               bcVarArray(i , j+1, m) = bcVarArray(i , j+1, m) + qn
+               bcVarArray(i+1 , j+1, m) = bcVarArray(i+1 , j+1, m) + qn
+            enddo
+
+            bcVarArray(iBeg,:,m)  = 2*bcVarArray(iBeg,:,m) 
+            bcVarArray(iEnd,:,m)  = 2*bcVarArray(iEnd,:,m) 
+            bcVarArray(:, jBeg, m) = 2*bcVarArray(:, jBeg, m)
+            bcVarArray(:, jEnd, m) = 2*bcVarArray(:, jEnd, m)
+
+         end if
 
 
+         !  write out bcVarArray
+          write(*,*) 'bcVarArray'
+          write(*,*) bcVarArray(1, :, m)
+          write(*,*) bcVarArray(2, :, m)
+          write(*,*) bcVarArray(3, :, m)
+          write(*,*) bcVarArray(4, :, m)
 
-         !       do j=jBeg, jEnd
-         !          do i=iBeg, iEnd
-         !             bcVarArray(i,j,m) = fourth*(tmp(i, j)+ tmp(i+1, j) + tmp(i, j+1) + tmp(i+1, j+1))
-         !             ! write(*,*) 'i', i , 'j', j, bcVarArray(i,j,m)
-         !          end do
-         !       end do
-
-         !    write(*,*) 'non uniform bcvar', iBeg, iEnd, jBeg, jEnd
-         !    ! bcVarArray(:,:,m) =  dataSet(k)%dirichletArrays(l)%dataArr(1)
-         !  endif
        endif
     enddo
 
@@ -1838,6 +1856,7 @@ contains
   end subroutine extractFromDataSet
 
   subroutine extractFromDataSet_d(bcVarArray, bcVarArrayd)
+    !TODO update
     !------------------------------------------------------------------------
     ! Manual Differentiation Warning: This routine is differentiated by hand.
     ! -----------------------------------------------------------------------
@@ -1931,6 +1950,7 @@ contains
   end subroutine extractFromDataSet_d
 
   subroutine extractFromDataSet_b(bcVarArray, bcVarArrayd)
+    !TODO update
     !------------------------------------------------------------------------
     ! Manual Differentiation Warning: This routine is differentiated by hand.
     ! -----------------------------------------------------------------------
@@ -2022,7 +2042,7 @@ contains
 
   end subroutine extractFromDataSet_b
 
-  subroutine insertToDataSet(bcDataNamesIn, bcDataIn)
+  subroutine insertToDataSet(bcDataName, bcData)
     !--------------------------------------------------------------
     ! Manual Differentiation Warning: Modifying this routine requires
     ! modifying the hand-written forward and reverse routines.
@@ -2033,59 +2053,63 @@ contains
     !
     !      Subroutine arguments.
     !
-    character, dimension(:,:), intent(in) :: bcdatanamesin
-    real(kind=realType), dimension(:), intent(in):: bcDataIn
+    character, dimension(:), intent(in) :: bcdataname
+    real(kind=realType), dimension(:), intent(in):: bcData
     !
     !      Local variables.
     !
-    integer(kind=intType) :: k, l, m, n, q
-    integer(kind=intType) :: ind(2,nbcVar), nVarPresent
+    integer(kind=intType) :: k, l, m, n, q, i
+   !  integer(kind=intType) :: ind(2,nbcVar), nVarPresent
     character(len=maxCGNSNameLen) :: varName
 
-    nVarPresent = 0
+    dataSetLoop: do k=1,nDataSet
+       do l=1,dataSet(k)%nDirichletArrays
+          if(dataSet(k)%dirichletArrays(l)%arrayName == bcVarNames(1)) then
+ 
+             ! Variable is present. Store the indices, update
+             ! nVarPresent and set bcVarPresent(m) to .True.
+ 
+            !  ind(1,m) = k; ind(2,m) = l
+ 
+            !  nVarPresent      = nVarPresent + 1
+            !  bcVarPresent(m) = .true.
+ 
+             ! Exit the search loop, as the variable was found.
+             write(*,*) 'bcData', bcData
+             
 
-    do m=1, size(bcDataIn)
-       bcVarPresent(m) = .false.
+            if (size(bcData) .eq. 1) then 
+               write(*,*) 'there is only one bcdata!!!'
+               ! set every value in the data array to same value 
+               do i =1,size(dataSet(k)%dirichletArrays(l)%dataArr)
+                  dataSet(k)%dirichletArrays(l)%dataArr(i) = bcData(1)
+               end do 
+               
+            else
+               dataSet(k)%dirichletArrays(l)%dataArr = bcData
+            end if
+            
+            exit dataSetLoop
+ 
+          endif
+       enddo
+    enddo dataSetLoop
+ 
+   !  do m=1, size(bcData)
+   !     if( bcVarPresent(m) ) then
+   !        k = ind(1,m)
+   !        l = ind(2,m)
 
-       dataSetLoop: do k=1,nDataSet
-          do l=1,dataSet(k)%nDirichletArrays
-             if(dataSet(k)%dirichletArrays(l)%arrayName == &
-                  bcVarNames(m)) then
+   !           varName = char2str(bcDataName, maxCGNSNameLen)
 
-                ! Variable is present. Store the indices, update
-                ! nVarPresent and set bcVarPresent(m) to .True.
-
-                ind(1,m) = k; ind(2,m) = l
-
-                nVarPresent      = nVarPresent + 1
-                bcVarPresent(m) = .true.
-
-                ! Exit the search loop, as the variable was found.
-
-                exit dataSetLoop
-
-             endif
-          enddo
-       enddo dataSetLoop
-    enddo
-
-    do m=1, size(bcDataIn)
-       if( bcVarPresent(m) ) then
-          k = ind(1,m)
-          l = ind(2,m)
-          do n=1, size(bcDataIn)
-
-             varName = char2str(bcDataNamesIn(n,:), maxCGNSNameLen)
-
-             if (bcVarNames(m) == varname) then
-                dataSet(k)%dirichletArrays(l)%dataArr(1) = bcDataIn(n)
-             end if
-          end do
-       endif
-    enddo
+   !           if (bcVarNames(m) == varname) then
+   !           end if
+   !     endif
+   !  enddo
   end subroutine insertToDataSet
 
   subroutine insertToDataSet_d(bcDataNamesIn, bcDataIn, bcDataInd)
+    !TODO update
     !------------------------------------------------------------------------
     ! Manual Differentiation Warning: This routine is differentiated by hand.
     ! -----------------------------------------------------------------------
@@ -2149,6 +2173,7 @@ contains
   end subroutine insertToDataSet_d
 
   subroutine insertToDataSet_b(bcDataNamesIn, bcDataIn, bcDataInd)
+    !TODO update
     !------------------------------------------------------------------------
     ! Manual Differentiation Warning: This routine is differentiated by hand.
     ! -----------------------------------------------------------------------
@@ -2800,6 +2825,7 @@ contains
 
              iBeg = BCData(j)%icBeg; iEnd = BCData(j)%icEnd
              jBeg = BCData(j)%jcBeg; jEnd = BCData(j)%jcEnd
+             write(*,*) 'nn', i, 'mm', j
 
              ! Allocate the bcVarArray to the maximum size it could
              ! possibly be *in the last dimension*.
@@ -2812,24 +2838,24 @@ contains
 
              case (NSWallIsothermal)
                 call setBCVarNamesIsothermalWall ! sets bcVarNames and nbcVar
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataIsothermalWall(j, bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
              case (SupersonicInflow)
                 call setBCVarNamesSupersonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSupersonicInflow(j, bcVarArray, iBeg, iEnd, jBeg, jEnd, &
                      allFlowSupersonicInflow, allTurbSupersonicInflow)
 
              case (SubsonicInflow)
                 call setBCVarNamesSubsonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicInflow(j, bcVarArray, iBeg, iEnd, jBeg, jEnd, &
                      allTurbSubsonicInflow)
 
              case (SubsonicOutflow)
                 call setBCVarNamesSubsonicOutflow ! sets bcVarNames and nbcVar
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicOutflow(j, bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
              case (DomainInterfaceAll, DomainInterfaceRhoUVW, &
@@ -3162,27 +3188,27 @@ contains
 
              case (NSWallIsothermal)
                 call setBCVarNamesIsothermalWall ! sets bcVarNames and nbcVar
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataIsothermalWall_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
 
              case (SupersonicInflow)
                 call setBCVarNamesSupersonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSupersonicInflow_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd, &
                      allFlowSupersonicInflow, allTurbSupersonicInflow)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
 
              case (SubsonicInflow)
                 call setBCVarNamesSubsonicInflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicInflow_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd, &
                      allTurbSubsonicInflow)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
 
              case (SubsonicOutflow)
                 call setBCVarNamesSubsonicOutflow
-                call extractFromDataSet(bcVarArray)
+                call extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                 call BCDataSubsonicOutflow_b(j, bcVarArray, bcVarArrayd, iBeg, iEnd, jBeg, jEnd)
                 call extractFromDataSet_b(bcVarArray, bcVarArrayd)
              end select
@@ -3492,15 +3518,15 @@ contains
     end subroutine interpolateBCVecData
   end subroutine setBCDataCoarseGrid
 
-  subroutine errorCheckbcDataNamesIn(setSubroutineName, bcDataNamesIn)
+  subroutine errorCheckbcDataNamesIn(bcName, bcDataName)
     use constants
     use utils, only: terminate, char2str
     implicit none
     !
     !      Subroutine arguments.
     !
-    character*(*), intent(in) :: setSubroutineName
-    character, dimension(:, :), intent(in) :: bcDatanamesIn
+    character*(*), intent(in) :: bcName
+    character, dimension(:), intent(in) :: bcDataName
     !
     !      Local variables.
     !
@@ -3509,6 +3535,10 @@ contains
     character(maxCGNSNameLen) :: varName
 
     ! TODO: Justin add back in error checking
+
+
+    ! check to make sure the physical quantity specified for the BC can be 
+    ! specified for that BC??
 
   end subroutine errorCheckbcDataNamesIn
 #endif

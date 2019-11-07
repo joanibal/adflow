@@ -90,13 +90,13 @@ python module libadflow
        end module initializeflow
 
        module bcdata
-         subroutine setbcdata(bcdatanamesin,bcdatain,famlists,sps,nvar,nfammax) ! in :test:BCData.F90:bcdata
-           character dimension(nvar,32),intent(in) :: bcdatanamesin
-           real(kind=realtype) dimension(nvar),intent(in),depend(nvar) :: bcdatain
-           integer(kind=inttype) dimension(nvar,nfammax),depend(nvar) :: famlists
+         subroutine setbcdata(bcdatanamesin,bcdatain,famlists,sps,nfammax) ! in :test:BCData.F90:bcdata
+           character dimension(32),intent(in) :: bcdatanamesin
+           real(kind=realtype) dimension(:,:),intent(in) :: bcdatain
+           integer(kind=inttype) dimension(nfammax),depend(nfammax) :: famlists
            integer(kind=inttype) intent(in) :: sps
-           integer(kind=inttype), optional,intent(in),check(shape(bcdatanamesin,0)==nvar),depend(bcdatanamesin) :: nvar=shape(bcdatanamesin,0)
-           integer(kind=inttype), optional,intent(in),check(shape(famlists,1)==nfammax),depend(famlists) :: nfammax=shape(famlists,1)
+          !  integer(kind=inttype), optional,intent(in),check(shape(bcdatanamesin,0)==nvar),depend(bcdatanamesin) :: nvar=shape(bcdatanamesin,0)
+           integer(kind=inttype), optional,intent(in),check(shape(famlists,0)==nfammax),depend(famlists) :: nfammax=shape(famlists,0)
          end subroutine setbcdata
 
        end module bcdata
@@ -802,17 +802,23 @@ python module libadflow
          integer(kind=inttype) intent(in) :: sps_in
        end subroutine getheatflux
 
+       subroutine getheatfluxcellcenter(hflux,npts,sps_in) ! in :test:getForces.F90
+         real(kind=realtype) dimension(npts),intent(inout) :: hflux
+         integer(kind=inttype), optional,intent(in),depend(hflux) :: npts=len(hflux)
+         integer(kind=inttype) intent(in) :: sps_in
+       end subroutine getheatfluxcellcenter
+
       !  subroutine settnswall(tnsw,npts,sps_in) ! in :test:getForces.F90
       !    real(kind=realtype) dimension(npts),intent(in) :: tnsw
       !    integer(kind=inttype) optional,intent(in),check(len(tnsw)>=npts),depend(tnsw) :: npts=len(tnsw)
       !    integer(kind=inttype) intent(in) :: sps_in
       !  end subroutine settnswall
 
-      !  subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
-      !    real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
-      !    integer(kind=inttype) intent(in) :: npts
-      !    integer(kind=inttype) intent(in) :: sps
-      !  end subroutine gettnswall
+       subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
+         real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
+         integer(kind=inttype) intent(in) :: npts
+         integer(kind=inttype) intent(in) :: sps
+       end subroutine gettnswall
 
        subroutine getwalltemperature(walltemp, npts, sps) ! in :test:getforces.f90
          real(kind=realtype) dimension(npts),intent(out),depend(npts) :: walltemp
