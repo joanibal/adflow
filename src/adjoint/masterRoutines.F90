@@ -2,7 +2,7 @@ module masterRoutines
 contains
    subroutine master(useSpatial, famLists, funcValues, forces, heatfluxes, bcDataNames, bcDataValues, &
       bcDataFamLists)
-
+    ! TODO update 
     use constants
     use communication, only : adflow_comm_world
     use BCRoutines, only : applyallBC_block
@@ -75,10 +75,10 @@ contains
 
        call referenceState
        if (present(bcDataNames)) then
-          do sps=1,nTimeIntervalsSpectral
-             call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
-                  size(bcDataValues), size(bcDataFamLIsts, 2))
-          end do
+         !  do sps=1,nTimeIntervalsSpectral
+         !     call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
+         !          size(bcDataValues), size(bcDataFamLIsts, 2))
+         !  end do
           call setBCDataFineGrid(.true.)
        end if
 
@@ -255,7 +255,7 @@ contains
 #ifndef USE_COMPLEX
   subroutine master_d(wdot, xdot, forcesDot, heatfluxesDot, dwDot, famLists, funcValues, funcValuesd, &
        bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
-
+   ! TODO update
     use constants
     use diffsizes, only :  ISIZE1OFDrfbcdata, ISIZE1OFDrfviscsubface
     use communication, only : adflow_comm_world
@@ -289,7 +289,8 @@ contains
     use surfaceIntegrations, only : getSolution_d
     use adjointExtra_d, only : xhalo_block_d, volume_block_d, metric_BLock_d, boundarynormals_d
     use adjointextra_d, only : resscale_D, sumdwandfw_d
-    use bcdata, only : setBCData_d, setBCDataFineGrid_d
+   !  use bcdata, only : setBCData_d, setBCDataFineGrid_d
+    use bcdata, only : setBCDataFineGrid_d
     use oversetData, only : oversetPresent
     use inputOverset, only : oversetUpdateMode
     use oversetCommUtilities, only : updateOversetConnectivity_d
@@ -393,10 +394,10 @@ contains
     call adjustInflowAngle_d
     call referenceState_d
     if (present(bcDataNames)) then
-       do sps=1,nTimeIntervalsSpectral
-          call setBCData_d(bcDataNames, bcDataValues, bcDataValuesd, &
-               bcDataFamLists, sps, size(bcDataValues), size(bcDataFamLists, 2))
-       end do
+      !  do sps=1,nTimeIntervalsSpectral
+      !     call setBCData_d(bcDataNames, bcDataValues, bcDataValuesd, &
+      !          bcDataFamLists, sps, size(bcDataValues), size(bcDataFamLists, 2))
+      !  end do
        call setBCDataFineGrid_d(.true.)
     end if
 
@@ -570,6 +571,7 @@ contains
 
  subroutine master_b(wbar, xbar, extraBar, forcesBar, heatfluxBar, dwBar, nState, famLists, &
        funcValues, funcValuesd, bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
+    !TODO update
 
     ! This is the main reverse mode differentiaion of master. It
     ! compute the reverse mode sensitivity of *all* outputs with
@@ -614,7 +616,8 @@ contains
     use fluxes_b, only :inviscidUpwindFlux_b, inviscidDissFluxScalar_b, &
          inviscidDissFluxMatrix_b, viscousFlux_b, inviscidCentralFlux_b
     use BCExtra_b, only : applyAllBC_Block_b
-    use bcdata, only : setBCData_b, setBCDataFineGrid_b
+   !  use bcdata, only : setBCData_b, setBCDataFineGrid_b
+    use bcdata, only : setBCDataFineGrid_b
     use oversetData, only : oversetPresent
     use inputOverset, only : oversetUpdateMode
     use oversetCommUtilities, only : updateOversetConnectivity_b
@@ -905,10 +908,10 @@ contains
        allocate(bcDataValuesdLocal(size(bcDataValuesd)))
        bcDataValuesdLocal = zero
        call setBCDataFineGrid_b(.true.)
-       do sps=1, nTimeIntervalsSpectral
-          call setBCData_b(bcDataNames, bcDataValues, bcDataValuesdLocal, bcDataFamLists, &
-               sps, size(bcDataValues), size(bcDataFamLIsts, 2))
-       end do
+      !  do sps=1, nTimeIntervalsSpectral
+      !     call setBCData_b(bcDataNames, bcDataValues, bcDataValuesdLocal, bcDataFamLists, &
+      !          sps, size(bcDataValues), size(bcDataFamLIsts, 2))
+      !  end do
        ! Reverse seeds need to accumulated across all processors:
        call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
             mpi_sum, ADflow_comm_world, ierr)

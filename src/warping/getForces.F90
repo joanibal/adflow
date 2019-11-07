@@ -1777,12 +1777,12 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
                   BCDatad(mm)%nodeHeatFlux(i, j) = zero
                end do
             end do
-            ! Simply put in zeros for the other wall BCs
          end if
       end do
    end do
 
 
+   ! propagate the seeds from the nodes to the cell center and weighting factor
    do nn=1, nDom
       call setPointers_b(nn, 1_intType, sps)
       do mm=1, nBocos
@@ -1816,6 +1816,72 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
 end subroutine getHeatFlux_b
 
 
+subroutine getHeatFluxCellCenter(hflux, npts, sps)
+   !TODO implement this subroutine 
+
+  use constants
+  use blockPointers, only : nDom, nBocos, BCType, BCData
+  use surfaceFamilies, only : BCFamExchange, familyExchange, &
+       zeroCellVal, zeroNodeVal, fullfamList
+  use surfaceIntegrations, only : integrateSurfaces
+
+  use utils, only : setPointers
+  implicit none
+  !
+  !      Local variables.
+  !
+  integer(kind=intType), intent(in) :: npts, sps
+  real(kind=realType), intent(out) :: hflux(npts)
+  real(kind=realType) :: localValues(nLocalValues)
+
+  integer(kind=intType) :: mm, nn, i, j, ii
+  integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+  type(familyExchange), pointer :: exch
+
+  ! Set the pointer to the wall exchange:
+  exch => BCFamExchange(iBCGroupWalls, sps)
+
+  domains: do nn=1,nDom
+      call setPointers(nn, 1_intType, sps)
+      localValues = zero
+      call integrateSurfaces(localValues, fullFamList)
+   end do domains
+
+
+  ! Now extract into the flat array:
+  ii = 0
+  do nn=1,nDom
+     call setPointers(nn,1_intType,sps)
+
+     ! Loop over the number of viscous boundary subfaces of this block.
+     ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
+     ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
+     do mm=1,nBocos
+        bocoType3: if (BCType(mm) == NSWallIsoThermal) then
+           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
+              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
+                 ii = ii + 1
+                 hflux(ii) = BCData(mm)%cellHeatFlux(i, j)
+              end do
+           end do
+
+         ! Simply put in zeros for the other wall BCs
+        else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
+           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
+              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
+                 ii = ii + 1
+                 hflux(ii) = zero
+              end do
+           end do
+        end if bocoType3
+     end do
+  end do
+
+end subroutine getHeatFluxCellCenter
+
+
+
+
 
 
 subroutine getTNSWall(tnsw, npts, sps)
@@ -1842,13 +1908,58 @@ subroutine getTNSWall(tnsw, npts, sps)
         isoWall: if (BCType(mm) == NSWallIsoThermal) then
            jBeg = BCdata(mm)%jnBeg; jEnd = BCData(mm)%jnEnd
            iBeg = BCData(mm)%inBeg; iEnd = BCData(mm)%inEnd
-           do j=jBeg,jEnd
-              do i=iBeg, iEnd
-                 ii = ii + 1
-                 tnsw(ii) = BCData(mm)%TNS_Wall(i,j)*Tref
-              end do
+           write(*,*) 'nn', nn, 'mm', mm, jBeg, jEnd, iBeg, iEnd
+            do j=jBeg,jEnd
+            
+               if (j==iBeg) then
+                      
+                  ii = ii + 1
+                  tnsw(ii) = tnsw(ii) + BCData(mm)%TNS_Wall(iBeg,j)*Tref
+                  
+               ! write(*,*) 'i', iBeg, 'j', j, BCData(mm)%TNS_Wall(iBeg,j)*Tref 
+                  do i=iBeg+1, iEnd
+                     ii = ii + 1
+                     !   write(*,*) 'i', i, 'j', j, BCData(mm)%TNS_Wall(i,j)*Tref, tnsw(ii-1), &
+                     !     2*BCData(mm)%TNS_Wall(i,j)*Tref  - tnsw(ii-1)
+                     tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(i,j)*Tref - tnsw(ii-1)
+                  end do 
+               else
+                  ii = ii + 1
+                  tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(iBeg,j)*Tref - tnsw(ii-(iEnd-iBeg+1))
+                  ! write(*,*) iBeg, j, 'ii', ii, ii-(iEnd-iBeg+1),  tnsw(ii-(iEnd-iBeg+1))
+                  
+               ! write(*,*) 'i', iBeg, 'j', j, BCData(mm)%TNS_Wall(iBeg,j)*Tref 
+                  do i=iBeg+1, iEnd
+                     ii = ii + 1
+                     !   write(*,*) 'i', i, 'j', j, BCData(mm)%TNS_Wall(i,j)*Tref, tnsw(ii-1), &
+                     !     2*BCData(mm)%TNS_Wall(i,j)*Tref  - tnsw(ii-1)
+                     tnsw(ii) = tnsw(ii) + 4*BCData(mm)%TNS_Wall(i,j)*Tref - &
+                              tnsw(ii-(iEnd-iBeg+1)) - tnsw(ii-(iEnd-iBeg+2)) - tnsw(ii-1)
+                  ! write(*,*) i, j, ii, ii-(iEnd-iBeg+1),  tnsw(ii-(iEnd-iBeg+1)) , tnsw(ii-(iEnd-iBeg+2)) , tnsw(ii-1)
+
+                  end do  
+               
+               end if
+
+
+
+             ! subtract this row from the next 
+            !  tnsw(ii+1:ii+(iEnd-iBeg+1)) = - tnsw(ii-(iEnd-iBeg): ii)
+             
+
+            !   write(*,*) ii, tnsw(ii+1:ii+(iEnd-iBeg+1)) = - tnsw(ii-(iEnd-iBeg): ii)
+              write(*,*) 'tnsw', tnsw(ii-(iEnd-iBeg): ii)
            end do
-        end if isoWall
+
+         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
+            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+                  ii = ii + 1
+                  tnsw(ii) = zero
+               end do
+            end do
+         end if isoWall
+
      end do bocos
 
    end do domains

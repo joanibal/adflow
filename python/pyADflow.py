@@ -1416,10 +1416,13 @@ class ADFLOW(AeroSolver):
             # These are the reverse mode seeds
             psi = -self.getAdjoint(f)
 
-            resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
             xDvBar = self.computeJacobianVectorProductBwd(resBar=psi, funcsBar=self._getFuncsBar(f), xDvDeriv=True)
-            # import ipdb; ipdb.set_trace()
-            print(numpy.sum(resDot*psi))
+            
+            # TODO remove this debuging part
+            # resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
+            # # import ipdb; ipdb.set_trace()
+            # print(numpy.sum(resDot*psi))
+
             # Compute everything and update into the dictionary
             funcsSens[key].update(xDvBar)
 
@@ -2936,11 +2939,13 @@ class ADFLOW(AeroSolver):
             self.adflow.inputmotion.coscoeffouryrot = AP.cosCoefFourier
             self.adflow.inputmotion.sincoeffouryrot = AP.sinCoefFourier
 
+
         # Set any possible BC Data coming out of the aeroProblem
-        nameArray, dataArray, groupArray, groupNames, empty = (
+        nameArray, dataArrays, groupArray, groupNames, empty = (
             self._getBCDataFromAeroProblem(AP))
         if not empty:
-            self.adflow.bcdata.setbcdata(nameArray, dataArray, groupArray, 1)
+            for ii, nameBC in enumerate(nameArray):
+                self.adflow.bcdata.setbcdata(nameBC, dataArrays[ii], groupArray[ii], 1)
 
         if not firstCall:
             self.adflow.initializeflow.updatebcdataalllevels()
@@ -3002,7 +3007,7 @@ class ADFLOW(AeroSolver):
         # Finally map the vector as required.
         return self.mapVector(forces, self.allWallsGroup, groupName)
 
-    def getHeatFluxes(self, groupName=None, TS=0):
+    def getHeatFluxes(self,  groupName=None, TS=0, nodal=True):
         """Return the heat fluxes for isothermal walls on the families
         defined by group name on this processor.
 
@@ -3024,20 +3029,37 @@ class ADFLOW(AeroSolver):
             empty array of shape (0) can be returned.
 
         """
+        if groupName is None:
+            groupName = self.allIsothermalWallsGroup
+
 
         # Set the family to all walls group.
-        npts, _ = self._getSurfaceSize(self.allWallsGroup)
+        nPts, nCells = self._getSurfaceSize(self.allWallsGroup)
+        nPts2, nCells2 = self._getSurfaceSize(groupName)
 
-        fluxes = numpy.zeros(npts, self.dtype)
-        self.adflow.getheatflux(fluxes, TS+1)
-        if groupName is None:
-            groupName = self.allWallsGroup
+        if nodal:
+            fluxes = numpy.zeros(nPts, self.dtype)
+            self.adflow.getheatflux(fluxes, TS+1)
 
-        # Map vector expects and Nx3 array. So we will do just that.
-        # tmp = numpy.zeros((npts, 3))
-        # tmp[:, 0] = fluxes
-        # tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
-        # fluxes = tmp[:, 0]
+            vec1 = numpy.zeros((nPts, 3), self.dtype)
+            vec2 = numpy.zeros((nPts2, 3), self.dtype)
+            # Map vector expects and Nx3 array. So we will do just that.
+            vec1[:, 0] = fluxes
+            vec1 = self.mapVector(vec1, self.allWallsGroup, groupName,vec2, includeZipper=False)
+            fluxes = vec1[:, 0]
+
+        else:
+            #TODO investegate the problem with using map vectors with cell center vals
+            # This currently doesn't work. DON'T TRY it ANAKIN!
+            fluxes = numpy.zeros(nCells, self.dtype)
+            self.adflow.getheatfluxcellcenter(fluxes, TS+1)
+
+            vec1 = numpy.zeros((nCells, 3), self.dtype)
+            vec2 = numpy.zeros((nCells2, 3), self.dtype)
+
+
+
+
         return fluxes
 
     def getWallTemperature(self, groupName=None, TS=0):
@@ -3064,13 +3086,13 @@ class ADFLOW(AeroSolver):
 
         # Set the family to all walls group.
         npts, _ = self._getSurfaceSize(self.allWallsGroup)
-        fullTemp = self.adflow.getwalltemperature(npts, TS+1)
+        fullTemp = self.adflow.gettnswall(npts, TS+1)
 
         if groupName is None:
             groupName = self.allIsothermalWallsGroup
 
         # Map vector expects and Nx3 array. So we will do just that.
-        tmp = numpy.zeros((npts, 3))
+        tmp = numpy.zeros((npts, 3), dtype=self.dtype)
         tmp[:, 0] = fullTemp
         tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
         temperature = tmp[:, 0]
