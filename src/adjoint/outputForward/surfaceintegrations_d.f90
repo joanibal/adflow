@@ -252,10 +252,19 @@ contains
 &       ovrnts*globalvalsd(icperror2, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+! heat transfer cost functions
       funcvaluesd(costfuncheatflux) = funcvaluesd(costfuncheatflux) + &
 &       ovrnts*globalvalsd(iheatflux, sps)
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+      funcvaluesd(costfuncheattransfercoef) = funcvaluesd(&
+&       costfuncheattransfercoef) + (ovrnts*globalvalsd(&
+&       iheattransfercoef, sps)*globalvals(iheatedarea, sps)-ovrnts*&
+&       globalvals(iheattransfercoef, sps)*globalvalsd(iheatedarea, sps)&
+&       )/globalvals(iheatedarea, sps)**2
+      funcvalues(costfuncheattransfercoef) = funcvalues(&
+&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
+&       , sps)/globalvals(iheatedarea, sps)
 ! mass flow like objective
       mflowd = globalvalsd(imassflow, sps)
       mflow = globalvals(imassflow, sps)
@@ -676,8 +685,12 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+      funcvalues(costfuncheattransfercoef) = funcvalues(&
+&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
+&       , sps)/globalvals(iheatedarea, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -876,8 +889,8 @@ contains
 &   mvaxisd, mpaxisd, qwd
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: cperrord, cperror2d
-    real(kind=realtype) :: q, scaledim
-    real(kind=realtype) :: qd, scaledimd
+    real(kind=realtype) :: q, scaledim, havg, areaheated
+    real(kind=realtype) :: qd, scaledimd, havgd, areaheatedd
     intrinsic sqrt
     intrinsic mod
     intrinsic max
@@ -922,6 +935,8 @@ contains
     mvaxis = zero
     cperror2 = zero
     q = zero
+    havg = zero
+    areaheated = zero
     arg1d = prefd/rhoref
     arg1 = pref/rhoref
     if (arg1 .eq. 0.0_8) then
@@ -1312,6 +1327,8 @@ contains
 ! heat flux done is seperate loop to prevent the type check from being run for each cell
     if (bctype(mm) .eq. nswallisothermal) then
       qd = 0.0_8
+      areaheatedd = 0.0_8
+      havgd = 0.0_8
 ! loop over the quadrilateral faces of the subface and
 ! compute the heat flux
       do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
@@ -1326,30 +1343,39 @@ contains
           blk = bcdata(mm)%iblank(i, j)
         end if
 ! wall heat flux dotted with the area vector and scaled
-        qwd = -(fact*(scaledimd*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)&
-&         +viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, &
-&         j, 3)*ssi(i, j, 3))+scaledim*(viscsubfaced(mm)%q(i, j, 1)*ssi(&
-&         i, j, 1)+viscsubface(mm)%q(i, j, 1)*ssid(i, j, 1)+viscsubfaced&
-&         (mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j, 2)*ssid(i&
-&         , j, 2)+viscsubfaced(mm)%q(i, j, 3)*ssi(i, j, 3)+viscsubface(&
-&         mm)%q(i, j, 3)*ssid(i, j, 3))))
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+        qwd = fact*(scaledimd*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
+&         , 3)*ssi(i, j, 3))+scaledim*(viscsubfaced(mm)%q(i, j, 1)*ssi(i&
+&         , j, 1)+viscsubface(mm)%q(i, j, 1)*ssid(i, j, 1)+viscsubfaced(&
+&         mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j, 2)*ssid(i&
+&         , j, 2)+viscsubfaced(mm)%q(i, j, 3)*ssi(i, j, 3)+viscsubface(&
+&         mm)%q(i, j, 3)*ssid(i, j, 3)))
+        qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3))
 ! total heat though the surface
         qd = qd + blk*qwd
         q = q + qw*blk
 ! save the face based heatflux
         bcdatad(mm)%cellheatflux(i, j) = qwd
         bcdata(mm)%cellheatflux(i, j) = qw
+        havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)))
+        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)))*blk
+! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+        areaheatedd = areaheatedd + blk*bcdatad(mm)%area(i, j)
+        areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
 ! if we an adiabatic wall, set the heat flux to zero
       bcdatad(mm)%cellheatflux = 0.0_8
       bcdata(mm)%cellheatflux = zero
       qd = 0.0_8
+      areaheatedd = 0.0_8
+      havgd = 0.0_8
     else
       qd = 0.0_8
+      areaheatedd = 0.0_8
+      havgd = 0.0_8
     end if
 ! increment the local values array with the values we computed here.
     localvaluesd(ifp:ifp+2) = localvaluesd(ifp:ifp+2) + fpd
@@ -1372,10 +1398,16 @@ contains
 &     mvaxisd
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
-    localvaluesd(iheatflux) = localvaluesd(iheatflux) + qd
-    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvaluesd(icperror2) = localvaluesd(icperror2) + cperror2d
     localvalues(icperror2) = localvalues(icperror2) + cperror2
+    localvaluesd(iheatflux) = localvaluesd(iheatflux) + qd
+    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvaluesd(iheattransfercoef) = localvaluesd(iheattransfercoef) + &
+&     havgd
+    localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
+&     havg
+    localvaluesd(iheatedarea) = localvaluesd(iheatedarea) + areaheatedd
+    localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated
   end subroutine wallintegrationface_d
   subroutine wallintegrationface(localvalues, mm)
 !
@@ -1417,7 +1449,7 @@ contains
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
 &   mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
-    real(kind=realtype) :: q, scaledim
+    real(kind=realtype) :: q, scaledim, havg, areaheated
     intrinsic sqrt
     intrinsic mod
     intrinsic max
@@ -1456,6 +1488,8 @@ contains
     mvaxis = zero
     cperror2 = zero
     q = zero
+    havg = zero
+    areaheated = zero
     arg1 = pref/rhoref
     result1 = sqrt(arg1)
     scaledim = pref*result1
@@ -1708,13 +1742,16 @@ contains
           blk = bcdata(mm)%iblank(i, j)
         end if
 ! wall heat flux dotted with the area vector and scaled
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+        qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
+&         , 3)*ssi(i, j, 3))
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
+        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)))*blk
+! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+        areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
 ! if we an adiabatic wall, set the heat flux to zero
@@ -1731,8 +1768,11 @@ contains
 &     sepsensoravg
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
-    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvalues(icperror2) = localvalues(icperror2) + cperror2
+    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
+&     havg
+    localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated
   end subroutine wallintegrationface
 !  differentiation of flowintegrationface in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: localvalues

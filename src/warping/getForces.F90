@@ -1908,7 +1908,6 @@ subroutine getTNSWall(tnsw, npts, sps)
         isoWall: if (BCType(mm) == NSWallIsoThermal) then
            jBeg = BCdata(mm)%jnBeg; jEnd = BCData(mm)%jnEnd
            iBeg = BCData(mm)%inBeg; iEnd = BCData(mm)%inEnd
-           write(*,*) 'nn', nn, 'mm', mm, jBeg, jEnd, iBeg, iEnd
             do j=jBeg,jEnd
             
                if (j==iBeg) then
@@ -1916,39 +1915,25 @@ subroutine getTNSWall(tnsw, npts, sps)
                   ii = ii + 1
                   tnsw(ii) = tnsw(ii) + BCData(mm)%TNS_Wall(iBeg,j)*Tref
                   
-               ! write(*,*) 'i', iBeg, 'j', j, BCData(mm)%TNS_Wall(iBeg,j)*Tref 
                   do i=iBeg+1, iEnd
                      ii = ii + 1
-                     !   write(*,*) 'i', i, 'j', j, BCData(mm)%TNS_Wall(i,j)*Tref, tnsw(ii-1), &
-                     !     2*BCData(mm)%TNS_Wall(i,j)*Tref  - tnsw(ii-1)
                      tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(i,j)*Tref - tnsw(ii-1)
                   end do 
+
                else
                   ii = ii + 1
                   tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(iBeg,j)*Tref - tnsw(ii-(iEnd-iBeg+1))
-                  ! write(*,*) iBeg, j, 'ii', ii, ii-(iEnd-iBeg+1),  tnsw(ii-(iEnd-iBeg+1))
-                  
-               ! write(*,*) 'i', iBeg, 'j', j, BCData(mm)%TNS_Wall(iBeg,j)*Tref 
+
                   do i=iBeg+1, iEnd
                      ii = ii + 1
-                     !   write(*,*) 'i', i, 'j', j, BCData(mm)%TNS_Wall(i,j)*Tref, tnsw(ii-1), &
-                     !     2*BCData(mm)%TNS_Wall(i,j)*Tref  - tnsw(ii-1)
                      tnsw(ii) = tnsw(ii) + 4*BCData(mm)%TNS_Wall(i,j)*Tref - &
                               tnsw(ii-(iEnd-iBeg+1)) - tnsw(ii-(iEnd-iBeg+2)) - tnsw(ii-1)
-                  ! write(*,*) i, j, ii, ii-(iEnd-iBeg+1),  tnsw(ii-(iEnd-iBeg+1)) , tnsw(ii-(iEnd-iBeg+2)) , tnsw(ii-1)
-
                   end do  
                
                end if
 
 
-
-             ! subtract this row from the next 
-            !  tnsw(ii+1:ii+(iEnd-iBeg+1)) = - tnsw(ii-(iEnd-iBeg): ii)
-             
-
-            !   write(*,*) ii, tnsw(ii+1:ii+(iEnd-iBeg+1)) = - tnsw(ii-(iEnd-iBeg): ii)
-              write(*,*) 'tnsw', tnsw(ii-(iEnd-iBeg): ii)
+            !   write(*,*) 'tnsw', tnsw(ii-(iEnd-iBeg): ii)
            end do
 
          else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then

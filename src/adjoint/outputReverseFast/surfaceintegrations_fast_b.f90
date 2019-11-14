@@ -140,8 +140,12 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+      funcvalues(costfuncheattransfercoef) = funcvalues(&
+&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
+&       , sps)/globalvals(iheatedarea, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -309,7 +313,7 @@ contains
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
 &   mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
-    real(kind=realtype) :: q, scaledim
+    real(kind=realtype) :: q, scaledim, havg, areaheated
     intrinsic sqrt
     intrinsic mod
     intrinsic max
@@ -346,6 +350,8 @@ contains
     mvaxis = zero
     cperror2 = zero
     q = zero
+    havg = zero
+    areaheated = zero
     scaledim = pref*sqrt(pref/rhoref)
 !
 !         integrate the inviscid contribution over the solid walls,
@@ -592,13 +598,16 @@ contains
           blk = bcdata(mm)%iblank(i, j)
         end if
 ! wall heat flux dotted with the area vector and scaled
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+        qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
+&         , 3)*ssi(i, j, 3))
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
+        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)))*blk
+! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+        areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
 ! if we an adiabatic wall, set the heat flux to zero
@@ -615,8 +624,11 @@ contains
 &     sepsensoravg
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
-    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvalues(icperror2) = localvalues(icperror2) + cperror2
+    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
+&     havg
+    localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated
   end subroutine wallintegrationface
   subroutine flowintegrationface(isinflow, localvalues, mm)
     use constants

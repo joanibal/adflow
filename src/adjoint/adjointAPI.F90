@@ -30,10 +30,16 @@ contains
     integer(kind=intType), dimension(:, :) :: famLists
     integer(kind=intType) :: costSize, fSize, nTime
 
-    character, dimension(:, :), intent(in) :: bcDataNames
-    real(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
-    integer(kind=intType), dimension(:, :) :: bcDataFamLists
+   !TODO make general
+   !  character, dimension(:, :), intent(in) :: bcDataNames
+   !  real(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
+   !  integer(kind=intType), dimension(:, :) :: bcDataFamLists
+   !  logical, intent(in) :: BCVarsEmpty
+    character, dimension(:), intent(in) :: bcDataNames
+    real(kind=realType), dimension(:, :), intent(in) :: bcDataValues, bcDataValuesDot
+    integer(kind=intType), dimension(:) :: bcDataFamLists
     logical, intent(in) :: BCVarsEmpty
+
 
     ! Ouput Variables
     real(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
@@ -116,16 +122,19 @@ contains
     real(kind=realType), dimension(:, :, :) :: fBar, hfbar
     logical, intent(in) :: useSpatial, useState
     integer(kind=intType), intent(in) :: famLists(:, :)
-    character, dimension(:, :), intent(in) :: bcDataNames
-    real(kind=realType), dimension(:), intent(in) :: bcDataValues
-    integer(kind=intType), dimension(:, :) :: bcDataFamLists
+   !  character, dimension(:, :), intent(in) :: bcDataNames
+   !  real(kind=realType), dimension(:), intent(in) :: bcDataValues
+   !  integer(kind=intType), dimension(:, :) :: bcDataFamLists
+    character, dimension(:), intent(in) :: bcDataNames
+    real(kind=realType), dimension(:,:), intent(in) :: bcDataValues
+    integer(kind=intType), dimension(:) :: bcDataFamLists
     logical, intent(in) :: BCVarsEmpty
 
     ! Ouput Variables
     real(kind=realType), dimension(stateSize), intent(out) :: wbar
     real(kind=realType), dimension(extraSize), intent(out) :: extrabar
     real(kind=realType), dimension(spatialSize), intent(out) :: xvbar
-    real(kind=realType), dimension(size(bcDataValues)), intent(out) :: bcDataValuesbar
+    real(kind=realType), dimension(size(bcDataValues,1), size(bcDataValues,2)), intent(out) :: bcDataValuesbar
 
     ! Working variables
     integer(kind=intType) :: nn, sps, i, j, k, l, ii, level, nState, mm
@@ -168,6 +177,8 @@ contains
     else
        call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
+      write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
+
     end if
 
     ! Reset the correct equation parameters if we were useing the frozen
@@ -175,6 +186,7 @@ contains
     if (resetToRANS) then
        equations = RANSEquations
     end if
+         write(*,*) bcDataValuesbar
 
   end subroutine computeMatrixFreeProductBwd
 
