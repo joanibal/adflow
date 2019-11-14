@@ -629,13 +629,17 @@ python module libadflow
                 real(kind=realtype) dimension(:),intent(in) :: xvdot
                 real(kind=realtype) dimension(:),intent(in) :: extradot
                 real(kind=realtype) dimension(:),intent(in) :: wdot
-                real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+                real(kind=realtype) dimension(:,:),intent(in) :: bcdatavaluesdot
+                ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
                 logical intent(in) :: usespatial
                 logical intent(in) :: usestate
                 integer(kind=inttype) dimension(:,:) :: famlists
-                character dimension(:,:),intent(in) :: bcdatanames
-                real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-                integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+                ! character dimension(:,:),intent(in) :: bcdatanames
+                ! real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
+                ! integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+                character dimension(:),intent(in) :: bcdatanames
+                real(kind=realtype) dimension(:,:),intent(in) :: bcdatavalues
+                integer(kind=inttype) dimension(:) :: bcdatafamlists
                 logical intent(in) :: bcvarsempty
                 real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
                 real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
@@ -659,10 +663,15 @@ python module libadflow
                 integer(kind=inttype) intent(in) :: extrasize
                 integer(kind=inttype) intent(in) :: statesize
                 integer(kind=inttype) dimension(:,:),intent(in) :: famlists
-                character dimension(:,:),intent(in) :: bcdatanames
-                real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-                real(kind=realtype) dimension(size(bcdatavalues)),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
-                integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+                ! character dimension(:,:),intent(in) :: bcdatanames
+                character dimension(:),intent(in) :: bcdatanames
+                ! real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
+                real(kind=realtype) dimension(:,:),intent(in) :: bcdatavalues
+                ! real(kind=realtype) dimension(0, 0),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
+                real(kind=realtype) dimension(size(bcdatavalues,1), size(bcdatavalues,2)),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
+                ! real(kind=realtype) dimension(size(bcdatavalues)),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
+                ! integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+                integer(kind=inttype) dimension(:) :: bcdatafamlists
                 logical intent(in) :: bcvarsempty
             end subroutine computematrixfreeproductbwd
 #endif
@@ -682,13 +691,17 @@ python module libadflow
           real(kind=realtype) dimension(:),intent(in) :: xvdot
           real(kind=realtype) dimension(:),intent(in) :: extradot
           real(kind=realtype) dimension(:),intent(in) :: wdot
-          real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+          real(kind=realtype) dimension(:,:),intent(in) :: bcdatavaluesdot
+          ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
           logical intent(in) :: usespatial
           logical intent(in) :: usestate
           integer(kind=inttype) dimension(:,:) :: famlists
-          character dimension(:,:),intent(in) :: bcdatanames
-          real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-          integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+          ! character dimension(:,:),intent(in) :: bcdatanames
+          ! real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
+          ! integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+          character dimension(:),intent(in) :: bcdatanames
+          real(kind=realtype) dimension(:,:),intent(in) :: bcdatavalues
+          integer(kind=inttype) dimension(:) :: bcdatafamlists
           logical intent(in) :: bcvarsempty
           real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
           real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
@@ -707,7 +720,8 @@ python module libadflow
         costsize, fsize, ntime,  spatialsize, extrasize, statesize)
         real(kind=realtype), dimension(:), intent(in) :: wdot
         real(kind=realtype), dimension(:), intent(in) :: xvdot
-        real(kind=realtype), dimension(:), intent(in) :: bcdatavaluesdot
+        ! real(kind=realtype), dimension(:), intent(in) :: bcdatavaluesdot
+        real(kind=realtype), dimension(:,:), intent(in) :: bcdatavaluesdot
 
         real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
         real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
@@ -716,9 +730,12 @@ python module libadflow
         real(kind=realtype), dimension(:, :), intent(in) :: funcsbar
 
         integer(kind=inttype), dimension(:,:) :: famlists
-        character, dimension(:,:), intent(in) :: bcdatanames
-        real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
-        integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+        ! character, dimension(:,:), intent(in) :: bcdatanames
+        character, dimension(:), intent(in) :: bcdatanames
+        ! real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+        real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
+        ! integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+        integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
         logical, intent(in) :: bcvarsempty
 
 
@@ -733,7 +750,8 @@ python module libadflow
         real(kind=realtype) dimension(:),intent(in) :: xvdot
         real(kind=realtype) dimension(:),intent(in) :: extradot
         real(kind=realtype) dimension(:),intent(in) :: wdot
-        real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+        real(kind=realtype) dimension(:,:),intent(in) :: bcdatavaluesdot
+        ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
         logical intent(in) :: usespatial
         logical intent(in) :: usestate
         integer(kind=inttype) dimension(:,:) :: famlists

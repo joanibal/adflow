@@ -85,6 +85,7 @@ contains
     real(kind=realtype) :: tmpd7
     real(kind=realtype) :: tmpd6
     real(kind=realtype) :: tmpd5
+    real(kind=realtype) :: tempd0
     real(kind=realtype) :: tmpd4
     real(kind=realtype) :: tmpd3
     real(kind=realtype) :: tmpd2
@@ -194,8 +195,12 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+      funcvalues(costfuncheattransfercoef) = funcvalues(&
+&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
+&       , sps)/globalvals(iheatedarea, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -580,6 +585,7 @@ contains
       do sps=1,ntimeintervalsspectral
 ! ------------
 ! ------------
+! heat transfer cost functions
 ! mass flow like objective
         mflow = globalvals(imassflow, sps)
         if (mflow .ne. zero) then
@@ -628,6 +634,13 @@ contains
         end if
         globalvalsd(imassflow, sps) = globalvalsd(imassflow, sps) + &
 &         mflowd
+        tempd0 = ovrnts*funcvaluesd(costfuncheattransfercoef)/globalvals&
+&         (iheatedarea, sps)
+        globalvalsd(iheattransfercoef, sps) = globalvalsd(&
+&         iheattransfercoef, sps) + tempd0
+        globalvalsd(iheatedarea, sps) = globalvalsd(iheatedarea, sps) - &
+&         globalvals(iheattransfercoef, sps)*tempd0/globalvals(&
+&         iheatedarea, sps)
         globalvalsd(iheatflux, sps) = globalvalsd(iheatflux, sps) + &
 &         ovrnts*funcvaluesd(costfuncheatflux)
         globalvalsd(icperror2, sps) = globalvalsd(icperror2, sps) + &
@@ -868,8 +881,12 @@ contains
 &       ovrnts*globalvals(ipower, sps)
       funcvalues(costfunccperror2) = funcvalues(costfunccperror2) + &
 &       ovrnts*globalvals(icperror2, sps)
+! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+      funcvalues(costfuncheattransfercoef) = funcvalues(&
+&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
+&       , sps)/globalvals(iheatedarea, sps)
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -1061,8 +1078,8 @@ contains
 &   mvaxisd, mpaxisd, qwd
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: cperrord, cperror2d
-    real(kind=realtype) :: q, scaledim
-    real(kind=realtype) :: qd, scaledimd
+    real(kind=realtype) :: q, scaledim, havg, areaheated
+    real(kind=realtype) :: qd, scaledimd, havgd, areaheatedd
     intrinsic sqrt
     intrinsic mod
     intrinsic max
@@ -1283,8 +1300,10 @@ contains
     else
       call pushcontrol2b(2)
     end if
-    cperror2d = localvaluesd(icperror2)
+    areaheatedd = localvaluesd(iheatedarea)
+    havgd = localvaluesd(iheattransfercoef)
     qd = localvaluesd(iheatflux)
+    cperror2d = localvaluesd(icperror2)
     mpaxisd = localvaluesd(iaxismoment)
     mvaxisd = localvaluesd(iaxismoment)
     sepsensoravgd = 0.0_8
@@ -1313,13 +1332,16 @@ contains
         else
           blk = bcdata(mm)%iblank(i, j)
         end if
-        qwd = blk*qd + bcdatad(mm)%cellheatflux(i, j)
+        bcdatad(mm)%area(i, j) = bcdatad(mm)%area(i, j) + blk*&
+&         areaheatedd
+        qwd = bcdatad(mm)%cellheatflux(i, j) + blk*qd + blk*havgd/(tref*&
+&         (1-bcdata(mm)%tns_wall(i, j)))
         bcdatad(mm)%cellheatflux(i, j) = 0.0_8
         temp10 = viscsubface(mm)%q(i, j, 3)
         temp9 = viscsubface(mm)%q(i, j, 2)
         temp8 = viscsubface(mm)%q(i, j, 1)
-        tempd25 = -(fact*scaledim*qwd)
-        scaledimd = scaledimd - fact*(temp8*ssi(i, j, 1)+temp9*ssi(i, j&
+        tempd25 = fact*scaledim*qwd
+        scaledimd = scaledimd + fact*(temp8*ssi(i, j, 1)+temp9*ssi(i, j&
 &         , 2)+temp10*ssi(i, j, 3))*qwd
         viscsubfaced(mm)%q(i, j, 1) = viscsubfaced(mm)%q(i, j, 1) + ssi(&
 &         i, j, 1)*tempd25
@@ -1824,7 +1846,7 @@ contains
     real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
 &   mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
-    real(kind=realtype) :: q, scaledim
+    real(kind=realtype) :: q, scaledim, havg, areaheated
     intrinsic sqrt
     intrinsic mod
     intrinsic max
@@ -1861,6 +1883,8 @@ contains
     mvaxis = zero
     cperror2 = zero
     q = zero
+    havg = zero
+    areaheated = zero
     scaledim = pref*sqrt(pref/rhoref)
 !
 !         integrate the inviscid contribution over the solid walls,
@@ -2107,13 +2131,16 @@ contains
           blk = bcdata(mm)%iblank(i, j)
         end if
 ! wall heat flux dotted with the area vector and scaled
-        qw = -(fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+        qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
-&         , 3)*ssi(i, j, 3)))
+&         , 3)*ssi(i, j, 3))
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
+        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)))*blk
+! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+        areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
 ! if we an adiabatic wall, set the heat flux to zero
@@ -2130,8 +2157,11 @@ contains
 &     sepsensoravg
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
-    localvalues(iheatflux) = localvalues(iheatflux) + q
     localvalues(icperror2) = localvalues(icperror2) + cperror2
+    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
+&     havg
+    localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated
   end subroutine wallintegrationface
 !  differentiation of flowintegrationface in reverse (adjoint) mode (with options i4 dr8 r8 noisize):
 !   gradient     of useful results: pointref timeref tref rgas

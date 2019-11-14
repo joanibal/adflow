@@ -54,9 +54,14 @@ contains
     logical, intent(in) :: useSpatial
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :), intent(out) :: funcValues
-    character, optional, dimension(:, :), intent(in) :: bcDataNames
-    real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues
-    integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
+
+   !  character, optional, dimension(:, :), intent(in) :: bcDataNames
+   !  real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues
+   !  integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
+
+    character, optional, dimension(:), intent(in) :: bcDataNames
+    real(kind=realType), optional, dimension(:,:), intent(in) :: bcDataValues
+    integer(kind=intType), optional, dimension(:) :: bcDataFamLists
 
     ! Output Variables
     real(kind=realType), intent(out), optional, dimension(:, :, :) :: forces
@@ -75,10 +80,10 @@ contains
 
        call referenceState
        if (present(bcDataNames)) then
-         !  do sps=1,nTimeIntervalsSpectral
-         !     call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
-         !          size(bcDataValues), size(bcDataFamLIsts, 2))
-         !  end do
+          do sps=1,nTimeIntervalsSpectral
+             call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
+                size(bcDataFamLIsts, 1))
+          end do
           call setBCDataFineGrid(.true.)
        end if
 
@@ -289,7 +294,7 @@ contains
     use surfaceIntegrations, only : getSolution_d
     use adjointExtra_d, only : xhalo_block_d, volume_block_d, metric_BLock_d, boundarynormals_d
     use adjointextra_d, only : resscale_D, sumdwandfw_d
-   !  use bcdata, only : setBCData_d, setBCDataFineGrid_d
+    use bcdata, only : setBCData_d, setBCDataFineGrid_d
     use bcdata, only : setBCDataFineGrid_d
     use oversetData, only : oversetPresent
     use inputOverset, only : oversetUpdateMode
@@ -310,9 +315,15 @@ contains
     real(kind=realType), intent(in), dimension(:) :: wDot, xDot
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :), intent(out) :: funcValues, funcValuesd
-    character, optional, dimension(:, :), intent(in) :: bcDataNames
-    real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues, bcDataValuesd
-    integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
+   !  character, optional, dimension(:, :), intent(in) :: bcDataNames
+   !  real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues, bcDataValuesd
+   !  integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
+
+    character, optional, dimension(:), intent(in) :: bcDataNames
+    real(kind=realType), optional, dimension(:,:), intent(in) :: bcDataValues, bcDataValuesd
+    integer(kind=intType), optional, dimension(:) :: bcDataFamLists
+
+    ! Output variables:
 
     ! Output variables:
     real(kind=realType), intent(out), dimension(:) :: dwDot
@@ -401,10 +412,10 @@ contains
     call adjustInflowAngle_d
     call referenceState_d
     if (present(bcDataNames)) then
-      !  do sps=1,nTimeIntervalsSpectral
-      !     call setBCData_d(bcDataNames, bcDataValues, bcDataValuesd, &
-      !          bcDataFamLists, sps, size(bcDataValues), size(bcDataFamLists, 2))
-      !  end do
+       do sps=1,nTimeIntervalsSpectral
+          call setBCData_d(bcDataNames, bcDataValues, bcDataValuesd, &
+               bcDataFamLists, sps,  size(bcDataFamLists, 1))
+       end do
        call setBCDataFineGrid_d(.true.)
     end if
 
@@ -623,7 +634,7 @@ contains
     use fluxes_b, only :inviscidUpwindFlux_b, inviscidDissFluxScalar_b, &
          inviscidDissFluxMatrix_b, viscousFlux_b, inviscidCentralFlux_b
     use BCExtra_b, only : applyAllBC_Block_b
-   !  use bcdata, only : setBCData_b, setBCDataFineGrid_b
+    use bcdata, only : setBCData_b, setBCDataFineGrid_b
     use bcdata, only : setBCDataFineGrid_b
     use oversetData, only : oversetPresent
     use inputOverset, only : oversetUpdateMode
@@ -648,17 +659,21 @@ contains
     integer(kind=intType), intent(in) :: nState
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :) :: funcValues, funcValuesd
-    character, optional, dimension(:, :), intent(in) :: bcDataNames
-    real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues
-    integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
+    character, optional, dimension(:), intent(in) :: bcDataNames
+    real(kind=realType), optional, dimension(:,:), intent(in) :: bcDataValues
+    integer(kind=intType), optional, dimension(:) :: bcDataFamLists
+!     character, optional, dimension(:, :), intent(in) :: bcDataNames
+!     real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues
+!     integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
 
     ! Output Arguments:
     real(kind=realType), optional, intent(out), dimension(:) :: wBar, xBar, extraBar
-    real(kind=realType), optional, dimension(:), intent(out) :: bcDataValuesd
+    real(kind=realType), optional, dimension(:,:), intent(out) :: bcDataValuesd
 
     ! Working Variables
     integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj,  level, iRegion
-    real(kind=realType), dimension(:), allocatable :: extraLocalBar, bcDataValuesdLocal
+    real(kind=realType), dimension(:), allocatable :: extraLocalBar
+    real(kind=realType), dimension(:,:), allocatable :: bcDataValuesdLocal
     real(kind=realType) :: dummyReal, dummyReald
     logical ::resetToRans
     real(kind=realType), dimension(:, :, :), allocatable :: forces
@@ -673,7 +688,8 @@ contains
    !    bcDataFamLists)
     ! you may be thinking we do we need this when we always do a forward pass before solving the
     ! adjoint? well it is because we run this code multiple times to setup the adjoint. On each
-    ! reverse pass the varibles can be changed so it is import to reset them with another forward pass.
+    ! reverse pass the varibles (namely the halo cell states) can be changed so it is import to
+    ! reset them with another forward pass.
 
       do sps=1,nTimeIntervalsSpectral
          do nn=1,nDom
@@ -920,18 +936,24 @@ contains
 
 
     if (present(bcDataNames)) then
-       allocate(bcDataValuesdLocal(size(bcDataValuesd)))
+       allocate(bcDataValuesdLocal, mold=bcDataValuesd)
+        write(*,*) 'bcDataValuesdLocal', shape(bcDataValuesdLocal)
+
        bcDataValuesdLocal = zero
        call setBCDataFineGrid_b(.true.)
-      !  do sps=1, nTimeIntervalsSpectral
-      !     call setBCData_b(bcDataNames, bcDataValues, bcDataValuesdLocal, bcDataFamLists, &
-      !          sps, size(bcDataValues), size(bcDataFamLIsts, 2))
-      !  end do
+       do sps=1, nTimeIntervalsSpectral
+          call setBCData_b(bcDataNames, bcDataValues, bcDataValuesdLocal, bcDataFamLists, &
+               sps, size(bcDataFamLIsts,1))
+       end do
        ! Reverse seeds need to accumulated across all processors:
        call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
             mpi_sum, ADflow_comm_world, ierr)
        deallocate(bcDataValuesdLocal)
+      write(*,*) 'bcDataValuesd', shape(bcDataValuesd)
+      write(*,*) bcDataValuesd
     end if
+
+
     call referenceState_b
     call adjustInflowAngle_b
 

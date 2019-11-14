@@ -2812,10 +2812,10 @@ class ADFLOW(AeroSolver):
         nameArray = self._createFortranStringArray(variables)
         groupArray = self._expandGroupNames(groupNames)
         if len(nameArray) > 0:
-            return nameArray, dataArray, groupArray, groupNames, False
+            return nameArray, dataArray[0], groupArray, groupNames, False
         else:
             # dummy data that doesn't matter
-            return (self._createFortranStringArray(['Pressure']), [0.0],
+            return (self._createFortranStringArray(['Pressure']), [[0.0]],
                     [[1,1]], groupNames, True)
 
     def getForces(self, groupName=None, TS=0):
@@ -3294,7 +3294,7 @@ class ADFLOW(AeroSolver):
                    varName, family = tmp
                    value = self.curAP.bcVarData[tmp]
                    if varName.lower() == key and family.lower() == dvFam.lower():
-                       funcsSens[dvName] = dIdBC[i]
+                       funcsSens[dvName] = dIdBC
                    i += 1
 
         return funcsSens
@@ -3627,24 +3627,17 @@ class ADFLOW(AeroSolver):
             useSpatial = True
             for xKey in xDvDot:
                 # We need to split out the family from the key.
-                key = xKey.split('_')
-                if len(key) == 1:
-                    key = key[0].lower()
-                    if key in self.possibleAeroDVs:
-                        val = xDvDot[xKey]
-                        if key.lower() == 'alpha':
-                            val *= numpy.pi/180
-                        extradot[self.possibleAeroDVs[key.lower()]] = val
+                # key = xKey.split('_')
+                # if len(key) == 1:
+                key = xKey.lower()
+                if key in self.possibleAeroDVs:
+                    val = xDvDot[xKey]
+                    if key.lower() == 'alpha':
+                        val *= numpy.pi/180
+                    extradot[self.possibleAeroDVs[key.lower()]] = val
 
-                else:
-                    fam = '_'.join(key[1:])
-                    key = key[0].lower()
-                    if key in self.possibleBCDvs and not bcVarsEmpty:
-                        # Figure out what index this should be:
-                        for i in range(len(bcDataNames)):
-                            if key.lower() == ''.join(bcDataNames[i]).strip().lower() and \
-                               fam.lower() == bcDataFams[i].lower():
-                                bcDataValuesdot[i] = xDvDot[xKey]
+                elif key == ''.join(bcDataNames[0]).strip().lower():
+                                bcDataValuesdot[0] = xDvDot[xKey]
         # For the geometric xDvDot perturbation we accumulate into the
         # already existing (and possibly nonzero) xsdot and xvdot
         if xDvDot is not None or xSDot is not None:
@@ -3868,12 +3861,15 @@ class ADFLOW(AeroSolver):
         # Extract any possibly BC daa
         bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty = (
             self._getBCDataFromAeroProblem(self.curAP))
-
+        #TODO fix this by adding new data type to store bc information
         # Do actual Fortran call.
+        print('call computematrixfreeproductbwd')
+
         xvbar, extrabar, wbar, bcdatavaluesbar = self.adflow.adjointapi.computematrixfreeproductbwd(
             resBar, funcsBar, fBar.T, hfBar.T, useSpatial, useState, self.getSpatialSize(),
             self.adflow.adjointvars.ndesignextra, self.getAdjointStateSize(), famLists,
             bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty)
+        print('call computematrixfreeproductbwd end')
 
         # Assemble the possible returns the user has requested:
         returns = []
@@ -4000,6 +3996,7 @@ class ADFLOW(AeroSolver):
                             if key.lower() == ''.join(bcDataNames[i]).strip().lower() and \
                                fam.lower() == bcDataFams[i].lower():
                                 bcDataValuesdot[i] = xDvDot[xKey]
+
         self.adflow.adjointdebugging.computedotproducttest(wDot, xVDot, bcDataValuesdot,
         fBar.T, hfBar.T, resBar, funcsBar,
         famLists, bcVarsEmpty, bcDataNames, bcDataValues, bcDataFamLists,

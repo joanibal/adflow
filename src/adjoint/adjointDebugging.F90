@@ -42,9 +42,13 @@ contains
       integer(kind=intType), dimension(:, :) :: famLists
       integer(kind=intType) :: costSize, fSize, nTime
 
-      character, dimension(:, :), intent(in) :: bcDataNames
-      real(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
-      integer(kind=intType), dimension(:, :) :: bcDataFamLists
+      ! character, dimension(:, :), intent(in) :: bcDataNames
+      ! real(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
+      ! integer(kind=intType), dimension(:, :) :: bcDataFamLists
+      character, dimension(:), intent(in) :: bcDataNames
+      real(kind=realType), dimension(:,:), intent(inout) :: bcDataValues
+      real(kind=realType), dimension(:,:), intent(in) :: bcDataValuesDot
+      integer(kind=intType), dimension(:) :: bcDataFamLists
       logical, intent(in) :: BCVarsEmpty
       real(kind=realType), intent(in) :: h ! step size for Finite Difference
 
@@ -178,6 +182,11 @@ contains
          end do spectalLoop1
       end do domainLoop1
 
+      write(*,*) '1 bcDataValues ', bcDataValues
+      if (.not. bcVarsEmpty) then
+         bcDataValues = bcDataValues + bcDataValuesDot*h
+      endif 
+      write(*,*) '2 bcDataValues ', bcDataValues
 
 
       ! ----------------------------- Run Master ---------------------------------
@@ -223,6 +232,13 @@ contains
          end do
       end do
 
+
+      if (.not. bcVarsEmpty) then
+         bcDataValues = bcDataValues - bcDataValuesDot*h
+      endif 
+
+      write(*,*) '1 heatflux', -hfDot
+      write(*,*) '2 heatflux', heatfluxes
       fDot = (fDot + forces)/h
       hfDot = (hfDot + heatfluxes)/h
       funcsDot = (funcsDot + funcValues)/h
@@ -496,7 +512,7 @@ contains
 
       real(kind=realtype), dimension(:), intent(in) :: wdot
       real(kind=realtype), dimension(:), intent(in) :: xvdot
-      real(kind=realtype), dimension(:), intent(in) :: bcdatavaluesdot
+      real(kind=realtype), dimension(:,:), intent(in) :: bcdatavaluesdot
 
       real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
       real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
@@ -505,9 +521,14 @@ contains
       real(kind=realType), dimension(:, :), intent(in) :: funcsbar
 
       integer(kind=inttype), dimension(:,:) :: famlists
-      character, dimension(:,:), intent(in) :: bcdatanames
-      real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
-      integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+      ! character, dimension(:,:), intent(in) :: bcdatanames
+      ! real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+      ! integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+
+      character, dimension(:), intent(in) :: bcdatanames
+      real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
+      integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
+      
       logical, intent(in) :: BCVarsEmpty
 
 
@@ -520,7 +541,7 @@ contains
       real(kind=realType), dimension(stateSize) :: wbar
       real(kind=realType), dimension(extraSize) :: extrabar
       real(kind=realType), dimension(spatialSize) :: xvbar
-      real(kind=realType), dimension(size(bcDataValues)) :: bcDataValuesbar
+      real(kind=realType), dimension(size(bcDataValues,1), size(bcDataValues,2)) :: bcDataValuesbar
       real(kind=realType), dimension(size(funcsBar,1), size(funcsBar, 2)) :: funcValues
 
 
