@@ -1,6 +1,6 @@
 ! This is a special function that is sued to alloc derivative values
 ! in blockpointers_d for use with the AD code.
-module adjointDebugging
+module adjointDebug
 
 contains
 
@@ -1315,4 +1315,4 @@ contains
 
 #endif
 
-end module adjointDebugging
+end module adjointDebug
