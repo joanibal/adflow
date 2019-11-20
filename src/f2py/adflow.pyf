@@ -699,7 +699,7 @@ python module libadflow
          end subroutine destroypetscvars
 
        end module adjointutils
-       module adjointdebugging
+       module adjointdebug
 #ifndef USE_COMPLEX
         subroutine computematrixfreeproductfwdfd(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime,h)
           real(kind=realtype) dimension(:),intent(in) :: xvdot
@@ -783,7 +783,7 @@ python module libadflow
       end subroutine computematrixfreeproductfwdcs
 #endif
 
-       end module adjointdebugging
+       end module adjointdebug
 
        module zippermesh
          subroutine createzippermesh(zipperfamlist,nzipfam) ! in :test:createZipperMesh.F90
