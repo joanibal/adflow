@@ -3833,16 +3833,18 @@ class ADFLOW(AeroSolver):
 
         # Extract any possibly BC daa
         if mode == 'FD':
-            dwdot, tmp, fdot, hfdot = self.adflow.adjointdebugging.computematrixfreeproductfwdfd(
-                xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
-                bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime, h)
+            # dwdot, tmp, fdot, hfdot = self.adflow.adjointdebugging.computematrixfreeproductfwdfd(
+            #     xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
+            #     bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime, h)
+            # print('not implemented')
+            raise Error("removed")
         elif mode == 'CS':
-            if self.dtype == 'D':
-                dwdot, tmp, fdot, hfdot = self.adflow.adjointdebugging.computematrixfreeproductfwdcs(
-                    xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
-                    bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime)
-            else:
-                raise Error("Complexified ADflow must be used to apply the complex step")
+            # if self.dtype == 'D':
+            #     dwdot, tmp, fdot, hfdot = self.adflow.adjointdebugging.computematrixfreeproductfwdcs(
+            #         xvdot, extradot, wdot, bcDataValuesdot, useSpatial, useState, famLists, bcDataNames,
+            #         bcDataValues, bcDataFamLists, bcVarsEmpty, costSize, max(1, fSize), nTime)
+            # else:
+            raise Error("Complexified ADflow must be used to apply the complex step")
 
         elif mode == 'AD':
             dwdot, tmp, fdot, hfdot = self.adflow.adjointapi.computematrixfreeproductfwd(
@@ -4089,77 +4091,77 @@ class ADFLOW(AeroSolver):
         # Single return (most frequent) is 'clean', otherwise a tuple.
         return tuple(returns) if len(returns) > 1 else returns[0]
 
-    def computeDotProductTest( self, xDvDot=False, xVDot=False, wDot=False,
-                               resBar=False, funcsBar=False, fBar=False, hfBar=False):
-        # Create a set of seeds
-        # Sizes for output arrays
-        costSize = self.adflow.constants.ncostfunction
-        fSize, nCell = self._getSurfaceSize(self.allWallsGroup, includeZipper=True)
-        nTime  = self.adflow.inputtimespectral.ntimeintervalsspectral
+    # def computeDotProductTest( self, xDvDot=False, xVDot=False, wDot=False,
+    #                            resBar=False, funcsBar=False, fBar=False, hfBar=False):
+    #     # Create a set of seeds
+    #     # Sizes for output arrays
+    #     costSize = self.adflow.constants.ncostfunction
+    #     fSize, nCell = self._getSurfaceSize(self.allWallsGroup, includeZipper=True)
+    #     nTime  = self.adflow.inputtimespectral.ntimeintervalsspectral
 
-        if xVDot:
-            xVDot = self.getSpatialPerturbation(314)
-        else:
-            xVDot = self.getSpatialPerturbation(314)*0
+    #     if xVDot:
+    #         xVDot = self.getSpatialPerturbation(314)
+    #     else:
+    #         xVDot = self.getSpatialPerturbation(314)*0
 
-        if wDot:
-            wDot = self.getStatePerturbation(314)
-        else:
-            wDot = self.getStatePerturbation(314)*0
+    #     if wDot:
+    #         wDot = self.getStatePerturbation(314)
+    #     else:
+    #         wDot = self.getStatePerturbation(314)*0
 
-        if resBar:
-            resBar = self.getStatePerturbation(314)
-        else:
-            resBar = self.getStatePerturbation(314)*0
+    #     if resBar:
+    #         resBar = self.getStatePerturbation(314)
+    #     else:
+    #         resBar = self.getStatePerturbation(314)*0
 
-        if fBar:
-            fBar = self.getSurfacePerturbation(314)
-        else:
-            fBar = self.getSurfacePerturbation(314)*0
+    #     if fBar:
+    #         fBar = self.getSurfacePerturbation(314)
+    #     else:
+    #         fBar = self.getSurfacePerturbation(314)*0
 
-        if hfBar:
-            hfBar = self.getSurfacePerturbation(314)[:, 1].reshape((len(fBar),1))
-        else:
-            hfBar = self.getSurfacePerturbation(314)[:, 1].reshape((len(fBar),1))*0
+    #     if hfBar:
+    #         hfBar = self.getSurfacePerturbation(314)[:, 1].reshape((len(fBar),1))
+    #     else:
+    #         hfBar = self.getSurfacePerturbation(314)[:, 1].reshape((len(fBar),1))*0
 
-        funcsBar = numpy.zeros((self.adflow.constants.ncostfunction, 1))
-        famLists = self._expandGroupNames([self.allWallsGroup])
+    #     funcsBar = numpy.zeros((self.adflow.constants.ncostfunction, 1))
+    #     famLists = self._expandGroupNames([self.allWallsGroup])
 
-        # Process the extra variable perturbation....this comes from
-        # xDvDot
-        extradot = numpy.zeros(self.adflow.adjointvars.ndesignextra)
-        bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty = (
-            self._getBCDataFromAeroProblem(self.curAP))
-        bcDataValuesdot = numpy.zeros_like(bcDataValues)
+    #     # Process the extra variable perturbation....this comes from
+    #     # xDvDot
+    #     extradot = numpy.zeros(self.adflow.adjointvars.ndesignextra)
+    #     bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty = (
+    #         self._getBCDataFromAeroProblem(self.curAP))
+    #     bcDataValuesdot = numpy.zeros_like(bcDataValues)
 
-        if xDvDot:
-            useSpatial = True
-            for xKey in xDvDot:
-                # We need to split out the family from the key.
-                key = xKey.split('_')
-                if len(key) == 1:
-                    key = key[0].lower()
-                    if key in self.possibleAeroDVs:
-                        val = xDvDot[xKey]
-                        if key.lower() == 'alpha':
-                            val *= numpy.pi/180
-                        extradot[self.possibleAeroDVs[key.lower()]] = val
+    #     if xDvDot:
+    #         useSpatial = True
+    #         for xKey in xDvDot:
+    #             # We need to split out the family from the key.
+    #             key = xKey.split('_')
+    #             if len(key) == 1:
+    #                 key = key[0].lower()
+    #                 if key in self.possibleAeroDVs:
+    #                     val = xDvDot[xKey]
+    #                     if key.lower() == 'alpha':
+    #                         val *= numpy.pi/180
+    #                     extradot[self.possibleAeroDVs[key.lower()]] = val
 
-                else:
-                    fam = '_'.join(key[1:])
-                    key = key[0].lower()
-                    if key in self.possibleBCDvs and not bcVarsEmpty:
-                        # Figure out what index this should be:
-                        for i in range(len(bcDataNames)):
-                            if key.lower() == ''.join(bcDataNames[i]).strip().lower() and \
-                               fam.lower() == bcDataFams[i].lower():
-                                bcDataValuesdot[i] = xDvDot[xKey]
+    #             else:
+    #                 fam = '_'.join(key[1:])
+    #                 key = key[0].lower()
+    #                 if key in self.possibleBCDvs and not bcVarsEmpty:
+    #                     # Figure out what index this should be:
+    #                     for i in range(len(bcDataNames)):
+    #                         if key.lower() == ''.join(bcDataNames[i]).strip().lower() and \
+    #                            fam.lower() == bcDataFams[i].lower():
+    #                             bcDataValuesdot[i] = xDvDot[xKey]
 
-        self.adflow.adjointdebugging.computedotproducttest(wDot, xVDot, bcDataValuesdot,
-        fBar.T, hfBar.T, resBar, funcsBar,
-        famLists, bcVarsEmpty, bcDataNames, bcDataValues, bcDataFamLists,
-        costSize, max(1, fSize), nTime,
-        self.getSpatialSize(), self.adflow.adjointvars.ndesignextra, self.getAdjointStateSize())
+    #     self.adflow.adjointdebugging.computedotproducttest(wDot, xVDot, bcDataValuesdot,
+    #     fBar.T, hfBar.T, resBar, funcsBar,
+    #     famLists, bcVarsEmpty, bcDataNames, bcDataValues, bcDataFamLists,
+    #     costSize, max(1, fSize), nTime,
+    #     self.getSpatialSize(), self.adflow.adjointvars.ndesignextra, self.getAdjointStateSize())
 
     def mapVector(self, vec1, groupName1, groupName2, vec2=None, includeZipper=True):
         """This is the main workhorse routine of everything that deals with
