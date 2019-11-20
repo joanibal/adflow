@@ -2093,13 +2093,13 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
 
 
-          write(*,*) 'bcVarArray'
-          write(*,*) bcVarArrayd(1, :, m)
-          write(*,*) bcVarArrayd(2, :, m)
-          write(*,*) bcVarArrayd(3, :, m)
-          write(*,*) bcVarArrayd(4, :, m)
-         write(*,*) 'iSize, jSize', iSize, jSize, shape(dataSet(k)%dirichletArrays(l)%dataArr)
-         write(*,*) 'data', dataSet(k)%dirichletArrays(l)%dataArr
+         !  write(*,*) 'bcVarArray'
+         !  write(*,*) bcVarArrayd(1, :, m)
+         !  write(*,*) bcVarArrayd(2, :, m)
+         !  write(*,*) bcVarArrayd(3, :, m)
+         !  write(*,*) bcVarArrayd(4, :, m)
+         ! write(*,*) 'iSize, jSize', iSize, jSize, shape(dataSet(k)%dirichletArrays(l)%dataArr)
+         ! write(*,*) 'data', dataSet(k)%dirichletArrays(l)%dataArr
 
          if (size(dataSet(k)%dirichletArrays(l)%dataArr,1) .eq. 1) then 
 
@@ -2171,7 +2171,7 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
             
 
             if (size(bcData) .eq. 1) then 
-               write(*,*) 'there is only one bcdata!!!'
+               write(*,*) 'there is only one bcdata!!!', bcData(1)
                ! set every value in the data array to same value 
                do i =1,size(dataSet(k)%dirichletArrays(l)%dataArr)
                   dataSet(k)%dirichletArrays(l)%dataArr(i) = bcData(1)

@@ -177,7 +177,8 @@ contains
     else
        call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
-      write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
+      ! write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
+      ! write(*,*) bcDataValuesbar
 
     end if
 
@@ -186,7 +187,6 @@ contains
     if (resetToRANS) then
        equations = RANSEquations
     end if
-         write(*,*) bcDataValuesbar
 
   end subroutine computeMatrixFreeProductBwd
 

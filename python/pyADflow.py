@@ -2944,8 +2944,11 @@ class ADFLOW(AeroSolver):
         nameArray, dataArrays, groupArray, groupNames, empty = (
             self._getBCDataFromAeroProblem(AP))
         if not empty:
-            for ii, nameBC in enumerate(nameArray):
-                self.adflow.bcdata.setbcdata(nameBC, dataArrays[ii], groupArray[ii], 1)
+            #TODO fix for a number of bc
+            # for ii, nameBC in enumerate(nameArray):
+            # import ipdb; ipdb.set_trace()
+
+            self.adflow.bcdata.setbcdata(nameArray[0], dataArrays, groupArray[0], 1)
 
         if not firstCall:
             self.adflow.initializeflow.updatebcdataalllevels()
@@ -2969,7 +2972,7 @@ class ADFLOW(AeroSolver):
         nameArray = self._createFortranStringArray(variables)
         groupArray = self._expandGroupNames(groupNames)
         if len(nameArray) > 0:
-            return nameArray, dataArray[0], groupArray, groupNames, False
+            return nameArray, dataArray, groupArray, groupNames, False
         else:
             # dummy data that doesn't matter
             return (self._createFortranStringArray(['Pressure']), [[0.0]],
@@ -4020,13 +4023,11 @@ class ADFLOW(AeroSolver):
             self._getBCDataFromAeroProblem(self.curAP))
         #TODO fix this by adding new data type to store bc information
         # Do actual Fortran call.
-        print('call computematrixfreeproductbwd')
 
         xvbar, extrabar, wbar, bcdatavaluesbar = self.adflow.adjointapi.computematrixfreeproductbwd(
             resBar, funcsBar, fBar.T, hfBar.T, useSpatial, useState, self.getSpatialSize(),
             self.adflow.adjointvars.ndesignextra, self.getAdjointStateSize(), famLists,
             bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty)
-        print('call computematrixfreeproductbwd end')
 
         # Assemble the possible returns the user has requested:
         returns = []
@@ -4072,7 +4073,7 @@ class ADFLOW(AeroSolver):
                     if self.comm.rank == 0:
                         ADFLOWWarning("No mesh object is present. No geometric "
                                     "derivatives computed.")
-
+                
                 # Include aero derivatives here:
                 xdvbar.update(self._processAeroDerivatives(extrabar, bcdatavaluesbar))
                 returns.append(xdvbar)
