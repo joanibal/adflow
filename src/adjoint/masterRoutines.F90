@@ -922,7 +922,6 @@ contains
 
     if (present(bcDataNames)) then
        allocate(bcDataValuesdLocal, mold=bcDataValuesd)
-        write(*,*) 'bcDataValuesdLocal', shape(bcDataValuesdLocal)
 
        bcDataValuesdLocal = zero
        call setBCDataFineGrid_b(.true.)
@@ -934,8 +933,6 @@ contains
        call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
             mpi_sum, ADflow_comm_world, ierr)
        deallocate(bcDataValuesdLocal)
-      write(*,*) 'bcDataValuesd', shape(bcDataValuesd)
-      write(*,*) bcDataValuesd
     end if
 
 

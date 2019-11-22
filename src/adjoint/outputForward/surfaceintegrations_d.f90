@@ -1359,8 +1359,9 @@ contains
 ! save the face based heatflux
         bcdatad(mm)%cellheatflux(i, j) = qwd
         bcdata(mm)%cellheatflux(i, j) = qw
-        havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)))
-        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)))*blk
+        havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8)&
+&         )
+        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
 ! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheatedd = areaheatedd + blk*bcdatad(mm)%area(i, j)
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
@@ -1749,7 +1750,7 @@ contains
         q = q + qw*blk
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
-        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)))*blk
+        havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
 ! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
