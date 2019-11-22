@@ -682,7 +682,7 @@ contains
                ! Save the face based heatflux
                bcData(mm)%cellHeatFlux(i, j) = qw
                
-               hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)))* blk
+               hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)+1e-8))* blk
                ! write(*,*) i, j , 'h', qw, (Tref*(1 - BCData(mm)%TNS_Wall(i,j))), scaleDim
                areaHeated = areaHeated + BCData(mm)%area(i,j)* blk
           enddo
