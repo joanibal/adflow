@@ -1479,6 +1479,9 @@ contains
                 call insertToDataSet(bcDataName, bcDataArrays(iarray,:))
 
                 if (size(bcDataArrays, 1) > 1) then 
+                  write(*,*) '++++++++++++++++++++++++', iarray, '++++++++++++++++++'
+                  write(*,*)bcDataArrays(iarray,:)
+                  
                   iarray = iarray + 1
                 end if
 
@@ -2178,6 +2181,10 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
                end do 
                
             else
+               write(*,*) '================ bcdata =============='
+               write(*,*) 'data Arr', dataSet(k)%dirichletArrays(l)%dataArr
+               write(*,*)
+               write(*,*) 'bcData', bcData
                dataSet(k)%dirichletArrays(l)%dataArr = bcData
             end if
 
