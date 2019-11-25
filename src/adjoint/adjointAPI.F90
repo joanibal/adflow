@@ -175,6 +175,8 @@ contains
        call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar)
     else
+       write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
+      !  write(*,*) bcDataValuesbar
        call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
       ! write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
