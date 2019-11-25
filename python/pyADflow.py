@@ -2818,6 +2818,9 @@ class ADFLOW(AeroSolver):
             if isinstance(dataArray,numpy.ndarray):
                 if dataArray.size == 0:
                     return nameArray, numpy.array([[]]), groupArray, groupNames, True
+                elif dataArray.size == 1:
+                    return nameArray, [dataArray], groupArray, groupNames, False
+
                 else:
                     return nameArray, dataArray, groupArray, groupNames, False
 
