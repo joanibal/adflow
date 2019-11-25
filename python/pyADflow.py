@@ -2809,13 +2809,17 @@ class ADFLOW(AeroSolver):
         for tmp in AP.bcVarData:
             varName, family = tmp
             variables.append(varName)
-            dataArray.append(AP.bcVarData[tmp])
+            dataArray = AP.bcVarData[tmp]
             groupNames.append(family)
 
         nameArray = self._createFortranStringArray(variables)
         groupArray = self._expandGroupNames(groupNames)
         if len(nameArray) > 0:
-            return nameArray, dataArray, groupArray, groupNames, False
+            if isinstance(dataArray,numpy.ndarray):
+                if dataArray.size == 0:
+                    return nameArray, numpy.array([[]]), groupArray, groupNames, True
+        
+            return nameArray, [dataArray], groupArray, groupNames, False
         else:
             # dummy data that doesn't matter
             return (self._createFortranStringArray(['Pressure']), [[0.0]],
@@ -3868,6 +3872,7 @@ class ADFLOW(AeroSolver):
             self._getBCDataFromAeroProblem(self.curAP))
         #TODO fix this by adding new data type to store bc information
         # Do actual Fortran call.
+        # import pdb; pdb.set_trace()
 
         xvbar, extrabar, wbar, bcdatavaluesbar = self.adflow.adjointapi.computematrixfreeproductbwd(
             resBar, funcsBar, fBar.T, hfBar.T, useSpatial, useState, self.getSpatialSize(),

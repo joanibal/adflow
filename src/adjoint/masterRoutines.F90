@@ -945,8 +945,9 @@ contains
                sps, size(bcDataFamLIsts,1))
        end do
        ! Reverse seeds need to accumulated across all processors:
-       call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
-            mpi_sum, ADflow_comm_world, ierr)
+       write(*,*)'help im stuck'
+      !  call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
+      !       mpi_sum, ADflow_comm_world, ierr)
        deallocate(bcDataValuesdLocal)
     end if
 
