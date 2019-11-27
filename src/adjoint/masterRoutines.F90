@@ -921,18 +921,18 @@ contains
 
 
     if (present(bcDataNames)) then
-       allocate(bcDataValuesdLocal, mold=bcDataValuesd)
+      !  allocate(bcDataValuesdLocal, mold=bcDataValuesd)
 
        bcDataValuesdLocal = zero
        call setBCDataFineGrid_b(.true.)
        do sps=1, nTimeIntervalsSpectral
-          call setBCData_b(bcDataNames, bcDataValues, bcDataValuesdLocal, bcDataFamLists, &
+          call setBCData_b(bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists, &
                sps, size(bcDataFamLIsts,1))
        end do
        ! Reverse seeds need to accumulated across all processors:
       !  call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
       !       mpi_sum, ADflow_comm_world, ierr)
-       deallocate(bcDataValuesdLocal)
+      !  deallocate(bcDataValuesdLocal)
     end if
 
 
