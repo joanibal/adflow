@@ -2987,6 +2987,86 @@ class ADFLOW(AeroSolver):
             return (self._createFortranStringArray(['Pressure']), [[0.0]],
                     [[1,1]], groupNames, True)
 
+    def getBCData(self, TS=0):
+        """
+        This function is used to extract the bcdata set for each surface patch.
+        depending on the boundary condition this may be an array of Temperatures,
+        Pressure, or any other variable used to set that specific boundary condition. 
+
+        This routine does not return any information for patches which have no 
+        explicit bcdata (euler wall, NS wall, sym, farfield)
+        
+        Parameters
+        ---------
+
+        TS : int
+            The time spectral instance to use for the forces.
+
+        Returns
+        -------
+        BCDataArrays : list(nBCArrays entries of array (nVariables, nNodes))
+            the data used to specify the boundary condition for each patch. 
+            For example the data could look something like...
+
+            BCDataArrays = [ array([[ 273, 273, 273, .... ],
+                              [ 101000, 101000, 101000, ...]])
+                       ...
+                       ...)]
+
+
+
+        BCDataVarName: list(nBCArrays, nVariables)
+            This dictates what variable the corresponding entry in the BCData 
+            array represents. For example ...
+
+            BCDataVarName = [['Temperature','Pressure', ...], [...] ]        
+    
+        BCPatchData : list(nBCArrays , 6)
+            Provides [ blk_idx, boco_idx, BCType, fam_idx, nNodes, nVariables]
+            for each patch. This in essense specifies where exactly the patch is
+            with in the mesh and how what information is there. For example..
+
+            TODO: update example
+            BCPatchData = [[289, 11, 2, 3], <- the first patch is in the 11th
+                                                block on boundary 2. This patch
+                                                belongs to family 3, which  
+                                                corresponds to a family name in 
+                                                the family list. 
+                           [289 12, 2, 3], <- this patch is in the same family, 
+                                              but a different block
+                           [...     ],
+                           ...
+                           [...      ]]
+
+        """
+
+
+        # call the fotran level routine get the data from the mesh 
+        # BCData,  BCDataVarNames = self.adflow.bcdata.getbcdata(1)
+        #  numpy.zeros((self.adflow.block.ndom, 6, 6), dtype=numpy.intc, order='F')
+        PatchData = self.adflow.bcdata.getpatchdata(TS+1, self.adflow.block.ndom)
+
+        BCPatchData = PatchData[PatchData[:,:,-1] > 0]
+
+        nBCArrays = numpy.sum(BCPatchData[:,-1])
+        maxPatchSize = numpy.max(BCPatchData[:,-2])
+
+        BCDataArraysFortran, BCDataVarNamesFortran = \
+        self.adflow.bcdata.getbcdata(TS+1, BCPatchData, nBCArrays, maxPatchSize) 
+
+
+
+        # remove the array padding needed for fortran
+        BCDataVarNames = []
+        BCDataArrays = []
+        for idx_array in range(nBCArrays):
+            BCDataArrays.append(BCDataArraysFortran[idx_array, :BCPatchData[idx_array, -2]])          
+            BCDataVarNames.append("".join(BCDataVarNamesFortran[idx_array]).strip())
+
+
+        return BCDataArrays, BCDataVarNames, BCPatchData
+
+
     def getForces(self, groupName=None, TS=0):
         """ Return the forces on this processor on the families defined by groupName.
 
