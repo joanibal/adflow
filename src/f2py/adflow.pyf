@@ -99,6 +99,21 @@ python module libadflow
            integer(kind=inttype), optional,intent(in),check(shape(famlists,0)==nfammax),depend(famlists) :: nfammax=shape(famlists,0)
          end subroutine setbcdata
 
+         subroutine getpatchdata(sps, ndom, patchdata)
+           integer(kind=inttype), intent(in) ::  sps 
+           integer(kind=inttype), intent(in) ::  ndom 
+           integer(kind=inttype), dimension(ndom, 6, 6 ), depend(ndom), intent(out) :: patchdata
+         end subroutine getpatchdata
+
+         subroutine getbcdata(sps, bcpatchdata, nbcarrays, maxpatchsize, bcdataarray, bcdatavarnames)
+           integer(kind=inttype), intent(in) ::  sps 
+           integer(kind=inttype), intent(in) ::  nbcarrays 
+           integer(kind=inttype), intent(in) ::  maxpatchsize 
+           integer(kind=inttype), dimension(:, :), intent(in) :: bcpatchdata
+           real(kind=realtype), dimension(nbcarrays,maxpatchsize), intent(out) :: bcdataarray
+           character, dimension(nbcarrays,32), intent(out) :: bcdatavarnames
+          end subroutine getbcdata
+
        end module bcdata
 
 

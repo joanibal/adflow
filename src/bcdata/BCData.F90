@@ -1395,6 +1395,183 @@ contains
 
 #ifndef USE_TAPENADE
 
+
+  subroutine getPatchData(sps, nDom, PatchData)
+   ! TODO get Sandy's feed back on this code 
+    !  gets the given bcData array 
+
+    use constants
+    use cgnsNames
+    use blockPointers, only : BCData, nBocos, nBKGlobal, cgnsSubFace, BCType
+    use utils, only : setPointers
+    !
+    !      Subroutine arguments.
+    !
+    integer(kind=intType), intent(in) ::  sps 
+    integer(kind=intType), intent(in) ::  nDom 
+      ! time spectral instance 
+    integer(kind=intType), dimension(nDom, 6, 6 ), intent(out) :: PatchData
+      ! number of patches which have bc data
+    !
+    !      Local variables.
+    !
+    integer(kind=intType) :: i, j, k, l,  m
+    integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, iSize, jSize, nVarPresent
+
+    !  This loop counts the number of patchs that contain boundary condition 
+    ! information
+    domainsLoop: do i=1, nDom
+       call setPointers(i, 1_intType, sps)
+       bocoLoop: do j=1, nBocos
+         
+         cgnsBoco = cgnsSubFace(j)
+         nDataSet = cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%nDataSet
+         dataSet => cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%dataSet
+
+         ! check to see if the BC has a type requires it to have data
+
+         iBeg = BCData(j)%inBeg; iEnd = BCData(j)%inEnd
+         jBeg = BCData(j)%jnBeg; jEnd = BCData(j)%jnEnd
+
+         iSize = iEnd - iBeg + 1
+         jSize = jEnd - jBeg + 1
+
+
+         ! Determine the boundary condition we are having here and
+         ! call the appropriate routine.
+         PatchData(i,j,1) = i
+         PatchData(i,j,2) = j
+
+         PatchData(i,j,3) = BCType(j)
+         PatchData(i,j,4) = BCData(j)%famID
+         PatchData(i,j,5) = iSize*jSize
+
+         select case (BCType(j))
+
+         case (NSWallIsothermal)
+            call setBCVarNamesIsothermalWall ! sets bcVarNames and nbcVar
+
+         case (SupersonicInflow)
+            call setBCVarNamesSupersonicInflow
+
+         case (SubsonicInflow)
+            call setBCVarNamesSubsonicInflow
+
+         case (SubsonicOutflow)
+            call setBCVarNamesSubsonicOutflow ! sets bcVarNames and nbcVar
+
+         case default
+            PatchData(i,j,6) = 0
+            cycle 
+         end select
+
+
+         ! loop over the arrays of bc data on this patch 
+         nVarPresent = 0 
+         do m=1,nbcVar
+            dataSetLoop: do k=1,nDataSet
+               do l=1,dataSet(k)%nDirichletArrays
+                  if(dataSet(k)%dirichletArrays(l)%arrayName == &
+                        bcVarNames(m)) then
+
+                   
+                     nVarPresent      = nVarPresent + 1
+
+                     ! Exit the search loop, as the variable was found.
+                     exit dataSetLoop
+
+                  endif
+               enddo
+            enddo dataSetLoop
+         enddo
+
+         PatchData(i,j,6) = nVarPresent
+      
+
+      end do bocoLoop
+    end do domainsLoop
+
+
+  end subroutine getPatchData
+
+
+
+  subroutine getBCData(sps, BCPatchData, nBCArrays, maxPatchSize, BCDataArray, BCDataVarNames)
+   ! TODO get Sandy's feed back on this code 
+    !  gets the given bcData array 
+
+    use constants
+    use cgnsNames
+    use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, cgnsSubFace, BCType
+    use sorting, only : famInList
+    use utils, only : setPointers,terminate, char2str
+    use communication, only : myid
+    use actuatorRegionData, only : actuatorRegions, nActuatorRegions
+    !
+    !      Subroutine arguments.
+    !
+    integer(kind=intType), intent(in) ::  sps 
+      ! time spectral instance 
+    integer(kind=inttype), intent(in) ::  nBCArrays 
+    integer(kind=inttype), intent(in) ::  maxPatchSize 
+    integer(kind=intType), dimension(:, :), intent(in) :: BCPatchData
+    
+    real(kind=realType), dimension(nBCArrays,maxPatchSize), intent(out) :: BCDataArray
+      ! bc data to be set
+    character, dimension(nBCArrays,maxCGNSNameLen), intent(out) :: BCDataVarNames
+      ! name of the physical quantity that the data array applies to ('Temperature' , 'Pressure', ect.)
+
+    !
+    !      Local variables.
+    !
+    integer(kind=intType) :: i, iarray, j, k, m, nNodes, ii,  idx, mm
+    character(maxCGNSNameLen) :: varName
+    integer(kind=intType), dimension(:,:), allocatable :: PatchData
+
+   idx = 1 
+   do ii = 1,size(BCPatchData,1)
+
+       ! Set the pointers to this block on groundLevel to make
+       ! the code readable.
+       i = BCPatchData(ii,1)
+       j = BCPatchData(ii,2)
+       nNodes = BCPatchData(ii,5)
+       m = BCPatchData(ii,6)
+
+       call setPointers(i, 1_intType, sps)
+
+      ! Store the cgns boundary subface number, the number of
+      ! boundary condition data sets and the data sets a bit easier.
+
+      cgnsBoco = cgnsSubface(j)
+      nDataSet = cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%nDataSet
+      dataSet => cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%dataSet
+
+         !  ! Check if this surface should be included or not:
+
+      select case (BCType(j))
+      case (NSWallIsothermal)
+         call setBCVarNamesIsothermalWall
+      case (SupersonicInflow)
+         call setBCVarNamesSupersonicInflow
+      case (SubsonicInflow)
+         call setBCVarNamesSubsonicInflow
+      case (SubsonicOutflow)
+         call setBCVarNamesSubsonicOutflow
+      case default
+         call terminate('getBCData', &
+            'This is not a valid boundary condtion for getBCData')
+      end select
+
+      call extractPatchData(BCDataArray(idx:idx+m-1, 1:nNodes), BCDataVarNames(idx:idx+m, :))
+
+      idx = idx + m
+
+   end do 
+
+  end subroutine getBCData
+
+
   subroutine setBCData(bcDataName, bcDataArrays, famLists, sps, nFamMax)
    ! TODO get Sandy's feed back on this code 
 
@@ -1726,6 +1903,106 @@ contains
     end do regionLoop
 
   end subroutine setBCData_b
+
+subroutine extractPatchData(bcVarArrays, BCDataVarNames)
+      !--------------------------------------------------------------
+    ! Manual Differentiation Warning: Modifying this routine requires
+    ! modifying the hand-written forward and reverse routines.
+    ! --------------------------------------------------------------
+    !
+    !       extractFromDataSet tries to extract and interpolate the
+    !       variables in bcVarNames from the cgns data set.
+    !       If successful the corresponding entry of bcVarPresent is
+    !       set to .true., otherwise it is set to .false.
+    !
+    use constants
+    use cgnsNames
+    use blockPointers, onlY : nbkGlobal, BCData
+    use utils, only : terminate
+    implicit none
+    integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, iSize, jSize 
+    real(kind=realType), dimension(:,:) :: bcVarArrays
+    character, dimension(:,:), intent(out) :: BCDataVarNames
+
+    !
+    !      Local variables.
+    !
+    integer(kind=intType) :: k, l, m, n, i, j, ii, c
+    integer(kind=intType) :: nInter, nDim, nVarPresent, nCoor
+
+    integer(kind=intType), dimension(3) :: dataDim, coor
+    integer(kind=intType), dimension(2,3) :: indCoor
+    integer(kind=intType), dimension(2,nbcVar) :: ind
+
+    character(len=maxStringLen) :: errorMessage
+    character(len=maxCGNSNameLen) :: varName
+
+    logical :: xPresent, yPresent, zPresent, rPresent
+    logical :: firstVar
+    real(kind=realType) :: qn
+    ! Determine whether the variables are specified and if so,
+    ! where they are located in the data set. As the number of
+    ! variables specified is usually not so big, a linear search
+    ! algorithm is perfectly okay. At the moment only the Dirichlet
+    ! arrays are checked.
+
+    nVarPresent = 0
+
+    do m=1,nbcVar
+       bcVarPresent(m) = .false.
+       dataSetLoop: do k=1,nDataSet
+          do l=1,dataSet(k)%nDirichletArrays
+             if(dataSet(k)%dirichletArrays(l)%arrayName == &
+                  bcVarNames(m)) then
+
+                ! Variable is present. Store the indices, update
+                ! nVarPresent and set bcVarPresent(m) to .True.
+
+                ind(1,m) = k; ind(2,m) = l
+
+                nVarPresent      = nVarPresent + 1
+                bcVarPresent(m) = .true.
+
+                ! Set the units for this variable.
+
+                mass(m)   = dataSet(k)%dirichletArrays(l)%mass
+                length(m) = dataSet(k)%dirichletArrays(l)%len
+                time(m)   = dataSet(k)%dirichletArrays(l)%time
+                temp(m)   = dataSet(k)%dirichletArrays(l)%temp
+                angle(m)  = dataSet(k)%dirichletArrays(l)%angle
+
+                ! Exit the search loop, as the variable was found.
+
+                exit dataSetLoop
+
+             endif
+          enddo
+       enddo dataSetLoop
+    enddo
+
+    ! Find out whether the given data points are equal for every
+    ! variable or that every variable must be interpolated
+    ! differently.
+
+    do m=1,nbcVar
+       if( bcVarPresent(m) ) then
+          k = ind(1,m)
+          l = ind(2,m)
+
+         bcVarArrays(m,:) = dataSet(k)%dirichletArrays(l)%dataArr
+         varName  = bcVarNames(m)
+
+         ! TODO generalize to str2char util func
+         do c =1,len(bcVarNames(m))
+            BCDataVarNames(m,c) = varName(c:c)
+         end do
+
+
+       endif
+    enddo
+
+  end subroutine extractPatchData
+
 
 subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
       !--------------------------------------------------------------
