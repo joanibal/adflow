@@ -113,6 +113,14 @@ python module libadflow
            real(kind=realtype), dimension(nbcarrays,maxpatchsize), intent(out) :: bcdataarray
            character, dimension(nbcarrays,32), intent(out) :: bcdatavarnames
           end subroutine getbcdata
+         
+         subroutine setbcdata2(sps, bcdataarray, bcdatavarnames, bcpatchdata)
+           integer(kind=inttype), intent(in) ::  sps 
+           real(kind=realtype), dimension(:,:), intent(in) :: bcdataarray
+           character, dimension(:,:), intent(in) :: bcdatavarnames
+           integer(kind=inttype), dimension(:, :), intent(in) :: bcpatchdata
+
+         end subroutine setbcdata2
 
        end module bcdata
 

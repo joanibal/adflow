@@ -1568,8 +1568,81 @@ contains
       idx = idx + m
 
    end do 
-
   end subroutine getBCData
+
+  subroutine setBCData2(sps, BCDataArray, BCDataVarNames, BCPatchData )
+   ! TODO get Sandy's feed back on this code 
+    !  sets the given bcData array 
+
+    use constants
+    use cgnsNames
+    use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, cgnsSubFace, BCType
+    use sorting, only : famInList
+    use utils, only : setPointers,terminate, char2str
+    use communication, only : myid
+    use actuatorRegionData, only : actuatorRegions, nActuatorRegions
+    !
+    !      Subroutine arguments.
+    !
+    integer(kind=intType), intent(in) ::  sps 
+      ! time spectral instance 
+    integer(kind=intType), dimension(:, :), intent(in) :: BCPatchData
+    real(kind=realType), dimension(:,:), intent(in) :: BCDataArray
+      ! bc data to be set
+    character, dimension(:,:), intent(out) :: BCDataVarNames
+      ! name of the physical quantity that the data array applies to ('Temperature' , 'Pressure', ect.)
+
+    !
+    !      Local variables.
+    !
+    integer(kind=intType) :: i, iarray, j, k, m, nNodes, ii,  idx, mm
+    character(maxCGNSNameLen) :: varName
+    integer(kind=intType), dimension(:,:), allocatable :: PatchData
+
+   idx = 1 
+   do ii = 1,size(BCPatchData,1)
+
+
+       i = BCPatchData(ii,1)
+       j = BCPatchData(ii,2)
+       nNodes = BCPatchData(ii,5)
+       m = BCPatchData(ii,6)
+
+       call setPointers(i, 1_intType, sps)
+
+      ! Store the cgns boundary subface number, the number of
+      ! boundary condition data sets and the data sets a bit easier.
+
+      cgnsBoco = cgnsSubface(j)
+      nDataSet = cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%nDataSet
+      dataSet => cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%dataSet
+
+         !  ! Check if this surface should be included or not:
+      write(*,*) 'BCPatchData(ii,;)', BCPatchData(ii,:)
+
+      write(*,*) 'BCType(j)', BCType(j)
+      select case (BCType(j))
+      case (NSWallIsothermal)
+         call setBCVarNamesIsothermalWall
+      case (SupersonicInflow)
+         call setBCVarNamesSupersonicInflow
+      case (SubsonicInflow)
+         call setBCVarNamesSubsonicInflow
+      case (SubsonicOutflow)
+         call setBCVarNamesSubsonicOutflow
+      case default
+         call terminate('getBCData', &
+            'This is not a valid boundary condtion for getBCData')
+      end select
+
+      ! call extractPatchData(BCDataArray(idx:idx+m-1, 1:nNodes), BCDataVarNames(idx:idx+m, :))
+      call insertToDataSet2(BCDataArray(idx:idx+m-1, 1:nNodes), BCDataVarNames(idx:idx+m, :))
+
+      idx = idx + m
+
+   end do 
+
+  end subroutine setBCData2
 
 
   subroutine setBCData(bcDataName, bcDataArrays, famLists, sps, nFamMax)
@@ -2473,6 +2546,84 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
    enddo dataSetLoop
 
   end subroutine insertToDataSet
+
+  subroutine insertToDataSet2(BCDataArray, BCDataVarNames)
+    !--------------------------------------------------------------
+    ! Manual Differentiation Warning: Modifying this routine requires
+    ! modifying the hand-written forward and reverse routines.
+    ! --------------------------------------------------------------
+    use constants
+    use utils, only: char2str
+    implicit none
+    !
+    !      Subroutine arguments.
+    !
+    character, dimension(:,:), intent(in) :: BCDataVarNames
+    real(kind=realType), dimension(:,:), intent(in):: BCDataArray
+    !
+    !      Local variables.
+    !
+    integer(kind=intType) :: k, l, m, n, q,i
+    integer(kind=intType) :: ind(2,nbcVar), nVarPresent
+    character(len=maxCGNSNameLen) :: varName
+
+    nVarPresent = 0
+
+    do m=1, size(BCDataArray,1)
+       bcVarPresent(m) = .false.
+
+       dataSetLoop: do k=1,nDataSet
+          do l=1,dataSet(k)%nDirichletArrays
+             if(dataSet(k)%dirichletArrays(l)%arrayName == &
+                  bcVarNames(m)) then
+
+                ! Variable is present. Store the indices, update
+                ! nVarPresent and set bcVarPresent(m) to .True.
+
+                ind(1,m) = k; ind(2,m) = l
+
+                nVarPresent      = nVarPresent + 1
+                bcVarPresent(m) = .true.
+
+                ! Exit the search loop, as the variable was found.
+
+                exit dataSetLoop
+
+             endif
+          enddo
+       enddo dataSetLoop
+    enddo
+
+    do m=1, size(BCDataArray,1)
+       if( bcVarPresent(m) ) then
+          k = ind(1,m)
+          l = ind(2,m)
+          do n=1, size(BCDataArray,1)
+
+             varName = char2str(BCDataVarNames(n,:), maxCGNSNameLen)
+
+             if (bcVarNames(m) == varname) then
+               if (size(BCDataArray(n,:)) .eq. 1) then 
+                  write(*,*) 'there is only one bcdata!!!', BCDataArray(n,1)
+                  ! set every value in the data array to same value 
+                  do i =1,size(dataSet(k)%dirichletArrays(l)%dataArr)
+                     dataSet(k)%dirichletArrays(l)%dataArr(i) = BCDataArray(n,1)
+                  end do 
+                  
+               else
+                  write(*,*) '================ bcdata =============='
+                  write(*,*) 'data Arr before', dataSet(k)%dirichletArrays(l)%dataArr
+
+                  dataSet(k)%dirichletArrays(l)%dataArr = BCDataArray(n,:)
+                  write(*,*) 'data Arr after', dataSet(k)%dirichletArrays(l)%dataArr
+                  
+               end if
+             end if
+          end do
+       endif
+    enddo
+
+  end subroutine insertToDataSet2
 
   subroutine insertToDataSet_d(bcDataName, bcData, bcDatad)
     !------------------------------------------------------------------------
