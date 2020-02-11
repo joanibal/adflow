@@ -1834,13 +1834,20 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
    do nn=1, nDom
       call setPointers_b(nn, 1_intType, sps)
       do mm=1, nBocos
-         if (isWallType(BCType(mm))) then
+
+         if (BCType(mm) == NSWallIsoThermal) then
             BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
             BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
 
+         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
+            BCData(mm)%cellVal => zeroCellVal
+            BCData(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
+
+            BCDatad(mm)%cellVal => zeroCellVal
+            BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
          end if
       end do
    end do
