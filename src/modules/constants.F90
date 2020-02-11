@@ -424,10 +424,10 @@ module constants
        costFuncDragCoefPressure = 80,&
        costFuncDragCoefViscous = 81, &
        costFuncDragCoefMomentum = 82, &
-       costfuncmavgvx = 83, &
-       costfuncmavgvy = 84, &
-       costfuncmavgvz = 85, &
-       costfunccperror2 = 86, &
+       costFuncMAvgvX = 83, &
+       costFuncMAvgvY = 84, &
+       costFuncMAvgvZ = 85, &
+       costFuncCpError2 = 86, &
        costfuncaavgptot = 87, &
        costfuncaavgps   = 88, &
        costFuncHeatFlux = 89, &
@@ -468,9 +468,10 @@ module constants
        iCpError2   = 47, &
        iAreaPTot   = 48, &
        iAreaPs     = 49, &
-       iHeatFlux   = 50, &
+       iHeatFlux   = 50, & 
        iHeatTransferCoef   = 51, &
        iHeatedArea   = 52
+       
 
   ! Constants for zipper comm
 

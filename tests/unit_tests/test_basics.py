@@ -12,7 +12,13 @@ from python.pyADflow import ADFLOW
 class BasicTests(unittest.TestCase):
     N_PROCS = 1
 
-    def test_import(self):
+    def setUp(self):
+        from ... import ADFLOW
         gridFile = 'input_files/mdo_tutorial_euler.cgns'
         options = {'gridfile': gridFile}
-        CFDSolver = ADFLOW(options=options, debug=False)
+        self.CFDSolver = ADFLOW(options=options)
+
+    def test_import(self):
+        "Tests if mesh was read properly"
+        nstate = self.CFDSolver.getStateSize()
+        assert(nstate == 60480)

@@ -173,9 +173,12 @@ class ADFLOW(AeroSolver):
         # Initialize petec in case the user has not already
         self.adflow.adjointutils.initializepetsc()
 
-        # Set the stand-alone and frompython adflow flag to false and true respectively
-        # these change how terminate calls are handled
+        # Set the stand-alone adflow flag to false...this changes how
+        # terminate calls are handled.
         self.adflow.iteration.standalonemode = False
+
+        # Set the frompython flag to true... this also changes how
+        # terminate calls are handled
         self.adflow.killsignals.frompython = True
 
 
@@ -2689,8 +2692,7 @@ class ADFLOW(AeroSolver):
                 # Save this state information
                 aeroProblem.adflowData.stateInfo = self._getInfo()
             else:
-                # self._resetFlow()
-                pass
+                self._resetFlow()
 
         if failedMesh:
             self.adflow.killsignals.fatalfail = True

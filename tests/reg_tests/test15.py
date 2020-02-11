@@ -7,7 +7,7 @@ class RegTest15(unittest.TestCase):
     '''
     Test 15: NACA 0012 2D Time-Accurate, Forced motion, Rigid Rotation of Mesh - DADI Smoother
     '''
-    N_PROCS = 4
+    N_PROCS = 1
 
     def setUp(self):
         self.ref_file = 'reg_tests/ref/test15.ref'
