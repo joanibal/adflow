@@ -4,11 +4,13 @@ import numpy
 
 class BasicTests(unittest.TestCase):
 
-    def test_import(self):
+    def setup(self):
         from ... import ADFLOW
         gridFile = 'input_files/mdo_tutorial_euler.cgns'
         options = {'gridfile': gridFile}
-        CFDSolver = ADFLOW(options=options)
+        self.CFDSolver = ADFLOW(options=options)
 
-        nstate = CFDSolver.getStateSize()
+    def test_import(self):
+        "Tests if mesh was read properly"
+        nstate = self.CFDSolver.getStateSize()
         assert(nstate == 60480)

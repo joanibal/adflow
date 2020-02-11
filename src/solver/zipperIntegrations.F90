@@ -34,6 +34,7 @@ contains
     real(kind=realType) ::  massFlowRate, mass_Ptot, mass_Ttot, mass_Ps, mass_MN, mass_a, mass_rho, &
                             mass_Vx, mass_Vy, mass_Vz, mass_nx, mass_ny, mass_nz
     real(kind=realType) :: area, cellArea, overCellArea
+    real(kind=realType) :: area_Ptot, area_Ps
     real(kind=realType) ::  mReDim
     real(kind=realType) :: internalFlowFact, inflowFact, xc, yc, zc, mx, my, mz
 
@@ -60,6 +61,9 @@ contains
     mass_nx = zero
     mass_ny = zero
     mass_nz = zero
+
+    area_Ptot = zero
+    area_Ps   = zero
 
     refPoint(1) = LRef*pointRef(1)
     refPoint(2) = LRef*pointRef(2)
@@ -148,7 +152,10 @@ contains
  
              mass_Ps = mass_Ps + pm*massFlowRateLocal
              mass_MN = mass_MN + MNm*massFlowRateLocal
- 
+
+             area_pTot = area_pTot + Ptot * Pref * cellArea
+             area_Ps = area_Ps + pm * cellArea
+
              sFaceCoordRef(1) = sF * ss(1)*overCellArea
              sFaceCoordRef(2) = sF * ss(2)*overCellArea
              sFaceCoordRef(3) = sF * ss(3)*overCellArea
@@ -237,6 +244,9 @@ contains
     localValues(iFlowFm:iFlowFm+2)   = localValues(iFlowFm:iFlowFm+2) + FMom
     localValues(iFlowMp:iFlowMp+2)   = localValues(iFlowMp:iFlowMp+2) + Mp
     localValues(iFlowMm:iFlowMm+2)   = localValues(iFlowMm:iFlowMm+2) + MMom
+
+    localValues(iAreaPTot) = localValues(iAreaPTot) + area_pTot
+    localValues(iAreaPs) = localValues(iAreaPs) + area_Ps
 
     localValues(iMassVx)   = localValues(iMassVx)   + mass_Vx
     localValues(iMassVy)   = localValues(iMassVy)   + mass_Vy

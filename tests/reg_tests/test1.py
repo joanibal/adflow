@@ -7,7 +7,7 @@ class RegTest1(unittest.TestCase):
     '''
     Test 1: MDO tutorial -- Euler -- Scalar JST
     '''
-    N_PROCS = 4
+    N_PROCS = 1
 
     def setUp(self):
         self.ref_file = 'reg_tests/ref/test1.ref'
