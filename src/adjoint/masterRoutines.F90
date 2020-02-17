@@ -6,7 +6,7 @@ contains
     use constants
     use communication, only : adflow_comm_world
     use BCRoutines, only : applyallBC_block
-    use bcdata, only : setBCData, setBCDataFineGrid
+    use bcdata, only : setBCData_tmp, setBCDataFineGrid
     use turbbcRoutines, only : applyallTurbBCthisblock, bcTurbTreatment
     use iteration, only : currentLevel
     use inputAdjoint,  only : viscPC
@@ -81,7 +81,7 @@ contains
        call referenceState
        if (present(bcDataNames)) then
           do sps=1,nTimeIntervalsSpectral
-             call setBCData(bcDataNames, bcDataValues, bcDataFamLists, sps, &
+             call setBCData_tmp(bcDataNames, bcDataValues, bcDataFamLists, sps, &
                 size(bcDataFamLIsts, 1))
           end do
           call setBCDataFineGrid(.true.)

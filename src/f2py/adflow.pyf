@@ -104,37 +104,44 @@ python module libadflow
        end module initializeflow
 
        module bcdata
-         subroutine setbcdata(bcdatanamesin,bcdatain,famlists,sps,nfammax) ! in :test:BCData.F90:bcdata
-           character dimension(32),intent(in) :: bcdatanamesin
-           real(kind=realtype) dimension(:,:),intent(in) :: bcdatain
-           integer(kind=inttype) dimension(nfammax),depend(nfammax) :: famlists
-           integer(kind=inttype) intent(in) :: sps
-          !  integer(kind=inttype), optional,intent(in),check(shape(bcdatanamesin,0)==nvar),depend(bcdatanamesin) :: nvar=shape(bcdatanamesin,0)
-           integer(kind=inttype), optional,intent(in),check(shape(famlists,0)==nfammax),depend(famlists) :: nfammax=shape(famlists,0)
+        !  subroutine setbcdata(bcdatanamesin,bcdatain,famlists,sps,nfammax) ! in :test:BCData.F90:bcdata
+        !    character dimension(32),intent(in) :: bcdatanamesin
+        !    real(kind=realtype) dimension(:,:),intent(in) :: bcdatain
+        !    integer(kind=inttype) dimension(nfammax),depend(nfammax) :: famlists
+        !    integer(kind=inttype) intent(in) :: sps
+        !   !  integer(kind=inttype), optional,intent(in),check(shape(bcdatanamesin,0)==nvar),depend(bcdatanamesin) :: nvar=shape(bcdatanamesin,0)
+        !    integer(kind=inttype), optional,intent(in),check(shape(famlists,0)==nfammax),depend(famlists) :: nfammax=shape(famlists,0)
+        !  end subroutine setbcdata
+
+         subroutine setbcdata(sps, bcdataarray, bcdatavarnames, bcpatchdata, npatchvars, bcdataarrsizes)
+           integer(kind=inttype), intent(in) ::  sps 
+           real(kind=realtype), dimension(:,:), intent(in) :: bcdataarray
+           character, dimension(:,:), intent(in) :: bcdatavarnames
+           integer(kind=inttype), dimension(:, :), intent(in) :: bcpatchdata
+           integer(kind=inttype), dimension(:), intent(in) :: npatchvars
+           integer(kind=inttype), dimension(:), intent(in) :: bcdataarrsizes
+
          end subroutine setbcdata
 
-         subroutine getpatchdata(sps, ndom, patchdata)
+
+         subroutine getpatchdata(sps, ndom, famlist, patchdata)
            integer(kind=inttype), intent(in) ::  sps 
            integer(kind=inttype), intent(in) ::  ndom 
+           integer(kind=inttype), dimension(:), intent(in) :: famlist
+          !  integer(kind=inttype), optional,intent(in),check(shape(famlists,0)==nfammax),depend(famlists) :: nfammax=shape(famlists,0)
            integer(kind=inttype), dimension(ndom, 6, 6 ), depend(ndom), intent(out) :: patchdata
          end subroutine getpatchdata
 
-         subroutine getbcdata(sps, bcpatchdata, nbcarrays, maxpatchsize, bcdataarray, bcdatavarnames)
+         subroutine getbcdata(sps, bcpatchdata, nbcarrays, maxpatchsize, bcdataarray, bcdatavarnames, bcdataarrsizes)
            integer(kind=inttype), intent(in) ::  sps 
            integer(kind=inttype), intent(in) ::  nbcarrays 
            integer(kind=inttype), intent(in) ::  maxpatchsize 
            integer(kind=inttype), dimension(:, :), intent(in) :: bcpatchdata
            real(kind=realtype), dimension(nbcarrays,maxpatchsize), intent(out) :: bcdataarray
            character, dimension(nbcarrays,32), intent(out) :: bcdatavarnames
+           integer(kind=inttype), dimension(nbcarrays), intent(out) :: bcdataarrsizes
           end subroutine getbcdata
          
-         subroutine setbcdata2(sps, bcdataarray, bcdatavarnames, bcpatchdata)
-           integer(kind=inttype), intent(in) ::  sps 
-           real(kind=realtype), dimension(:,:), intent(in) :: bcdataarray
-           character, dimension(:,:), intent(in) :: bcdatavarnames
-           integer(kind=inttype), dimension(:, :), intent(in) :: bcpatchdata
-
-         end subroutine setbcdata2
 
        end module bcdata
 
