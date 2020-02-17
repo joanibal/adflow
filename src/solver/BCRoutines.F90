@@ -86,13 +86,6 @@ end subroutine applyAllBC
     ! ------------------------------------
     !  Symmetry Boundary Condition
     ! ------------------------------------
-    !$AD II-LOOP
-   !  do ii=0, (il+2)
-   !    do kk=0, (kl+2)
-   !       write(*,*) ii, kk, w(ii,:,kk, ivz)
-   !    end do
-   !    write(*,*)
-   !  end do
 
     do nn=1, nBocos
        if (BCType(nn) == symm) then

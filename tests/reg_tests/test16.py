@@ -104,19 +104,19 @@ class RegTest16(unittest.TestCase):
         CFDSolver.addFunction('dragmomentum', 'all_flow', name="thrust_momentum")
 
         # Run test
-        CFDSolver.getResidual(ap)
-        # CFDSolver(ap)
+        # CFDSolver.getResidual(ap)
+        CFDSolver(ap)
 
-        # # Check the residual
-        # res = CFDSolver.getResidual(ap)
-        # totalR0, totalRStart, totalRFinal = CFDSolver.getResNorms()
-        # res /= totalR0
+        # Check the residual
+        res = CFDSolver.getResidual(ap)
+        totalR0, totalRStart, totalRFinal = CFDSolver.getResNorms()
+        res /= totalR0
 
-        # handler.par_add_norm(res, 1e-10, 1e-10)
+        handler.par_add_norm(res, 1e-10, 1e-10)
 
-        # # Get and check the states
-        # handler.par_add_norm(CFDSolver.getStates(), 1e-10, 1e-10)
+        # Get and check the states
+        handler.par_add_norm(CFDSolver.getStates(), 1e-10, 1e-10)
 
-        # funcs = {}
-        # CFDSolver.evalFunctions(ap, funcs)
-        # handler.root_add_dict(funcs, 1e-10, 1e-10)
+        funcs = {}
+        CFDSolver.evalFunctions(ap, funcs)
+        handler.root_add_dict(funcs, 1e-10, 1e-10)

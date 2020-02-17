@@ -22,9 +22,10 @@ from python.pyADflow import ADFLOW
 # ======================================================================
 outputDirectory = './'
 
+# gridFile = '../inputFiles/conic_conv_nozzle_mb_L4_array.cgns'
 gridFile = '../inputFiles/conic_conv_nozzle_mb.cgns'
 restartFile = None #'restart_mb.cgns'
-mgcycle = '3w'
+mgcycle = 'sg'
 
 
 options = copy.copy(adflowDefOpts)
@@ -38,14 +39,14 @@ options = {
     'nsubiter':3,
     'CFL':4.0,
     'CFLCoarse':1.25,
-    'MGCycle':'3w',
+    'MGCycle':mgcycle,
     'MGStartLevel':-1,
     'nCyclesCoarse':250,
     'nCycles':1000,
     'nkcfl0':1e10,
     'monitorvariables':['cpu', 'resrho','cl','cd'],
     'volumevariables':['blank'],
-    'surfacevariables':['mach', 'cp', 'vx', 'vy','vz', 'blank'],
+    'surfacevariables':['mach', 'vy', 'temp', 'p'],
     'useNKSolver':True,
     'nkswitchtol':.01,
     'nkadpc':True,
