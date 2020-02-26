@@ -18,8 +18,8 @@ class BasicTests(unittest.TestCase):
 
     def test_import(self):
         "Tests if mesh was read properly"
-        nstate = self.CFDSolver.getStateSize()
-        assert(nstate == 60480)
+        nStates = self.CFDSolver.getStateSize()
+        assert(nStates == 60480)
 
 if __name__ == '__main__':
     unittest.main()

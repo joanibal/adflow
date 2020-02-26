@@ -258,11 +258,15 @@ class ADFLOW(AeroSolver):
         famList = []
         for i in range(nFam):
             famList.append(getPy3SafeString(self.adflow.surfacefamilies.getfam(i+1).strip()))
-
+        
         # Add the initial families that already exist in the CGNS
         # file.
         for i in range(len(famList)):
             self.families[famList[i]] = [i+1]
+
+            # each family is a group of just one family
+            self.familyGroups[famList[i]] = [i+1]
+
 
         # Add the special "all surfaces" family.
         self.allFamilies = 'allSurfaces'
@@ -382,7 +386,6 @@ class ADFLOW(AeroSolver):
         # Check these fortran routines, they are not complete.
         # However, they do work and the left over memory
         # is not too large.
-        print('here')
         self.adflow.utils.releasememorypart1()
         self.adflow.utils.releasememorypart2()
 
@@ -611,12 +614,12 @@ class ADFLOW(AeroSolver):
         """
 
 
-        self.hasIntegrationSurfaces = True
         # Check that the family name is not already defined:
         if familyName.lower() in self.families:
             raise Error("Cannot add integration surface with family name '%s'"
                         "becuase the name it already exists."%familyName)
 
+        self.hasIntegrationSurfaces = True
         # Need to add an additional family so first figure out what
         # the max family index is:
         maxInd = 0
@@ -1424,7 +1427,6 @@ class ADFLOW(AeroSolver):
             
             # TODO remove this debuging part
             # resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
-            # # import ipdb; ipdb.set_trace()
             # print(numpy.sum(resDot*psi))
 
             # Compute everything and update into the dictionary
@@ -2513,7 +2515,7 @@ class ADFLOW(AeroSolver):
             raise Error('Integration surfaces have been added to the solver, but finalizeUserIntegrationSurfaces()'+
                         ' has not been called. It must be called before evaluating the funcs')
 
-        # Extract the familiy list we want to use for evaluation. We
+        # Extract the family list we want to use for evaluation. We
         # explictly have just the one group in the call.
         famLists = self._expandGroupNames([groupName])
 
@@ -2943,105 +2945,405 @@ class ADFLOW(AeroSolver):
             self.adflow.inputmotion.sincoeffouryrot = AP.sinCoefFourier
 
         if not firstCall:
+            # BCData = self.getBCData()
+
             # get any possible BC Data coming out of the aeroProblem
-            nameArray, dataArrays, groupNames = self._getAeroProblemBCData(AP)
+            BCData = AP.getBCData()
+            self.setBCData(BCData)
 
-            self._setAeroProblemBCData(nameArray, dataArrays, groupNames)
+            # update the bc data on the coarser mesh levels
+            self.adflow.initializeflow.updatebcdataalllevels()
+            if self.getOption('equationMode').lower() == 'time spectral':
+                self.adflow.preprocessingapi.updateperiodicinfoalllevels()
+                self.adflow.preprocessingapi.updatemetricsalllevels()
+            self.adflow.preprocessingapi.updategridvelocitiesalllevels()
 
 
 
-    def _setAeroProblemBCData(self, nameArray, dataArrays, groupNames):
+    def getBCData(self, groupNames=None, TS=0):
+        """
+        returns
+        -------
+        BCData = dict['groupname']['BCVarName'] = data
+
+        """
+        
+        # if no groupNames is given use all the family names to create a set of 
+        # keys that only uses each patch once 
+        
+        # set the default behavior to return the bcdata for all of the families 
+        # in the cgns mesh
+        # print(self.families)
+        if groupNames == None:
+            groupNames = self.families.keys()
+
+        BCData = {}
+        for family in groupNames:
+            BCData[family] = {}
+            # BCDataArray, BCVarNames, _ = self.getBCDataPatches(groupName=family)
+            
+            
+            patchLoc, _, patchNumBCVar, _, patchNumNodes = \
+                        self.getPatchData(groupName=family)
+
+            # BCAllPatchData = PatchData[PatchData[:,:,-1] > 0]
+            BCDataArrays, BCDataVarNames, BCDataArrSizes = \
+            self.adflow.bcdata.getbcdata(TS+1, patchLoc, patchNumBCVar, patchNumNodes,\
+                                        numpy.sum(patchNumBCVar), numpy.max(patchNumNodes)) 
+
+            patchLocArray = numpy.zeros((0,2), dtype=numpy.intc)
+            for idx_patch in range(len(patchLoc)):
+                for _ in range(patchNumBCVar[idx_patch]):
+                    patchLocArray = numpy.vstack((patchLocArray, patchLoc[idx_patch]))
+            
+            BCData[family] = self._convertFortBCDataToBCData(BCDataArrays, BCDataVarNames, BCDataArrSizes, patchLocArray)
+            # # loop over the patches and add the data to BCData dict
+            # for idx_patch in range(len(BCVarNames)):
+            #     for idx_var, BCVar in enumerate(BCVarNames[idx_patch]):
+                    
+            #         # if that var is already in the data dict no need to add
+            #         if BCVar in BCData[family].keys():
+            #             BCData[family][BCVar].append(BCDataArray[idx_patch][idx_var])
+            #         else:
+            #             BCData[family][BCVar] = [BCDataArray[idx_patch][idx_var]]
+            # print(BCData)
+
+        return BCData
+
+    def _splitBCDataForPatches(self, BCData):
+        # -------------- insure the data arrays are in the right form ---------
+        for group in BCData:
+            
+            # check that the data given is in the correct form
+            curBCData =  self.getBCData(groupNames=[group])
+
+
+            for BCVar in BCData[group]:
+                
+                #check to see that data to be set was orinally specified in the 
+                # cgns file. If it wasn't raise an error
+                if not BCVar in curBCData[group]:
+                    raise Error("the bc variable given, {}, is not present in "
+                                "the cgnsfile".format(BCVar))
+
+
+                # if the data was specified as an array for each patch check that 
+                # the size of the data on each patch is correct 
+                if isinstance(BCData[group][BCVar] , dict):
+                    for patchLoc in BCData[group][BCVar]:
+                        
+                        # check the size
+                        if not curBCData[group][BCVar][patchLoc].shape == \
+                                  BCData[group][BCVar][patchLoc].shape:
+
+                            print('ERROR in bc sizes')
+                            raise Error("The BC data from the aero problem does not have \
+                                the same shape as the existing data on patch %s for %s for group %s. AP data shape %s vs existing data shape %s"%\
+                                (patchLoc, BCVar, group,\
+                                curBCData[group][BCVar][patchLoc].shape,\
+                                BCData[group][BCVar][patchLoc].shape))
+
+                elif isinstance(BCData[group][BCVar] , (float,int)):
+                    varDataDict = {}
+                    for patchLoc in curBCData[group][BCVar]:
+                        curVarPatchData = curBCData[group][BCVar][patchLoc]
+                        varDataDict[patchLoc] = numpy.ones(curVarPatchData.shape)*BCData[group][BCVar]
+
+                    # replace the single value with the dict                        
+                    BCData[group][BCVar] = varDataDict
+
+                else: 
+                    raise Error("The BC data given for %s for group %s. Has type, %s, which is not supported"%\
+                                (BCVar, group, type(BCData[group][BCVar])))
+
+
+
+    def setBCData(self, BCData, TS=0):
         """
             sets the bcdata for a given aeroproblem
+
+            BCData is a dictionary that
+
+            {'inlet': {'PressureStagnation': [array([100000.]),
+                                              array([100000.]),
+                                              array([100000.]),
+                                              array([100000.]),
+                                              array([100000.])],
+                       'TemperatureStagnation': [array([500.]),
+                                                 array([500.]),
+                                                 array([500.]),
+                                                 array([500.]),
+                                                 array([500.])],
+                       'VelocityUnitVectorX': [array([0.]),
+                                               array([0.]),
+                                               array([0.]),
+                                               array([0.]),
+                                               array([0.])],
+                       'VelocityUnitVectorY': [array([1.]),
+                                               array([1.]),
+                                               array([1.]),
+                                               array([1.]),
+                                               array([1.])],
+                       'VelocityUnitVectorZ': [array([0.]),
+                                               array([0.]),
+                                               array([0.]),
+                                               array([0.]),
+                                               array([0.])]},
+            'nozzle_wall': {},
+            'outlet': {'Pressure': [array([79326.7]),
+                                    array([79326.7]),
+                                    array([79326.7]),
+                                    array([79326.7]),
+                                    array([79326.7])]}}
         """
 
-
-
-
-        # check for matching families
-        uniqueGroupNames = list(set(groupNames))
 
         # sort data in to list based on groups 
         # newDataArrays = []
         # newVarNames = []
         # newBCPatchData = []
-        nVarData = []
-        for ii, group in enumerate(uniqueGroupNames):
-            groupDataArrays  =[] 
-            groupVarNames = []
-            for jj, gname in enumerate(groupNames):
-                if gname == group:
-                    groupVarNames.append(nameArray[jj])
-                    groupDataArrays.append(dataArrays[jj])
+
+        self._splitBCDataForPatches(BCData)
+        
+        # convert the data to a fortran compatible set of arrays
+        BCArrays,  BCVarNames, _, patchLoc, nBCVars  = self._convertBCDataToFortBCData(BCData)
+
+        self.adflow.bcdata.setbcdata(TS+1, BCArrays, BCVarNames, patchLoc, nBCVars)        
        
-            setBCDataArray, setBCVarNames, setBCPatchData = self.getBCData(groupName=group)
-            import ipdb; ipdb.set_trace()
-            BCDataArrays = [[] for _ in range(len(setBCDataArray))]
-            BCVarNames = [[] for _ in range(len(setBCVarNames))]
-            BCPatchData = []
+        # for ii, group in enumerate(uniqueGroupNames):
+        #     groupDataArrays  =[] 
+        #     groupVarNames = []
+        #     for jj, gname in enumerate(groupNames):
+        #         if gname == group:
+        #             groupVarNames.append(nameArray[jj])
+        #             groupDataArrays.append(dataArrays[jj])
+       
+        #     setBCDataArray, setBCVarNames, setBCPatchData = self.getBCDataPatches(groupName=group)
+        #     BCDataArrays = [[] for _ in range(len(setBCDataArray))]
+        #     BCVarNames = [[] for _ in range(len(setBCVarNames))]
+        #     BCPatchData = []
             
-            # # for each patch
-            for jj, varName in enumerate(groupVarNames):
-                idx_var = 0 
-                for kk, setPatchVarNames in enumerate(setBCVarNames):
-                    nVar = 0 
-                    for ll, setVarName in enumerate(setPatchVarNames):
+        #     # # for each patch
+        #     for jj, varName in enumerate(groupVarNames):
+        #         idx_var = 0 
+        #         for kk, setPatchVarNames in enumerate(setBCVarNames):
+        #             nVar = 0 
+        #             for ll, setVarName in enumerate(setPatchVarNames):
                         
-                        if varName == setVarName:
-                            # add the data to the list of data to be set
+        #                 if varName == setVarName:
+        #                     # add the data to the list of data to be set
 
 
-                            # if the data is a single value for all the patches 
-                            # of the family, copy the value to each patch as a 
-                            # array
-                            if type(groupDataArrays[jj]) is float:                              
-                                patchBCArray = numpy.array([groupDataArrays[jj]])
+        #                     # if the data is a single value for all the patches 
+        #                     # of the family, copy the value to each patch as a 
+        #                     # array
+        #                     if (type(groupDataArrays[jj]) is float) or \
+        #                        (type(groupDataArrays[jj]) is int):
+        #                         patchBCArray = numpy.array([groupDataArrays[jj]])
 
-                            # if the data is a single np.array or list for all the 
-                            # patches of the family, copy the value to each patch 
-                            elif len(groupDataArrays[jj]) == 1:
-                                patchBCArray = numpy.array(groupDataArrays[jj])
+        #                     # if the data is a single np.array or list for all the 
+        #                     # patches of the family, copy the value to each patch 
+        #                     elif len(groupDataArrays[jj]) == 1:
+        #                         patchBCArray = numpy.array(groupDataArrays[jj])
 
-                            # copy the value of the data array for that patch
-                            else:
-                                patchBCArray = numpy.array(groupDataArrays[jj][idx_var])
+        #                     # copy the value of the data array for that patch
+        #                     else:
+        #                         patchBCArray = numpy.array(groupDataArrays[jj][idx_var])
 
 
-                            if setBCDataArray[kk][ll].shape != patchBCArray.shape:
-                                print('ERROR in bc sizes')
-                                # raise Error("The BC data from the aero problem does not have \
-                                #     the same shape as the existing data for \"%s\" on block \
-                                #     %d face %d. AP data shape %s vs existing data shape %s"%\
-                                #     (varName, BCPatchData[kk][0], BCPatchData[kk][1],\
-                                #      patchBCArray.shape, setBCDataArray[kk][ll].shape))
+        #                     if setBCDataArray[kk][ll].shape != patchBCArray.shape:
+        #                         print('ERROR in bc sizes')
+        #                         # raise Error("The BC data from the aero problem does not have \
+        #                         #     the same shape as the existing data for \"%s\" on block \
+        #                         #     %d face %d. AP data shape %s vs existing data shape %s"%\
+        #                         #     (varName, BCPatchData[kk][0], BCPatchData[kk][1],\
+        #                         #      patchBCArray.shape, setBCDataArray[kk][ll].shape))
                 
-                            BCDataArrays[kk].append(patchBCArray)
-                            BCVarNames[kk].append(varName)
-                            nVar += 1
-                            idx_var += 1
-                    nVarData.append(nVar)
-                    BCPatchData.append(setBCPatchData[kk])    
+        #                     BCDataArrays[kk].append(patchBCArray)
+        #                     BCVarNames[kk].append(varName)
+        #                     nVar += 1
+        #                     idx_var += 1
+        #             nVarData.append(nVar)
+        #             BCPatchData.append(setBCPatchData[kk])    
 
-                # if nVar >= 0:
-                #     newDataArrays.append(patchBCArrays)
-                #     newVarNames.append(patchVarNames)
-                #     newBCPatchData.append(setBCPatchData[kk])
-                #     # print(newDataArrays)
-                #     print(newVarNames)
-                #     # print(newBCPatchData)
-                #     # print(nVarData)
+        #         # if nVar >= 0:
+        #         #     newDataArrays.append(patchBCArrays)
+        #         #     newVarNames.append(patchVarNames)
+        #         #     newBCPatchData.append(setBCPatchData[kk])
+        #         #     # print(newDataArrays)
+        #         #     print(newVarNames)
+        #         #     # print(newBCPatchData)
+        #         #     # print(nVarData)
     
 
-            self.setBCData(BCDataArrays, BCVarNames, setBCPatchData)
+            # self.setBCDataPatches(BCDataArrays, BCVarNames, setBCPatchData)
+
+
+    def _convertBCDataToFortBCData(self, BCData):
+        """
+
+        Returns
+        -------
+        BCArrays: 2d numpy.array() of size (sum(nBCVar), maxDataArrayLen)
+            all the data arrays from each of the patches and variables
+        BCVarNames: 2d numpy.array(, dtype=str) of size (sum(nBCVar), maxLenVarCGNSString)
+            the physical quantity the the data in the BCArray corresponds with
+        nBCVars: 1d numpy.array()
+            the number of variables specified for each patch
+        """
+
+        maxArraySize = 0 
+        nBCVar = 0 
+        for group in BCData.keys():
+            for BCVar in BCData[group].keys():
+                for patchLoc in BCData[group][BCVar].keys():
+                    nBCVar += 1
+                    if BCData[group][BCVar][patchLoc].size > maxArraySize:
+                        maxArraySize = len(BCData[group][BCVar][patchLoc])
+
+
+        BCVarNames = []
+        BCArrays = numpy.zeros((nBCVar, maxArraySize))
+        BCArraySizes = numpy.zeros((nBCVar))
+        nBCVars = []
+        patchLoc = numpy.zeros((0,2))
+        idx = 0
+        for group in BCData.keys()[::-1]:
+            patches = set()
+
+            # get a set of all of the patches for this group
+            for BCVar in BCData[group]:
+                patches.update(BCData[group][BCVar].keys())
 
 
 
-        # update the bc data on the coarser mesh levels
-        self.adflow.initializeflow.updatebcdataalllevels()
-        if self.getOption('equationMode').lower() == 'time spectral':
-            self.adflow.preprocessingapi.updateperiodicinfoalllevels()
-            self.adflow.preprocessingapi.updatemetricsalllevels()
-        self.adflow.preprocessingapi.updategridvelocitiesalllevels()
+            for patch in patches:
+                patchLoc = numpy.vstack((patchLoc,patch))
+
+                # reset variable counter                
+                m = 0 
+
+                # add the data given for each patch
+                for BCVar in BCData[group]:
+                    for varPatch in BCData[group][BCVar]:
+                        
+                        if varPatch == patch:
+
+                            data =  BCData[group][BCVar][varPatch]
+                            BCArrays[idx][:data.size] = data
+                            BCArraySizes[idx] = data.size
+                            BCVarNames.append(BCVar)
+
+                            idx += 1
+                            m += 1      
+                
+                nBCVars.append(m)
+
+ 
+        BCVarNames = self._createFortranStringArray(BCVarNames)
+        nBCVars = numpy.array(nBCVars)
+
+        return BCArrays,  BCVarNames, BCArraySizes, patchLoc, nBCVars
+
+
+    def _convertFortBCDataToBCData(self, BCArrays,  BCVarNames, BCArraySizes, patchLoc):
+        """
+        Converts from a Fotran patches based representation of the data to 
+        dictionary groupName based represention of the data. 
+
+        Parameters
+        -------
+        BCArrays: 2d numpy.array() of size (sum(nBCVar), maxDataArrayLen)
+            all the data arrays from each of the patches and variables
+        BCVarNames: 2d numpy.array(, dtype=str) of size (sum(nBCVar), maxLenVarCGNSString)
+            the physical quantity the the data in the BCArray corresponds with
+
+        Returns BCData
+        """
+        # if groupName is None:
+        #     groupName = self.allWallsGroup
+
+        # convert the BCVarnNames back to a list of strings
+        BCVarNamesList = []
+        for ii in range(len(BCVarNames)):
+            BCVarNamesList.append("".join(BCVarNames[ii]).strip())
+
+        BCData = {}
+        for idx_var, BCVar in enumerate(BCVarNamesList): 
+            if BCVar in BCData.keys():
+                BCData[BCVar][tuple(patchLoc[idx_var])] = BCArrays[idx_var,:BCArraySizes[idx_var]]
+            else:
+                BCData[BCVar] =  {tuple(patchLoc[idx_var]): BCArrays[idx_var,:BCArraySizes[idx_var]]}
+        
+        return BCData
+        
+        # # remove the array padding needed for fortran
+        # BCDataVarNames = []
+        # BCDataArrays = []
+        # BCPatchData = []
+        # for ii, BCPatch in enumerate(BCAllPatchData):
+        #     idx = numpy.sum(BCAllPatchData[:ii,-1])
+        #     nVar = BCPatch[-1]
+            
+        #     arrs = []
+        #     for i_var in range(nVar):
+        #         arrs.append(BCDataArraysFortran[idx+i_var, :BCDataArrSizes[idx+i_var]])
+
+        #     BCDataArrays.append(arrs)    
+
+        #     VarNames = []
+        #     for jj in range(idx, idx+nVar):
+        #         VarNames.append("".join(BCDataVarNamesFortran[jj]).strip())
+
+        #     BCDataVarNames.append(VarNames)
+        #     BCPatchData.append(BCAllPatchData[ii])
+
+
+        
+        
+
+
+
+        # maxArraySize = 0 
+        # nBCVar = 0 
+        # for group in BCData.keys():
+        #     for BCVar in BCData[group].keys():
+        #         for Arr in BCData[group][BCVar]:
+        #             nBCVar += 1
+        #             if len(Arr) > maxArraySize:
+        #                 maxArraySize = len(Arr)
+
+
+        # BCVarNames = []
+        # BCArrays = numpy.zeros((nBCVar, maxArraySize))
+        # nBCVars = []
+        # patchLoc = numpy.zeros((0,2))
+        # idx = 0
+
+        # import ipdb; ipdb.set_trace()
+        # for group in BCData.keys()[::-1]:
+        #     patchData = self.getPatchData(groupName=group)
+
+            
+        #     for idx_patch in range(len(patchData)):
+        #         m = 0
+        #         for BCVar in BCData[group].keys():
+        #             data =  BCData[group][BCVar][idx_patch]
+        #             BCArrays[idx][:data.size] =data
+
+        #             BCVarNames.append(BCVar)
+        #             idx += 1
+        #             m += 1      
+                
+        #         nBCVars.append(m)
+        #         patchLoc = numpy.vstack((patchLoc,patchData[:2]))
+
+        #     # for BCVar in BCData[group].keys():
+ 
+        # BCVarNames = self._createFortranStringArray(BCVarNames)
+        # nBCVars = numpy.array(nBCVars)
+
+        # return BCArrays, BCVarNames, patchLoc, nBCVars
 
 
     # def _getBCDataFromAeroProblem(self, AP):
@@ -3074,27 +3376,30 @@ class ADFLOW(AeroSolver):
     #         return (self._createFortranStringArray(['Pressure']), [[0.0]],
     #                 [[1,1]], groupNames, True)
 
-    def _getAeroProblemBCData(self, AP):
 
-        variables = []
-        dataArray = []
-        groupNames = []
+    
+    def getPatchData(self, groupName=None, TS=0):
+        """
 
-        for tmp in AP.bcVarData:
-            varName, family = tmp
-            variables.append(varName)
-            groupNames.append(family)
-            dataArray.append(AP.bcVarData[tmp])
+        """
+        famList = self._getFamilyList(groupName)
 
-        # NameArray = variables
+        # groupArray = self._expandGroupNames(groupName)
+        numPatches = self.adflow.bcdata.getnumpatches(TS+1, famList)
 
-        # groupArray = self._expandGroupNames(groupNames)
-        return variables, dataArray, groupNames
-        # else:
-        #     # dummy data that doesn't matter
-        #     return (self._createFortranStringArray(['Pressure']), [0.0],
-        #             [[1,1]], groupNames, True)
-    def getBCData(self, groupName=None, TS=0):
+        patchLoc  = numpy.zeros((numPatches,2), order='F', dtype=numpy.intc)
+        patchBCType = numpy.zeros(numPatches, order='F', dtype=numpy.intc)
+        patchNumBCVar = numpy.zeros(numPatches, order='F', dtype=numpy.intc)
+        patchFamID = numpy.zeros(numPatches, order='F', dtype=numpy.intc)
+        patchNumNodes = numpy.zeros(numPatches, order='F', dtype=numpy.intc)
+
+        self.adflow.bcdata.getpatchdata(TS+1, famList, patchLoc, \
+                                                    patchBCType, patchNumBCVar,\
+                                                    patchFamID, patchNumNodes)
+
+        return patchLoc, patchBCType, patchNumBCVar, patchFamID, patchNumNodes
+
+    def getBCDataPatches(self, groupName=None, TS=0):
         """
         This function is used to extract the bcdata set for each surface patch.
         depending on the boundary condition this may be an array of Temperatures,
@@ -3156,99 +3461,105 @@ class ADFLOW(AeroSolver):
         # call the fotran level routine get the data from the mesh 
         # BCData,  BCDataVarNames = self.adflow.bcdata.getbcdata(1)
         #  numpy.zeros((self.adflow.block.ndom, 6, 6), dtype=numpy.intc, order='F')
-        famList = self._getFamilyList(groupName)
+        patchLoc, _, patchNumBCVar, _, patchNumNodes = \
+                    self.getPatchData( groupName=groupName)
 
-        # groupArray = self._expandGroupNames(groupName)
-        PatchData = self.adflow.bcdata.getpatchdata(TS+1, self.adflow.block.ndom, famList)
+        # BCAllPatchData = PatchData[PatchData[:,:,-1] > 0]
 
-        BCAllPatchData = PatchData[PatchData[:,:,-1] > 0]
+        nBCArrays = numpy.sum(patchNumBCVar)
 
-        nBCArrays = numpy.sum(BCAllPatchData[:,-1])
-        maxArraySize = numpy.max(BCAllPatchData[:,-2])
+        if nBCArrays == 0:
+            # return empty lists
+            BCDataArrays = [[]]
+            BCDataVarNames = [[]]
+            BCPatchData = [[]]
+        else:
+            # get the bcdata
+            maxArraySize = numpy.max(patchNumNodes)
+            BCDataArraysFortran, BCDataVarNamesFortran, BCDataArrSizes = \
+            self.adflow.bcdata.getbcdata(TS+1, patchLoc, patchNumBCVar, patchNumNodes,\
+                                          nBCArrays, maxArraySize) 
+            # if groupName is None:
+            #     groupName = self.allWallsGroup
 
-        BCDataArraysFortran, BCDataVarNamesFortran, BCDataArrSizes = \
-        self.adflow.bcdata.getbcdata(TS+1, BCAllPatchData, nBCArrays, maxArraySize) 
-        # if groupName is None:
-        #     groupName = self.allWallsGroup
 
+            # remove the array padding needed for fortran
+            BCDataVarNames = []
+            BCDataArrays = []
+            BCPatchData = []
+            for ii in range(len(patchNumBCVar)):
+                idx = numpy.sum(patchNumBCVar[:ii])
+                nVar = patchNumBCVar[ii]
+                
+                arrs = []
+                for i_var in range(nVar):
+                    arrs.append(BCDataArraysFortran[idx+i_var, :BCDataArrSizes[idx+i_var]])
 
-        # remove the array padding needed for fortran
-        BCDataVarNames = []
-        BCDataArrays = []
-        BCPatchData = []
-        for ii, BCPatch in enumerate(BCAllPatchData):
-            idx = numpy.sum(BCAllPatchData[:ii,-1])
-            nVar = BCPatch[-1]
-            
-            arrs = []
-            for i_var in range(nVar):
-                arrs.append(BCDataArraysFortran[idx+i_var, :BCDataArrSizes[idx+i_var]])
+                BCDataArrays.append(arrs)    
 
-            BCDataArrays.append(arrs)    
+                VarNames = []
+                for jj in range(idx, idx+nVar):
+                    VarNames.append("".join(BCDataVarNamesFortran[jj]).strip())
 
-            VarNames = []
-            for jj in range(idx, idx+nVar):
-                VarNames.append("".join(BCDataVarNamesFortran[jj]).strip())
-
-            BCDataVarNames.append(VarNames)
-            BCPatchData.append(BCAllPatchData[ii])
-
+                BCDataVarNames.append(VarNames)
+                # BCPatchData.append(BCAllPatchData[ii])
 
 
         
+        
 
-        return BCDataArrays, BCDataVarNames, numpy.array(BCPatchData)
+        return BCDataArrays, BCDataVarNames, BCPatchData 
 
 
-    def setBCData(self,  BCDataArrays, BCDataVarNames, BCPatchData, TS=0):
+    def setBCDataPatches(self,  BCDataArrays, BCDataVarNames, BCPatchData, TS=0):
         """
-        This function is used to extract the bcdata set for each surface patch.
-        depending on the boundary condition this may be an array of Temperatures,
-        Pressure, or any other variable used to set that specific boundary condition. 
+            This function is used to extract the bcdata set for each surface patch.
+            depending on the boundary condition this may be an array of Temperatures,
+            Pressure, or any other variable used to set that specific boundary condition. 
 
-        This routine does not return any information for patches which have no 
-        explicit bcdata (euler wall, NS wall, sym, farfield)
+            This routine does not return any information for patches which have no 
+            explicit bcdata (euler wall, NS wall, sym, farfield)
+            
+            Parameters
+            ---------
+
+            TS : int
+                The time spectral instance to use for the forces.
+
+            Parameters
+            -------
+            BCDataArrays : list(nBCArrays entries of array (nVariables, nNodes))
+                the data used to specify the boundary condition for each patch. 
+                For example the data could look something like...
+
+                BCDataArrays = [ array([[ 273, 273, 273, .... ],
+                                [ 101000, 101000, 101000, ...]])
+                        ...
+                        ...)]
+
+
+
+            BCDataVarName: list(nBCArrays, nVariables)
+                This dictates what variable the corresponding entry in the BCData 
+                array represents. For example ...
+
+                BCDataVarName = ['Temperature','Pressure', .. ]        
         
-        Parameters
-        ---------
+            BCPatchData : array(nBCArrays , 6)
+                Provides [ blk_idx, boco_idx, BCType, fam_idx, nNodes, nVariables]
+                for each patch. This in essense specifies where exactly the patch is
+                with in the mesh and how what information is there. For example..
 
-        TS : int
-            The time spectral instance to use for the forces.
-
-        Parameters
-        -------
-        BCDataArrays : list(nBCArrays entries of array (nVariables, nNodes))
-            the data used to specify the boundary condition for each patch. 
-            For example the data could look something like...
-
-            BCDataArrays = [ array([[ 273, 273, 273, .... ],
-                              [ 101000, 101000, 101000, ...]])
-                       ...
-                       ...)]
-
-
-
-        BCDataVarName: list(nBCArrays, nVariables)
-            This dictates what variable the corresponding entry in the BCData 
-            array represents. For example ...
-
-            BCDataVarName = ['Temperature','Pressure', .. ]        
-    
-        BCPatchData : array(nBCArrays , 6)
-            Provides [ blk_idx, boco_idx, BCType, fam_idx, nNodes, nVariables]
-            for each patch. This in essense specifies where exactly the patch is
-            with in the mesh and how what information is there. For example..
-
-            BCPatchData = array([[11,  1, -4,  2,  9,  1], <- the first patch is
-                                                in the 11th block on boundary 1.
-                                                This patch belongs to family 2, 
-                                                which corresponds to a family name in 
-                                                the family list. 
-                                 [12,  1, -4,  2,  9,  1],<- this patch is in 
-                                                            the same family, but
-                                                            a different block
-                                 [13,  1, -4,  2,  9,  1],
-                                 [14,  1, -4,  2,  9,  1]]
+                BCPatchData = array([[11,  1, -4,  2,  9,  1], <- the first patch is
+                                                    in the 11th block on boundary 1.
+                                                    This patch belongs to family 2, 
+                                                    which corresponds to a family name in 
+                                                    the family list. 
+                                    [12,  1, -4,  2,  9,  1],<- this patch is in 
+                                                                the same family, but
+                                                                a different block
+                                    [13,  1, -4,  2,  9,  1],
+                                    [14,  1, -4,  2,  9,  1]]
 
         """
 
@@ -4097,8 +4408,7 @@ class ADFLOW(AeroSolver):
             wdot = wDot
             useState = True
 
-        # Process the extra variable perturbation....this comes from
-        # xDvDot
+        # Process the extra variable perturbation from xDvDot
         extradot = numpy.zeros(self.adflow.adjointvars.ndesignextra)
         bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty = (
             self._getAeroProblemBCData(self.curAP))
@@ -4540,7 +4850,7 @@ class ADFLOW(AeroSolver):
 
         """
 
-        if groupName1 not in self.families or groupName2 not in self.families:
+        if groupName1 not in self.familyGroups or groupName2 not in self.familyGroups:
             raise Error("'%s' or '%s' is not a family in the CGNS file or has not been added"
                         " as a combination of families"%(groupName1, groupName2))
 
@@ -4557,8 +4867,8 @@ class ADFLOW(AeroSolver):
             npts, ncell = self._getSurfaceSize(groupName2, includeZipper)
             vec2 = numpy.zeros((npts, 3), self.dtype)
 
-        famList1 = self.families[groupName1]
-        famList2 = self.families[groupName2]
+        famList1 = self._getFamilyList(groupName1)
+        famList2 = self._getFamilyList(groupName2)
 
         self.adflow.surfaceutils.mapvector(vec1.T, famList1, vec2.T, famList2, includeZipper)
 
@@ -4813,12 +5123,10 @@ class ADFLOW(AeroSolver):
         does *NOT* set the actual family group"""
         if groupName is None:
             groupName = self.allFamilies
-        if groupName not in self.families:
-            raise Error("'%s' is not a family in the CGNS file or has not been added"
-                        " as a combination of families"%groupName)
 
-        [nPts, nCells] = self.adflow.surfaceutils.getsurfacesize(
-            self.families[groupName], includeZipper)
+        famList = self._getFamilyList(groupName)
+
+        [nPts, nCells] = self.adflow.surfaceutils.getsurfacesize(famList, includeZipper)
         return nPts, nCells
 
     def setOption(self, name, value):
@@ -5837,17 +6145,17 @@ class ADFLOW(AeroSolver):
         if zipFam is None:
             # The user didn't tell us anything. So we will use all
             # walls. Remind the user what those are.
-            zipperFamList = self.families[self.allWallsGroup]
+            zipperFamList = self._getFamilyList(self.allWallsGroup)
             if self.myid == 0:
                 ADFLOWWarning("'zipperSurfaceFamily' option was not given. Using all "
                               "wall boundary conditions for the zipper mesh.")
         else:
 
-            if zipFam not in self.families:
+            if zipFam not in self.familyGroups:
                 raise Error("Trying to create the zipper mesh, but '%s' is not a "
                             "family in the CGNS file or has not been added"
                             " as a combination of families"%zipFam)
-            zipperFamList = self.families[zipFam]
+            zipperFamList = self._getFamilyList(zipFam)
 
         self.adflow.zippermesh.createzippermesh(zipperFamList)
         self.zipperCreated = True

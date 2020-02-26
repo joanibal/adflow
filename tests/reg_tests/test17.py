@@ -2,12 +2,20 @@ from __future__ import print_function
 import unittest
 import numpy
 from baseclasses import BaseRegTest
+import os 
+import sys
+baseDir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(baseDir,'../../'))
+from python.pyADflow import ADFLOW
+import copy
+from baseclasses import AeroProblem
+from commonUtils import adflowDefOpts
 
 class RegTest17(unittest.TestCase):
     '''
     Test 17:
     '''
-    N_PROCS = 4
+    N_PROCS = 1
 
     def setUp(self):
         self.ref_file = 'reg_tests/ref/test17.ref'
@@ -24,10 +32,7 @@ class RegTest17(unittest.TestCase):
         '''
         This is where the actual testing happens.
         '''
-        import copy
-        from baseclasses import AeroProblem
-        from commonUtils import adflowDefOpts
-        from ... import ADFLOW
+
         gridFile = 'input_files/conic_conv_nozzle_mb.cgns'
         integrationSurf = 'input_files/integration_plane_viscous.fmt'
 
@@ -39,7 +44,7 @@ class RegTest17(unittest.TestCase):
             'nsubiter':3,
             'CFL':4.0,
             'CFLCoarse':1.25,
-            'MGCycle':'3w',
+            'MGCycle':'sg',
             'MGStartLevel':-1,
             'nCyclesCoarse':250,
             'nCycles':1000,
@@ -81,19 +86,19 @@ class RegTest17(unittest.TestCase):
                             'aavgps_up', 'aavgps_down', 'aavgps_plane',
                             ])
 
-        ap.setBCVar('Pressure',  79326.7, 'downstream')
-        ap.addDV('Pressure', family='downstream')
+        # ap.setBCVar('Pressure',  79326.7, 'downstream')
+        # ap.addDV('Pressure', family='downstream')
 
-        ap.setBCVar('PressureStagnation',  100000.0, 'upstream')
-        ap.addDV('PressureStagnation', family='upstream')
+        # ap.setBCVar('PressureStagnation',  100000.0, 'upstream')
+        # ap.addDV('PressureStagnation', family='upstream')
 
-        ap.setBCVar('TemperatureStagnation',  500.0, 'upstream')
-        ap.addDV('TemperatureStagnation', family='upstream')
+        # ap.setBCVar('TemperatureStagnation',  500.0, 'upstream')
+        # ap.addDV('TemperatureStagnation', family='upstream')
 
         # Create the solver
         CFDSolver = ADFLOW(options=options)
-        CFDSolver.addIntegrationSurface(integrationSurf, 'viscous_plane')
-        CFDSolver.finalizeUserIntegrationSurfaces()
+        # CFDSolver.addIntegrationSurface(integrationSurf, 'viscous_plane')
+        # CFDSolver.finalizeUserIntegrationSurfaces()
 
         CFDSolver.addFamilyGroup('upstream',['inlet'])
         CFDSolver.addFamilyGroup('downstream',['outlet'])
@@ -102,37 +107,38 @@ class RegTest17(unittest.TestCase):
 
         CFDSolver.addFunction('mdot', 'upstream', name="mdot_up")
         CFDSolver.addFunction('mdot', 'downstream', name="mdot_down")
-        CFDSolver.addFunction('mdot', 'viscous_plane', name="mdot_plane")
+        # CFDSolver.addFunction('mdot', 'viscous_plane', name="mdot_plane")
 
         CFDSolver.addFunction('mavgptot', 'downstream', name="mavgptot_down")
         CFDSolver.addFunction('mavgptot', 'upstream', name="mavgptot_up")
-        CFDSolver.addFunction('mavgptot', 'viscous_plane', name="mavgptot_plane")
+        # CFDSolver.addFunction('mavgptot', 'viscous_plane', name="mavgptot_plane")
 
         CFDSolver.addFunction('aavgptot', 'downstream', name="aavgptot_down")
         CFDSolver.addFunction('aavgptot', 'upstream', name="aavgptot_up")
-        CFDSolver.addFunction('aavgptot', 'viscous_plane', name="aavgptot_plane")
+        # CFDSolver.addFunction('aavgptot', 'viscous_plane', name="aavgptot_plane")
 
         CFDSolver.addFunction('mavgttot', 'downstream', name="mavgttot_down")
         CFDSolver.addFunction('mavgttot', 'upstream', name="mavgttot_up")
-        CFDSolver.addFunction('mavgttot', 'viscous_plane', name="mavgttot_plane")
+        # CFDSolver.addFunction('mavgttot', 'viscous_plane', name="mavgttot_plane")
 
         CFDSolver.addFunction('mavgps', 'downstream', name="mavgps_down")
         CFDSolver.addFunction('mavgps', 'upstream', name="mavgps_up")
-        CFDSolver.addFunction('mavgps', 'viscous_plane', name="mavgps_plane")
+        # CFDSolver.addFunction('mavgps', 'viscous_plane', name="mavgps_plane")
 
         CFDSolver.addFunction('aavgps', 'downstream', name="aavgps_down")
         CFDSolver.addFunction('aavgps', 'upstream', name="aavgps_up")
-        CFDSolver.addFunction('aavgps', 'viscous_plane', name="aavgps_plane")
+        # CFDSolver.addFunction('aavgps', 'viscous_plane', name="aavgps_plane")
 
         CFDSolver.setOption('ncycles',1000)
 
         # Run test
-        CFDSolver(ap)
+        # CFDSolver(ap)
 
         # Check the residual
+        # CFDSolver.setAeroProblem(ap)
         res = CFDSolver.getResidual(ap)
-        totalR0, totalRStart, totalRFinal = CFDSolver.getResNorms()
-        res /= totalR0
+        # totalR0, totalRStart, totalRFinal = CFDSolver.getResNorms()
+        # res /= totalR0
 
         handler.par_add_norm(res, 1e-10, 1e-10)
 
@@ -142,3 +148,6 @@ class RegTest17(unittest.TestCase):
         funcs = {}
         CFDSolver.evalFunctions(ap, funcs)
         handler.root_add_dict(funcs, 1e-10, 1e-10)
+
+if __name__ == '__main__':
+    unittest.main()

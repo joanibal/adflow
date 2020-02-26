@@ -2,6 +2,11 @@ from __future__ import print_function
 import unittest
 import numpy
 from baseclasses import BaseRegTest
+import os
+import sys
+baseDir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(baseDir,'../../'))
+from python.pyADflow import ADFLOW
 
 class RegTest1(unittest.TestCase):
     '''
@@ -27,7 +32,7 @@ class RegTest1(unittest.TestCase):
         import copy
         from baseclasses import AeroProblem
         from commonUtils import standard_test, adflowDefOpts, defaultFuncList
-        from ... import ADFLOW
+
         gridFile = 'input_files/mdo_tutorial_euler_scalar_jst.cgns'
 
         options = copy.copy(adflowDefOpts)

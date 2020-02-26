@@ -3,6 +3,16 @@ import unittest
 import numpy
 from baseclasses import BaseRegTest
 
+import os 
+import sys
+baseDir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(baseDir,'../../'))
+from python.pyADflow import ADFLOW
+import copy
+from baseclasses import AeroProblem
+from commonUtils import adflowDefOpts
+
+
 class RegTest16(unittest.TestCase):
     '''
     Test 16: Euler Convergenent Nozzle -- Flow Properties Integration
@@ -24,10 +34,6 @@ class RegTest16(unittest.TestCase):
         '''
         This is where the actual testing happens.
         '''
-        import copy
-        from baseclasses import AeroProblem
-        from commonUtils import adflowDefOpts
-        from ... import ADFLOW
         gridFile = 'input_files/euler_conv_nozzle.cgns'
 
         options = copy.copy(adflowDefOpts)
@@ -76,6 +82,7 @@ class RegTest16(unittest.TestCase):
         CFDSolver.addFamilyGroup('upstream',['INFLOW'])
         CFDSolver.addFamilyGroup('downstream',['OUTFLOW'])
         CFDSolver.addFamilyGroup('all_flow',['INFLOW', 'OUTFLOW'])
+        
         CFDSolver.addFunction('mdot', 'upstream', name="mdot_up")
         CFDSolver.addFunction('mdot', 'downstream', name="mdot_down")
 
@@ -106,7 +113,6 @@ class RegTest16(unittest.TestCase):
         # Run test
         # CFDSolver.getResidual(ap)
         CFDSolver(ap)
-
         # Check the residual
         res = CFDSolver.getResidual(ap)
         totalR0, totalRStart, totalRFinal = CFDSolver.getResNorms()
@@ -120,3 +126,7 @@ class RegTest16(unittest.TestCase):
         funcs = {}
         CFDSolver.evalFunctions(ap, funcs)
         handler.root_add_dict(funcs, 1e-10, 1e-10)
+
+
+if __name__ == '__main__':
+    unittest.main()
