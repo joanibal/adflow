@@ -5,7 +5,7 @@ from baseclasses import BaseRegTest
 
 class RegTest3(unittest.TestCase):
     '''
-    Test 3: MDO tutorial -- Euler -- Matrix
+    Test 3: MDO tutorial -- Euler -- up wind
     '''
     N_PROCS = 4
 

@@ -1395,14 +1395,52 @@ contains
 
 #ifndef USE_TAPENADE
 
+  subroutine getNumPatches(sps, famList, numPatches)
+    use constants
+    use cgnsNames
+    use blockPointers, only : nDom, nBocos, BCData, nbkGlobal, cgnsSubFace
+    use utils, only : setPointers
+    use sorting, only : famInList
+    !
+    !      Subroutine arguments.
+    !  
+    integer(kind=intType), intent(in) ::  sps 
+    integer(kind=intType), dimension(:), intent(in) :: famList
+    integer(kind=intType), intent(out) :: numPatches
 
-  subroutine getPatchData(sps, nDom, famList, PatchData)
+    !
+    !      Local variables.
+    !
+    integer(kind=intType) :: i, j, k, l,  m
+    integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, iSize, jSize, nVarPresent
+
+    numPatches = 0
+    domainsLoop: do i=1, nDom
+       call setPointers(i, 1_intType, sps)
+       bocoLoop: do j=1, nBocos
+         
+         cgnsBoco = cgnsSubFace(j)
+         dataSet => cgnsDoms(nbkGlobal)%bocoInfo(cgnsBoco)%dataSet
+
+         famInclude: if (famInList(BCdata(j)%famID, famList(:))) then
+            numPatches = numPatches + 1            
+         end if famInclude
+
+      end do bocoLoop
+    end do domainsLoop
+
+
+  end subroutine getNumPatches
+
+
+
+  subroutine getPatchData(sps, famList, patchLoc, patchBCType, patchNumBCVar, patchFamID, patchNumNodes)
    ! TODO get Sandy's feed back on this code 
     !  gets the given bcData array 
 
     use constants
     use cgnsNames
-    use blockPointers, only : BCData, nBocos, nBKGlobal, cgnsSubFace, BCType
+    use blockPointers, only : BCData, nBocos, nDom, nBKGlobal, cgnsSubFace, BCType
     use utils, only : setPointers
     use sorting, only : famInList
 
@@ -1410,20 +1448,25 @@ contains
     !      Subroutine arguments.
     !
     integer(kind=intType), intent(in) ::  sps 
-    integer(kind=intType), intent(in) ::  nDom 
     integer(kind=intType), dimension(:), intent(in) :: famList
 
       ! time spectral instance 
-    integer(kind=intType), dimension(nDom, 6, 6 ), intent(out) :: PatchData
+   !  integer(kind=intType), dimension(nDom, 8, 6 ), intent(out) :: PatchData
+    integer(kind=intType), dimension(:,: ), intent(inout) :: patchLoc
+    integer(kind=intType), dimension(:), intent(inout) :: patchBCType
+    integer(kind=intType), dimension(:), intent(inout) :: patchNumBCVar
+    integer(kind=intType), dimension(:), intent(inout) :: patchFamID
+    integer(kind=intType), dimension(:), intent(inout) :: patchNumNodes
       ! number of patches which have bc data
     !
     !      Local variables.
     !
-    integer(kind=intType) :: i, j, k, l,  m
+    integer(kind=intType) :: i, j, k, l,  m, idx
     integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, iSize, jSize, nVarPresent
 
     !  This loop counts the number of patchs that contain boundary condition 
     ! information
+    idx = 0 
     domainsLoop: do i=1, nDom
        call setPointers(i, 1_intType, sps)
        bocoLoop: do j=1, nBocos
@@ -1443,16 +1486,14 @@ contains
 
          ! Determine the boundary condition we are having here and
          ! call the appropriate routine.
-         PatchData(i,j,1) = i
-         PatchData(i,j,2) = j
-
-         PatchData(i,j,3) = BCType(j)
-         PatchData(i,j,4) = BCData(j)%famID
-         PatchData(i,j,5) = iSize*jSize
-
-         write(*,*) 'fam'
-         write(*,*) famInList(BCdata(j)%famID, famList(:)), BCdata(j)%famID, famList(:)
          famInclude: if (famInList(BCdata(j)%famID, famList(:))) then
+            idx = idx + 1
+            patchLoc(idx,1) = i
+            patchLoc(idx,2) = j
+
+            patchBCType(idx) = BCType(j)
+            patchFamID(idx) = BCData(j)%famID
+            patchNumNodes(idx) = iSize*jSize
 
             select case (BCType(j))
 
@@ -1469,7 +1510,8 @@ contains
                call setBCVarNamesSubsonicOutflow ! sets bcVarNames and nbcVar
 
             case default
-               PatchData(i,j,6) = 0
+               patchNumBCVar(idx) = 0
+
                cycle 
             end select
 
@@ -1493,7 +1535,7 @@ contains
                enddo dataSetLoop
             enddo
             
-            PatchData(i,j,6) = nVarPresent
+            patchNumBCVar(idx) = nVarPresent
 
          end if famInclude
 
@@ -1505,7 +1547,8 @@ contains
 
 
 
-  subroutine getBCData(sps, BCPatchData, nBCArrays, maxPatchSize, BCDataArray, BCDataVarNames, BCDataArrSizes)
+  subroutine getBCData(sps, patchLoc, patchNumBCVar, patchNumNodes, nBCArrays, &
+                       maxPatchSize, BCDataArray, BCDataVarNames, BCDataArrSizes)
    ! TODO get Sandy's feed back on this code 
     !  gets the given bcData array 
 
@@ -1523,14 +1566,15 @@ contains
       ! time spectral instance 
     integer(kind=inttype), intent(in) ::  nBCArrays 
     integer(kind=inttype), intent(in) ::  maxPatchSize 
-    integer(kind=intType), dimension(:, :), intent(in) :: BCPatchData
+    integer(kind=intType), dimension(:,: ), intent(in) :: patchLoc
+    integer(kind=intType), dimension(:), intent(in) ::    patchNumBCVar
+    integer(kind=intType), dimension(:), intent(in) ::    patchNumNodes
 
     real(kind=realType), dimension(nBCArrays,maxPatchSize), intent(out) :: BCDataArray
     integer(kind=intType), dimension(nBCArrays), intent(out) :: BCDataArrSizes
       ! bc data to be set
     character, dimension(nBCArrays,maxCGNSNameLen), intent(out) :: BCDataVarNames
       ! name of the physical quantity that the data array applies to ('Temperature' , 'Pressure', ect.)
-
     !
     !      Local variables.
     !
@@ -1538,14 +1582,14 @@ contains
     character(maxCGNSNameLen) :: varName
 
    idx = 1 
-   do ii = 1,size(BCPatchData,1)
+   do ii = 1,size(patchLoc,1)
 
        ! Set the pointers to this block on groundLevel to make
        ! the code readable.
-       i = BCPatchData(ii,1)
-       j = BCPatchData(ii,2)
-       nNodes = BCPatchData(ii,5)
-       m = BCPatchData(ii,6)
+       i = patchLoc(ii,1)
+       j = patchLoc(ii,2)
+       nNodes = patchNumNodes(ii)
+       m = patchNumBCVar(ii)
 
        call setPointers(i, 1_intType, sps)
 
@@ -1568,22 +1612,22 @@ contains
       case (SubsonicOutflow)
          call setBCVarNamesSubsonicOutflow
       case default
+
+         write(*,*) 'There is no data for BC'
+         cycle
          call terminate('getBCData', &
             'This is not a valid boundary condtion for getBCData')
       end select
    
       call extractPatchData(BCDataArray(idx:idx+m-1, 1:nNodes), BCDataVarNames(idx:idx+m, :), BCDataArrSizes(idx:idx+m))
 
-      ! write(*,*) idx,'to', idx+m-1, 'and' ,1, 'to', nNodes
-      ! do mm = idx,idx+m-1
-      !    write(*,*) mm, BCDataArray(mm, :)
-      ! enddo 
       idx = idx + m
    end do 
 
   end subroutine getBCData
 
-  subroutine setBCData(sps, BCDataArray, BCDataVarNames, BCPatchData, nPatchVars, BCDataArrSizes)
+  subroutine setBCData(sps, BCDataArray, BCDataVarNames, patchLoc, &
+                        patchNumBCVar)
    ! TODO get Sandy's feed back on this code 
     !  sets the given bcData array 
 
@@ -1599,10 +1643,9 @@ contains
     !
     integer(kind=intType), intent(in) ::  sps 
       ! time spectral instance 
-    integer(kind=intType), dimension(:, :), intent(in) :: BCPatchData
+    integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
     real(kind=realType), dimension(:,:), intent(in) :: BCDataArray
-    integer(kind=inttype), dimension(:), intent(in) :: nPatchVars
-    integer(kind=intType), dimension(:), intent(in) :: BCDataArrSizes
+    integer(kind=inttype), dimension(:), intent(in) :: patchNumBCVar
 
       ! bc data to be set
     character, dimension(:,:), intent(out) :: BCDataVarNames
@@ -1617,15 +1660,13 @@ contains
     integer(kind=intType), dimension(:,:), allocatable :: PatchData
 
    idx = 1 
-   write(*,*) BCDataArray
-   do ii = 1,size(BCPatchData,1)
+   do ii = 1,size(patchLoc,1)
 
 
-       i = BCPatchData(ii,1)
-       j = BCPatchData(ii,2)
-       m = nPatchVars(ii)
-      ! write(*,*) BCPatchData(ii,:)
-      write(*,*) ii, 'i', i, 'j',  j, 'm', m 
+       i = patchLoc(ii,1)
+       j = patchLoc(ii,2)
+       m = patchNumBCVar(ii)
+      ! write(*,*) patchLoc(ii,:)
        call setPointers(i, 1_intType, sps)
       ! write(*,*) 'j', j
       ! Store the cgns boundary subface number, the number of
@@ -1646,16 +1687,19 @@ contains
       case (SubsonicOutflow)
          call setBCVarNamesSubsonicOutflow
       case default
-         call terminate('getBCData', &
-            'This is not a valid boundary condtion for setBCData')
+         if (m .gt. 0 ) then 
+            write(*,*) i, j, 'm', m, 'BCType(j)', BCType(j)
+            call terminate('setBCData', &
+               'This is not a valid boundary condtion for setBCData')
+         end if
+         cycle
       end select
 
       ! call extractPatchData(BCDataArray(idx:idx+m-1, 1:nNodes), BCDataVarNames(idx:idx+m, :))
 
 
       call insertToDataSet2(BCDataArray(idx:idx+m-1,:),&
-                            BCDataVarNames(idx:idx+m-1, :),&
-                            BCDataArrSizes(idx:idx+m-1))
+                            BCDataVarNames(idx:idx+m-1, :))
       ! call insertToDataSet2(BCDataArray(idx:idx, 1:nNodes), BCDataVarNames(idx:idx, :))
 
       ! write(*,*) BCDataVarNames(idx:idx+m-1, :), 'BCDataArray(idx:idx+m-1, 1:nNodes)'
@@ -2024,7 +2068,7 @@ subroutine extractPatchData(bcVarArrays, BCDataVarNames, BCDataArrSizes)
     !
     !      Local variables.
     !
-    integer(kind=intType) :: k, l, m, n, i, j, ii, c
+    integer(kind=intType) :: k, l, m, n, i, j, ii, c, lenDataArr
     integer(kind=intType) :: nInter, nDim, nVarPresent, nCoor
 
     integer(kind=intType), dimension(3) :: dataDim, coor
@@ -2086,15 +2130,28 @@ subroutine extractPatchData(bcVarArrays, BCDataVarNames, BCDataArrSizes)
           k = ind(1,m)
           l = ind(2,m)
 
-         if (size(dataSet(k)%dirichletArrays(l)%dataArr,1) .eq. 1) then 
+         ! write(*,*) '====================================='
+         ! write(*,*) dataSet(k)%dirichletArrays(l)%dataArr
+         lenDataArr = size(dataSet(k)%dirichletArrays(l)%dataArr,1)
 
-         ! ! else
-            write(*,*) 'there is only one bcdatset value'
-            bcVarArrays(ii, 1) = dataSet(k)%dirichletArrays(l)%dataArr(1)
+         bcVarArrays(ii, 1:lenDataArr) = &
+         dataSet(k)%dirichletArrays(l)%dataArr(1:lenDataArr)
+
+         BCDataArrSizes(ii) = lenDataArr
+         ! write(*,*) bcVarArrays(ii, :)
+         ! write(*,*) '====================================='
+
+         ! if (size(dataSet(k)%dirichletArrays(l)%dataArr,1) .eq. 1) then 
+
+         ! ! ! else
+         !    ! write(*,*) 'there is only one bcdatset value'
+         !    bcVarArrays(ii, 1) = dataSet(k)%dirichletArrays(l)%dataArr(1)
          
-         else
-            bcVarArrays(ii,:) = dataSet(k)%dirichletArrays(l)%dataArr
-         end if
+         ! else
+         !    bcVarArrays(ii,:) = dataSet(k)%dirichletArrays(l)%dataArr
+         ! end if
+
+
          varName  = bcVarNames(m)
 
          ! TODO generalize to str2char util func
@@ -2103,7 +2160,6 @@ subroutine extractPatchData(bcVarArrays, BCDataVarNames, BCDataArrSizes)
          end do
 
          BCDataArrSizes(ii) = size(dataSet(k)%dirichletArrays(l)%dataArr,1)
-         ! write(*,*) dataSet(k)%dirichletArrays(l)%dataArr
          ! write(*,*)m, BCDataVarNames(ii,:),  bcVarArrays(ii,:)
 
          ii = ii + 1
@@ -2209,7 +2265,7 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
          if (size(dataSet(k)%dirichletArrays(l)%dataArr,1) .eq. 1) then 
 
          ! ! else
-            write(*,*) 'there is only one bc value'
+            ! write(*,*) 'there is only one bc value'
             bcVarArray(:, :,m) = dataSet(k)%dirichletArrays(l)%dataArr(1)
          else
 
@@ -2559,7 +2615,7 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
             
 
             if (size(bcData) .eq. 1) then 
-               write(*,*) 'there is only one bcdata!!!', bcData(1)
+               ! write(*,*) 'there is only one bcdata!!!', bcData(1)
                ! set every value in the data array to same value 
                do i =1,size(dataSet(k)%dirichletArrays(l)%dataArr)
                   dataSet(k)%dirichletArrays(l)%dataArr(i) = bcData(1)
@@ -2582,7 +2638,7 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
   end subroutine insertToDataSet
 
-  subroutine insertToDataSet2(BCDataArray, BCDataVarNames, BCArraySizes)
+  subroutine insertToDataSet2(BCDataArray, BCDataVarNames)
     !--------------------------------------------------------------
     ! Manual Differentiation Warning: Modifying this routine requires
     ! modifying the hand-written forward and reverse routines.
@@ -2595,7 +2651,6 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
     !
     character, dimension(:,:), intent(in) :: BCDataVarNames
     real(kind=realType), dimension(:,:), intent(in):: BCDataArray
-    integer(kind=intType), dimension(:), intent(in):: BCArraySizes
     !
     !      Local variables.
     !
@@ -2608,7 +2663,6 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
     write(*,*) 'shape of inputs to insertdata2'
     write(*,*) shape(BCDataArray)
     write(*,*) shape(BCDataVarNames)
-    write(*,*) shape(BCArraySizes)
 
     
 
@@ -2653,28 +2707,18 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
                write(*,*) 'data Arr before', dataSet(k)%dirichletArrays(l)%dataArr(:)
                lenDataArr = size(dataSet(k)%dirichletArrays(l)%dataArr)
-               
 
 
-               if (BCArraySizes(n) .eq. 1) then 
-                  do i =1,lenDataArr
-                     dataSet(k)%dirichletArrays(l)%dataArr(i) = BCDataArray(n,1)
-                  end do 
-               else if (BCArraySizes(n) .eq. lenDataArr) then 
-                  dataSet(k)%dirichletArrays(l)%dataArr(:) = BCDataArray(n,:)
-               else
-                  write(*,*) "the size of the array given does not match the&
-                              & size of the data set for ", varName
-               end if 
+               ! size of array BCDataArray should be checked on python level before 
+               ! calling setBCData
+
+               dataSet(k)%dirichletArrays(l)%dataArr(1:lenDataArr) = BCDataArray(n,1:lenDataArr)
+
+
 
                write(*,*) 'data Arr after', dataSet(k)%dirichletArrays(l)%dataArr(:)
                write(*,*)
-                  ! write(*,*) 'shape(dataset)', shape(dataSet(k)%dirichletArrays(l)%dataArr)
-                  ! write(*,*) 'shape(BCDataArray(n,:))', shape(BCDataArray(n,:))
-                  ! write(*,*) '================ bcdata =============='
 
-                  ! dataSet(k)%dirichletArrays(l)%dataArr(:) = BCDataArray(n,:)
-                  
                end if
 
 
@@ -2709,7 +2753,7 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
           if(dataSet(k)%dirichletArrays(l)%arrayName == varName) then
              
              if (size(bcData) .eq. 1) then 
-                write(*,*) 'there is only one bcdata!!!'
+               !  write(*,*) 'there is only one bcdata!!!'
                 ! set every value in the data array to same value 
                 do i =1,size(dataSet(k)%dirichletArrays(l)%dataArr)
                    dataSet(k)%dirichletArrays(l)%dataArr(i) = bcData(1)
@@ -2758,7 +2802,7 @@ subroutine extractFromDataSet(bcVarArray, iBeg, iEnd, jBeg, jEnd)
 
 
              if (size(bcData) .eq. 1) then 
-                write(*,*) 'there is only one bcdata!!!'
+               !  write(*,*) 'there is only one bcdata!!!'
                 ! set every value in the data array to same value 
                 do i =1,size(dataSet(k)%dirichletArrays(l)%dataArr)
                    bcDatad(1) = bcDatad(1) +  dataSetd(k)%dirichletArrays(l)%dataArr(i)

@@ -1,7 +1,16 @@
 from __future__ import print_function
 import unittest
-import numpy
+import numpy as np
 from baseclasses import BaseRegTest
+
+import os 
+import sys
+baseDir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(baseDir,'../../'))
+from python.pyADflow import ADFLOW
+import copy
+from baseclasses import AeroProblem
+from commonUtils import adflowDefOpts
 
 class RegTest18(unittest.TestCase):
     '''
@@ -24,15 +33,14 @@ class RegTest18(unittest.TestCase):
         '''
         This is where the actual testing happens.
         '''
-        import copy
-        from baseclasses import AeroProblem
-        from commonUtils import adflowDefOpts
-        from ... import ADFLOW
-        gridFile = 'input_files/conic_conv_nozzle.cgns'
+        # gridFile = 'input_files/conic_conv_nozzle.cgns'
+        gridFile = '../python/inputFiles/conic_conv_nozzle.cgns'
 
         options = copy.copy(adflowDefOpts)
         options.update({
+            # Common Parameters
             'gridfile': gridFile,
+            # Physics Parameters
             'equationType':'euler',
             'smoother':'dadi',
             'nsubiter':3,
@@ -52,6 +60,7 @@ class RegTest18(unittest.TestCase):
             'nkjacobianlag':5,
             'nkouterpreconits':3,
             'nkinnerpreconits':2,
+            # Convergence Parameters
             'L2Convergence':1e-10,
             'L2ConvergenceCoarse':1e-4,
             'adjointl2convergence':1e-6,
@@ -118,15 +127,18 @@ class RegTest18(unittest.TestCase):
         CFDSolver.setOption('ncycles',1000)
 
         # Run test
-        CFDSolver(ap)
+        # CFDSolver(ap)
 
         # Check the residual
         res = CFDSolver.getResidual(ap)
-        handler.par_add_norm(res, 1e-10, 1e-10)
+        handler.par_add_norm(res, 1e-10, 1e-10, msg='res')
 
         # Get and check the states
-        handler.par_add_norm(CFDSolver.getStates(), 1e-10, 1e-10)
+        handler.par_add_norm(CFDSolver.getStates(), 1e-10, 1e-10, msg='states')
 
         funcs = {}
         CFDSolver.evalFunctions(ap, funcs)
-        handler.root_add_dict(funcs, 1e-10, 1e-10)
+        handler.root_add_dict(funcs, 1e-10, 1e-10, msg='functions')
+
+if __name__ == '__main__':
+    unittest.main()
