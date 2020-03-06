@@ -1,12 +1,14 @@
 module masterRoutines
 contains
-   subroutine master(useSpatial, famLists, funcValues, forces, heatfluxes, bcDataNames, bcDataValues, &
-      bcDataFamLists)
+   subroutine master(useSpatial,&
+                     famLists, funcValues,&
+                     forces, heatfluxes,&
+                     BCArrays,  BCVarNames, patchLoc, nBCVars)
     ! TODO update 
     use constants
     use communication, only : adflow_comm_world
     use BCRoutines, only : applyallBC_block
-    use bcdata, only : setBCData_tmp, setBCDataFineGrid
+    use bcdata, only : setBCData, setBCDataFineGrid
     use turbbcRoutines, only : applyallTurbBCthisblock, bcTurbTreatment
     use iteration, only : currentLevel
     use inputAdjoint,  only : viscPC
@@ -54,14 +56,12 @@ contains
     logical, intent(in) :: useSpatial
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :), intent(out) :: funcValues
-
-   !  character, optional, dimension(:, :), intent(in) :: bcDataNames
-   !  real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues
-   !  integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
-
-    character, optional, dimension(:), intent(in) :: bcDataNames
-    real(kind=realType), optional, dimension(:,:), intent(in) :: bcDataValues
-    integer(kind=intType), optional, dimension(:) :: bcDataFamLists
+   
+    ! Boundary Condition data 
+    real(kind=realType), optional, dimension(:,:), intent(in) :: BCArrays
+    character, optional, dimension(:,:), intent(in) :: BCVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
+    integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
 
     ! Output Variables
     real(kind=realType), intent(out), optional, dimension(:, :, :) :: forces
@@ -75,14 +75,11 @@ contains
     if (useSpatial) then
        call adjustInflowAngle()
 
-       ! Update all the BCData
-       ! set new wall temperature data (call set TNS data)
 
        call referenceState
-       if (present(bcDataNames)) then
+       if (present(BCVarNames)) then
           do sps=1,nTimeIntervalsSpectral
-             call setBCData_tmp(bcDataNames, bcDataValues, bcDataFamLists, sps, &
-                size(bcDataFamLIsts, 1))
+             call setBCData(sps, BCArrays,  BCVarNames, patchLoc, nBCVars)
           end do
           call setBCDataFineGrid(.true.)
        end if
@@ -258,9 +255,12 @@ contains
    end subroutine master
 
 #ifndef USE_COMPLEX
-  subroutine master_d(wdot, xdot, forcesDot, heatfluxesDot, dwDot, famLists, funcValues, funcValuesd, &
-       bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
-   ! TODO update
+  subroutine master_d(xdot, wdot, &
+                     forcesDot, heatfluxesDot,dwDot, &
+                     famLists, funcValuesd, &
+                     BCArraysDot, &
+                     BCArrays,  BCVarNames, patchLoc, nBCVars)
+  
     use constants
     use diffsizes, only :  ISIZE1OFDrfbcdata, ISIZE1OFDrfviscsubface
     use communication, only : adflow_comm_world
@@ -305,34 +305,43 @@ contains
     implicit none
 
     ! Input Arguments:
+    ! input derivative seeds
     real(kind=realType), intent(in), dimension(:) :: wDot, xDot
+    real(kind=realType), optional, dimension(:,:), intent(in) :: BCArraysDot
+
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
-    real(kind=realType), optional, dimension(:, :), intent(out) :: funcValues, funcValuesd
-   !  character, optional, dimension(:, :), intent(in) :: bcDataNames
-   !  real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues, bcDataValuesd
-   !  integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
-
-    character, optional, dimension(:), intent(in) :: bcDataNames
-    real(kind=realType), optional, dimension(:,:), intent(in) :: bcDataValues, bcDataValuesd
-    integer(kind=intType), optional, dimension(:) :: bcDataFamLists
-
-    ! Output variables:
+   
+    ! Boundary Condition data 
+    real(kind=realType), optional, dimension(:,:), intent(in) :: BCArrays
+    character, optional, dimension(:,:), intent(in) :: BCVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
+    integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
 
     ! Output variables:
     real(kind=realType), intent(out), dimension(:) :: dwDot
     real(kind=realType), intent(out), dimension(:, :, :) :: forcesDot
     real(kind=realType), intent(out), dimension(:, :, :) :: heatfluxesDot
-
+    real(kind=realType), optional, intent(out), dimension(:, :)  :: funcValuesd
+    !
     ! Working Variables
+    !
     real(kind=realType), dimension(:, :, :), allocatable :: forces
     real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
+    real(kind=realType), dimension(:, :), allocatable :: funcValues
+
     integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj, iRegion
+    integer(kind=intType) :: iGroup
+    
     real(kind=realType), dimension(nSections) :: t
     real(kind=realType) :: dummyReal, dummyReald
 
     fSize = size(forcesDot, 2)
-    allocate(forces(3, fSize, nTimeIntervalsSpectral))
-    allocate(heatfluxes(1, fsize, nTimeIntervalsSpectral))
+   !  allocate(forces(3, fSize, nTimeIntervalsSpectral))
+   !  allocate(heatfluxes(1, fsize, nTimeIntervalsSpectral))
+    allocate(funcValues, mold=funcValuesd)
+    allocate(forces, mold=forcesDot)
+    allocate(heatfluxes, mold=heatfluxesDot)
+ 
 
     call VecPlaceArray(x_like, xdot, ierr)
     call EChk(ierr, __FILE__, __LINE__)
@@ -404,10 +413,9 @@ contains
 
     call adjustInflowAngle_d
     call referenceState_d
-    if (present(bcDataNames)) then
+    if (present(BCVarNames)) then
        do sps=1,nTimeIntervalsSpectral
-          call setBCData_d(bcDataNames, bcDataValues, bcDataValuesd, &
-               bcDataFamLists, sps,  size(bcDataFamLists, 1))
+          call setBCData_d(sps, BCArrays, BCArraysDot, BCVarNames, patchLoc, nBCVars)
        end do
        call setBCDataFineGrid_d(.true.)
     end if
@@ -577,12 +585,12 @@ contains
     end do
     call VecResetArray(x_like, ierr)
     call EChk(ierr, __FILE__, __LINE__)
-    deallocate(forces)
+    deallocate(forces, heatfluxes, funcValues)
   end subroutine master_d
 
  subroutine master_b(wbar, xbar, extraBar, forcesBar, heatfluxBar, dwBar, nState, famLists, &
-       funcValues, funcValuesd, bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists)
-    !TODO update
+       funcValues, funcValuesd, &
+      BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars)
 
     ! This is the main reverse mode differentiaion of master. It
     ! compute the reverse mode sensitivity of *all* outputs with
@@ -644,16 +652,19 @@ contains
     integer(kind=intType), intent(in) :: nState
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :) :: funcValues, funcValuesd
-    character, optional, dimension(:), intent(in) :: bcDataNames
-    real(kind=realType), optional, dimension(:,:), intent(in) :: bcDataValues
-    integer(kind=intType), optional, dimension(:) :: bcDataFamLists
-!     character, optional, dimension(:, :), intent(in) :: bcDataNames
-!     real(kind=realType), optional, dimension(:), intent(in) :: bcDataValues
-!     integer(kind=intType), optional, dimension(:, :) :: bcDataFamLists
 
+
+    real(kind=realType), dimension(:,:), intent(in) :: BCArraysBar
+
+
+    ! Boundary Condition data 
+    real(kind=realType), optional, dimension(:,:), intent(in) :: BCArrays
+    character, optional, dimension(:,:), intent(in) :: BCVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
+    integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
+      
     ! Output Arguments:
     real(kind=realType), optional, intent(out), dimension(:) :: wBar, xBar, extraBar
-    real(kind=realType), optional, dimension(:,:), intent(out) :: bcDataValuesd
 
     ! Working Variables
     integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj,  level, iRegion
@@ -920,19 +931,18 @@ contains
 
 
 
-    if (present(bcDataNames)) then
-      !  allocate(bcDataValuesdLocal, mold=bcDataValuesd)
+    if (present(BCVarNames)) then
+       allocate(bcDataValuesdLocal, mold=BCArrays)
 
        bcDataValuesdLocal = zero
        call setBCDataFineGrid_b(.true.)
        do sps=1, nTimeIntervalsSpectral
-          call setBCData_b(bcDataNames, bcDataValues, bcDataValuesd, bcDataFamLists, &
-               sps, size(bcDataFamLIsts,1))
+          call setBCData_b(sps, BCArrays, bcDataValuesdLocal, BCVarNames, patchLoc, nBCVars)
        end do
-       ! Reverse seeds need to accumulated across all processors:
-      !  call mpi_allreduce(bcDataValuesdLocal, bcDataValuesd, size(bcDataValuesd), adflow_real, &
-      !       mpi_sum, ADflow_comm_world, ierr)
-      !  deallocate(bcDataValuesdLocal)
+      !  Reverse seeds need to accumulated across all processors:
+       call mpi_allreduce(bcDataValuesdLocal, BCArraysBar, size(BCArraysBar), adflow_real, &
+            mpi_sum, ADflow_comm_world, ierr)
+       deallocate(bcDataValuesdLocal)
     end if
 
 

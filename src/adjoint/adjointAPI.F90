@@ -2,11 +2,12 @@ module adjointAPI
 
 contains
 #ifndef USE_COMPLEX
-  subroutine computeMatrixFreeProductFwd(xvdot, extradot, wdot, bcDataValuesdot,&
+  subroutine computeMatrixFreeProductFwd(xvdot, extradot, wdot, BCArraysDot,&
        useSpatial, useState, famLists,&
-       bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty,&
+       BCArrays,  BCVarNames, patchLoc, nBCVars, &
        dwdot, funcsDot, fDot, hfdot, &
        costSize, fSize, nTime)
+
 
     ! This is the main matrix-free forward mode computation
     use constants
@@ -26,20 +27,19 @@ contains
     real(kind=realType), dimension(:), intent(in) :: xvdot
     real(kind=realType), dimension(:), intent(in) :: extradot
     real(kind=realType), dimension(:), intent(in) :: wdot
+    real(kind=realType), dimension(:,:), intent(in) :: BCArraysDot
+
     logical, intent(in) :: useSpatial, useState
     integer(kind=intType), dimension(:, :) :: famLists
     integer(kind=intType) :: costSize, fSize, nTime
 
-   !TODO make general
-   !  character, dimension(:, :), intent(in) :: bcDataNames
-   !  real(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
-   !  integer(kind=intType), dimension(:, :) :: bcDataFamLists
-   !  logical, intent(in) :: BCVarsEmpty
-    character, dimension(:), intent(in) :: bcDataNames
-    real(kind=realType), dimension(:, :), intent(in) :: bcDataValues, bcDataValuesDot
-    integer(kind=intType), dimension(:) :: bcDataFamLists
-    logical, intent(in) :: BCVarsEmpty
 
+    ! Boundary Condition data 
+    real(kind=realType), dimension(:,:), intent(in) :: BCArrays
+    character, dimension(:,:), intent(in) :: BCVarNames
+    integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
+    integer(kind=inttype), dimension(:), intent(in) :: nBCVars
+      
 
     ! Ouput Variables
     real(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
@@ -87,19 +87,27 @@ contains
     pointrefd(3) = extraDot(iPointRefZ)
     rgasdimd = zero
 
-    ! Run the super-dee-duper master forward rotuine
-   if (bcVarsEmpty) then
-      call master_d(wDot, xVDot, fDot, hfDot, dwDot, famLists, funcs, funcsDot)
-   else
-      call master_d(wDot, xVDot, fDot, hfDot, dwDot, &
-           famLists, funcs, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
-    end if
+   !  ! Run the super-dee-duper master forward rotuine
+   ! if (bcVarsEmpty) then
+   !    call master_d(wDot, xVDot, fDot, hfDot, dwDot, famLists, funcs, funcsDot)
+   ! else
+   !    call master_d(wDot, xVDot, fDot, hfDot, dwDot, &
+   !         famLists, funcs, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
+   !  end if
+
+
+
+   call master_d(xVDot, wDot, &
+                 fDot, hfDot, dwDot,  &
+                 famLists, funcsDot,&
+                 BCArraysDot, & 
+                 BCArrays,  BCVarNames, patchLoc, nBCVars)
 
   end subroutine computeMatrixFreeProductFwd
 
   subroutine computeMatrixFreeProductBwd(dwbar, funcsBar, fbar, hfbar,useSpatial, useState, xvbar, &
        extrabar, wbar, spatialSize, extraSize, stateSize, famLists, &
-       bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists, BCVarsEmpty)
+       BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars)
     use constants
     use communication, only : adflow_comm_world
     use blockPointers, only : nDom, dwd, il, jl, kl
@@ -122,19 +130,23 @@ contains
     real(kind=realType), dimension(:, :, :) :: fBar, hfbar
     logical, intent(in) :: useSpatial, useState
     integer(kind=intType), intent(in) :: famLists(:, :)
-   !  character, dimension(:, :), intent(in) :: bcDataNames
-   !  real(kind=realType), dimension(:), intent(in) :: bcDataValues
-   !  integer(kind=intType), dimension(:, :) :: bcDataFamLists
-    character, dimension(:), intent(in) :: bcDataNames
-    real(kind=realType), dimension(:,:), intent(in) :: bcDataValues
-    integer(kind=intType), dimension(:) :: bcDataFamLists
-    logical, intent(in) :: BCVarsEmpty
+
+    
+   !  real(kind=realType), dimension(:,:), intent(in) :: BCArraysBar
+
+
+    ! Boundary Condition data 
+    real(kind=realType), dimension(:,:), intent(in) :: BCArrays
+    character, dimension(:,:), intent(in) :: BCVarNames
+    integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
+    integer(kind=inttype), dimension(:), intent(in) :: nBCVars
+      
 
     ! Ouput Variables
     real(kind=realType), dimension(stateSize), intent(out) :: wbar
     real(kind=realType), dimension(extraSize), intent(out) :: extrabar
     real(kind=realType), dimension(spatialSize), intent(out) :: xvbar
-    real(kind=realType), dimension(size(bcDataValues,1), size(bcDataValues,2)), intent(out) :: bcDataValuesbar
+    real(kind=realType), dimension(size(BCArrays,1), size(BCArrays,2)), intent(out) :: BCArraysBar
 
     ! Working variables
     integer(kind=intType) :: nn, sps, i, j, k, l, ii, level, nState, mm
@@ -171,18 +183,23 @@ contains
        end do
     end do
 
-    if (bcVarsEmpty) then
-       call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
-            funcs, funcsBar)
-    else
-       write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
-      !  write(*,*) bcDataValuesbar
-       call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
-            funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
-      ! write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
-      ! write(*,*) bcDataValuesbar
 
-    end if
+    call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
+            funcs, funcsBar, &
+            BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars)
+  
+   !  if (bcVarsEmpty) then
+   !     call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
+   !          funcs, funcsBar)
+   !  else
+   !     write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
+   !    !  write(*,*) bcDataValuesbar
+   !     call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
+   !          funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
+   !    ! write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
+   !    ! write(*,*) bcDataValuesbar
+
+   !  end if
 
     ! Reset the correct equation parameters if we were useing the frozen
     ! Turbulent
@@ -1150,7 +1167,7 @@ contains
     fdot = zero
     hfdot = zero
 
-    call master_d(wd_pointer, xvDot, fDot, hfDot, dwd_pointer)
+    call master_d(xvDot, wd_pointer, fDot, hfDot, dwd_pointer)
 
     deallocate(xvDot, Fdot, hfDot)
 

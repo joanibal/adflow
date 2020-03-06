@@ -46,9 +46,9 @@ contains
 &   cforcemd, cmomentd
     real(kind=realtype), dimension(3) :: vcoordref, vfreestreamref
     real(kind=realtype) :: mavgptot, mavgttot, mavgrho, mavgps, mflow, &
-&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea
+&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea, havg
     real(kind=realtype) :: mavgptotd, mavgttotd, mavgrhod, mavgpsd, &
-&   mflowd, mavgmnd, mavgad, mavgvxd, mavgvyd, mavgvzd, garead
+&   mflowd, mavgmnd, mavgad, mavgvxd, mavgvyd, mavgvzd, garead, havgd
     real(kind=realtype) :: vdotn, mag, u, v, w
     integer(kind=inttype) :: sps
     real(kind=realtype), dimension(8) :: dcdq, dcdqdot
@@ -83,6 +83,7 @@ contains
     real(kind=realtype) :: tmpd9
     real(kind=realtype) :: tmpd8
     real(kind=realtype) :: tmpd7
+    real(kind=realtype) :: tempd2
     real(kind=realtype) :: tmpd6
     real(kind=realtype) :: tempd1
     real(kind=realtype) :: tmpd5
@@ -199,9 +200,15 @@ contains
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+! if it is  0/0  set the havg to 0 to avoid nan
+      if (globalvals(iheattransfercoef, sps) .eq. 0) then
+        havg = 0
+      else
+        havg = globalvals(iheattransfercoef, sps)/globalvals(iheatedarea&
+&         , sps)
+      end if
       funcvalues(costfuncheattransfercoef) = funcvalues(&
-&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
-&       , sps)/globalvals(iheatedarea, sps)
+&       costfuncheattransfercoef) + ovrnts*havg
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -596,6 +603,12 @@ contains
 ! ------------
 ! ------------
 ! heat transfer cost functions
+! if it is  0/0  set the havg to 0 to avoid nan
+        if (globalvals(iheattransfercoef, sps) .eq. 0) then
+          call pushcontrol1b(0)
+        else
+          call pushcontrol1b(1)
+        end if
 ! mass flow like objective
         mflow = globalvals(imassflow, sps)
         if (mflow .ne. zero) then
@@ -622,13 +635,13 @@ contains
         mflowd = ovrnts*funcvaluesd(costfuncmdot)
         call popcontrol1b(branch)
         if (branch .eq. 0) then
-          tempd1 = ovrnts*funcvaluesd(costfuncaavgptot)/garea
-          tempd0 = ovrnts*funcvaluesd(costfuncaavgps)/garea
-          globalvalsd(iareaps, sps) = globalvalsd(iareaps, sps) + tempd0
-          garead = -(globalvals(iareaptot, sps)*tempd1/garea) - &
-&           globalvals(iareaps, sps)*tempd0/garea
+          tempd2 = ovrnts*funcvaluesd(costfuncaavgptot)/garea
+          tempd1 = ovrnts*funcvaluesd(costfuncaavgps)/garea
+          globalvalsd(iareaps, sps) = globalvalsd(iareaps, sps) + tempd1
+          garead = -(globalvals(iareaptot, sps)*tempd2/garea) - &
+&           globalvals(iareaps, sps)*tempd1/garea
           globalvalsd(iareaptot, sps) = globalvalsd(iareaptot, sps) + &
-&           tempd1
+&           tempd2
         else
           garead = 0.0_8
         end if
@@ -664,13 +677,16 @@ contains
         end if
         globalvalsd(imassflow, sps) = globalvalsd(imassflow, sps) + &
 &         mflowd
-        tempd0 = ovrnts*funcvaluesd(costfuncheattransfercoef)/globalvals&
-&         (iheatedarea, sps)
-        globalvalsd(iheattransfercoef, sps) = globalvalsd(&
-&         iheattransfercoef, sps) + tempd0
-        globalvalsd(iheatedarea, sps) = globalvalsd(iheatedarea, sps) - &
-&         globalvals(iheattransfercoef, sps)*tempd0/globalvals(&
-&         iheatedarea, sps)
+        havgd = ovrnts*funcvaluesd(costfuncheattransfercoef)
+        call popcontrol1b(branch)
+        if (branch .ne. 0) then
+          tempd0 = havgd/globalvals(iheatedarea, sps)
+          globalvalsd(iheattransfercoef, sps) = globalvalsd(&
+&           iheattransfercoef, sps) + tempd0
+          globalvalsd(iheatedarea, sps) = globalvalsd(iheatedarea, sps) &
+&           - globalvals(iheattransfercoef, sps)*tempd0/globalvals(&
+&           iheatedarea, sps)
+        end if
         globalvalsd(iheatflux, sps) = globalvalsd(iheatflux, sps) + &
 &         ovrnts*funcvaluesd(costfuncheatflux)
         globalvalsd(icperror2, sps) = globalvalsd(icperror2, sps) + &
@@ -802,7 +818,7 @@ contains
 &   cmoment
     real(kind=realtype), dimension(3) :: vcoordref, vfreestreamref
     real(kind=realtype) :: mavgptot, mavgttot, mavgrho, mavgps, mflow, &
-&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea
+&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea, havg
     real(kind=realtype) :: vdotn, mag, u, v, w
     integer(kind=inttype) :: sps
     real(kind=realtype), dimension(8) :: dcdq, dcdqdot
@@ -914,9 +930,15 @@ contains
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+! if it is  0/0  set the havg to 0 to avoid nan
+      if (globalvals(iheattransfercoef, sps) .eq. 0) then
+        havg = 0
+      else
+        havg = globalvals(iheattransfercoef, sps)/globalvals(iheatedarea&
+&         , sps)
+      end if
       funcvalues(costfuncheattransfercoef) = funcvalues(&
-&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
-&       , sps)/globalvals(iheatedarea, sps)
+&       costfuncheattransfercoef) + ovrnts*havg
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -2178,7 +2200,7 @@ contains
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then

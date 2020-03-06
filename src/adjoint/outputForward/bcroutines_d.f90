@@ -34,12 +34,6 @@ contains
 ! ------------------------------------
 !  symmetry boundary condition
 ! ------------------------------------
-!  do ii=0, (il+2)
-!    do kk=0, (kl+2)
-!       write(*,*) ii, kk, w(ii,:,kk, ivz)
-!    end do
-!    write(*,*)
-!  end do
     do nn=1,nbocos
       if (bctype(nn) .eq. symm) then
         call setbcpointers(nn, .false.)

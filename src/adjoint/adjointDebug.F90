@@ -6,15 +6,14 @@ contains
 
 #ifndef USE_COMPLEX
 
-   subroutine computeMatrixFreeProductFwdFD(xvdot, extradot, wdot, bcDataValuesdot,&
+   subroutine computeMatrixFreeProductFwdFD(xvDot, extraDot, wDot, BCArraysDot,&
       useSpatial, useState, famLists,&
-      bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty,&
-      dwdot, funcsDot, fDot, hfdot, &
+      BCArrays,  BCVarNames, patchLoc, nBCVars, &
+      dwDot, funcsDot, fDot, hfDot, &
       costSize, fSize, nTime, h)
 
       ! This routine is used to debug master_d. It uses the forward seeds to set perturbations
       ! and then computes the value of the derivatives using forward finite diffenece
-
 
       use constants
       use adjointvars
@@ -33,32 +32,41 @@ contains
       use flowVarRefState, only : nw, nwf
       use wallDistanceData, only: xSurf, xSurfVec
       implicit none
-
+      !
       ! Input Variables
-      real(kind=realType), dimension(:), intent(in) :: xvdot
-      real(kind=realType), dimension(:), intent(in) :: extradot
-      real(kind=realType), dimension(:), intent(in) :: wdot
+      !
+      ! derivative seeds
+      real(kind=realType), dimension(:), intent(in) :: xvDot
+      real(kind=realType), dimension(:), intent(in) :: extraDot
+      real(kind=realType), dimension(:), intent(in) :: wDot
+      real(kind=realType), dimension(:,:), intent(in) :: BCArraysDot
+      
+      ! size data
       logical, intent(in) :: useSpatial, useState
       integer(kind=intType), dimension(:, :) :: famLists
       integer(kind=intType) :: costSize, fSize, nTime
 
-      ! character, dimension(:, :), intent(in) :: bcDataNames
-      ! real(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
-      ! integer(kind=intType), dimension(:, :) :: bcDataFamLists
-      character, dimension(:), intent(in) :: bcDataNames
-      real(kind=realType), dimension(:,:), intent(inout) :: bcDataValues
-      real(kind=realType), dimension(:,:), intent(in) :: bcDataValuesDot
-      integer(kind=intType), dimension(:) :: bcDataFamLists
-      logical, intent(in) :: BCVarsEmpty
+      ! Boundary Condition data 
+      real(kind=realType), dimension(:,:), intent(inout) :: BCArrays
+      character, dimension(:,:), intent(in) :: BCVarNames
+      integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
+      integer(kind=inttype), dimension(:), intent(in) :: nBCVars
+      
+      ! Finite difference parameters
       real(kind=realType), intent(in) :: h ! step size for Finite Difference
-
+      
+      !
       ! Ouput Variables
-      real(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
+      !
+      ! Output derivative seeds
+      real(kind=realType), dimension(size(wDot)), intent(out) :: dwDot
       real(kind=realType), dimension(costSize, size(famLists,1)), intent(out) :: funcsDot
       real(kind=realType), dimension(3, fSize, nTime), intent(out) :: fDot
       real(kind=realType), dimension(1, fSize, nTime), intent(out) :: hfDot
 
+      !
       ! Working Variables
+      !
       integer(kind=intType) :: nn,sps, level
       integer(kind=intType) :: ierr, mm,i,j,k, l,  ii, jj, iRegion
 
@@ -67,11 +75,9 @@ contains
 
       ! Input Arguments for master:
       real(kind=realType), dimension(costSize, size(famLists,1)) :: funcValues
-
-
-         ! Working Variables
       real(kind=realType), dimension(:, :, :), allocatable :: forces
       real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
+
 
       fSize = size(fDot, 2)
       allocate(forces(3, fSize, nTimeIntervalsSpectral))
@@ -121,12 +127,13 @@ contains
 
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
-      if (bcVarsEmpty) then
-         call master(useSpatial, famLists, funcValues, forces, heatfluxes)
-      else
-         call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
-                     bcDataNames, bcDataValues, bcDataFamLists)
-      end if
+      ! if (bcVarsEmpty) then
+      !    call master(useSpatial, famLists, funcValues, forces, heatfluxes)
+      ! else
+      call master(useSpatial, famLists,  &
+                  funcValues, forces, heatfluxes, &
+                  BCArrays,  BCVarNames, patchLoc, nBCVars)
+      ! end if
 
 
 
@@ -145,6 +152,8 @@ contains
                   end do
                end do
             end do
+
+
          end do
       end do
 
@@ -164,7 +173,7 @@ contains
                   do i=1,il
                      do l=1,3
                         ii = ii + 1
-                        x(i, j, k, l) = x(i, j, k, l) +  xvdot(ii)* h
+                        x(i, j, k, l) = x(i, j, k, l) +  xvDot(ii)* h
                      end do
                   end do
                end do
@@ -182,23 +191,24 @@ contains
          end do spectalLoop1
       end do domainLoop1
 
-      write(*,*) '1 bcDataValues ', bcDataValues
-      if (.not. bcVarsEmpty) then
-         bcDataValues = bcDataValues + bcDataValuesDot*h
-      endif 
-      write(*,*) '2 bcDataValues ', bcDataValues
+      BCArrays = BCArrays + BCArraysDot*h
+      ! if (.not. bcVarsEmpty) then
+      !    bcDataValues = bcDataValues + bcDataValuesDot*h
+      ! endif 
 
 
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
-      if (bcVarsEmpty) then
-         call master(useSpatial, famLists, funcValues, forces, heatfluxes)
-      else
-         call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
-                     bcDataNames, bcDataValues, bcDataFamLists)
-      end if
+      ! if (bcVarsEmpty) then
+      !    call master(useSpatial, famLists, funcValues, forces, heatfluxes)
+      ! else
+      call master(useSpatial, famLists,  &
+                  funcValues, forces, heatfluxes, &
+                  BCArrays,  BCVarNames, patchLoc, nBCVars)
+      ! end if
 
 
+      ! ------------------------- set the output vectors ----------------------
       ! Copy out the residual derivative into the provided dwDot and remove the
       ! perturbation
       ii = 0
@@ -211,7 +221,7 @@ contains
                   do i=1,il
                      do l=1,3
                         ii = ii + 1
-                        x(i, j, k, l) = x(i, j, k, l) -  xvdot(ii)* h
+                        x(i, j, k, l) = x(i, j, k, l) -  xvDot(ii)* h
                      end do
                   end do
                end do
@@ -223,7 +233,7 @@ contains
                         jj = jj + 1
                         w(i, j, k, l) = w(i, j, k, l) -  wDot(jj)*h
                         dwd(i,j,k,l) = (dwd(i,j,k,l) + dw(i,j,k,l))/h
-                        dwdot(jj) = dwd(i,j,k,l) ! copy values to output
+                        dwDot(jj) = dwd(i,j,k,l) ! copy values to output
                      end do
                   end do
                end do
@@ -233,18 +243,15 @@ contains
       end do
 
 
-      if (.not. bcVarsEmpty) then
-         bcDataValues = bcDataValues - bcDataValuesDot*h
-      endif 
+     
+      BCArrays = BCArrays - BCArraysDot*h
 
-      write(*,*) '1 heatflux', -hfDot
-      write(*,*) '2 heatflux', heatfluxes
+
       fDot = (fDot + forces)/h
       hfDot = (hfDot + heatfluxes)/h
       funcsDot = (funcsDot + funcValues)/h
-      write(*,*) 'FD fDot', minval(fDot), maxval(fDot)
-      write(*,*) 'FD hfDot', minval(hfDot), maxval(hfDot)
-      write(*,*) 'FD funcsDot', funcsDot
+      ! write(*,*) '----------------------- func values ---------------------'
+      ! write(*,*) funcsDot 
 
    end subroutine computeMatrixFreeProductFwdFD
 
@@ -481,265 +488,265 @@ contains
    end subroutine printADSeeds
 
 
-   subroutine computeDotProductTest(wdot, xvdot, bcdatavaluesdot, &
-      fbar, hfbar, dwbar, funcsbar, &
-      famlists, BCVarsEmpty, bcdatanames, bcdatavalues, bcdatafamlists, &
-      costSize, fSize, nTime,  spatialSize, extraSize, stateSize)
+   ! subroutine computeDotProductTest(wdot, xvdot, bcdatavaluesdot, &
+   !    fbar, hfbar, dwbar, funcsbar, &
+   !    famlists, BCVarsEmpty, bcdatanames, bcdatavalues, bcdatafamlists, &
+   !    costSize, fSize, nTime,  spatialSize, extraSize, stateSize)
 
-      ! used to preform the dot product test on the master subroutines
-      !
-      !
+   !    ! used to preform the dot product test on the master subroutines
+   !    !
+   !    !
 
-      use constants
-      use block, only : blockType, flowDomsd
-      use communication, only : adflow_comm_world
-      use blockPointers, only : nDom, dwd, il, jl, kl
-      use inputTimeSpectral, only : nTimeIntervalsSpectral
-      use inputPhysics, only : equations
-      use iteration, only : currentLevel, groundLevel
-      use flowVarRefState, only : nw, nwf
-      use inputAdjoint, only : frozenTurbulence
-      use ADjointPETSc, only : x_like, psi_like3
-      use adjointvars, only : derivVarsAllocated
-      use utils, only : setPointers_d, EChk
-      use masterRoutines, only : master, master_b, master_d
-      use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
-      use inputPhysics, only : pointRefd, alphad, betad, equations, machCoefd, &
-      machd, machGridd, rgasdimd
-      use flowVarRefState, only : pInfDimd, rhoInfDimd, TinfDimd
-      use adjointUtils, only : allocDerivativeValues, zeroADSeeds
-      implicit none
+   !    use constants
+   !    use block, only : blockType, flowDomsd
+   !    use communication, only : adflow_comm_world
+   !    use blockPointers, only : nDom, dwd, il, jl, kl
+   !    use inputTimeSpectral, only : nTimeIntervalsSpectral
+   !    use inputPhysics, only : equations
+   !    use iteration, only : currentLevel, groundLevel
+   !    use flowVarRefState, only : nw, nwf
+   !    use inputAdjoint, only : frozenTurbulence
+   !    use ADjointPETSc, only : x_like, psi_like3
+   !    use adjointvars, only : derivVarsAllocated
+   !    use utils, only : setPointers_d, EChk
+   !    use masterRoutines, only : master, master_b, master_d
+   !    use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
+   !    use inputPhysics, only : pointRefd, alphad, betad, equations, machCoefd, &
+   !    machd, machGridd, rgasdimd
+   !    use flowVarRefState, only : pInfDimd, rhoInfDimd, TinfDimd
+   !    use adjointUtils, only : allocDerivativeValues, zeroADSeeds
+   !    implicit none
 
-      real(kind=realtype), dimension(:), intent(in) :: wdot
-      real(kind=realtype), dimension(:), intent(in) :: xvdot
-      real(kind=realtype), dimension(:,:), intent(in) :: bcdatavaluesdot
+   !    real(kind=realtype), dimension(:), intent(in) :: wdot
+   !    real(kind=realtype), dimension(:), intent(in) :: xvdot
+   !    real(kind=realtype), dimension(:,:), intent(in) :: bcdatavaluesdot
 
-      real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
-      real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
-      real(kind=realType), dimension(:), intent(in) :: dwBar
+   !    real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
+   !    real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
+   !    real(kind=realType), dimension(:), intent(in) :: dwBar
 
-      real(kind=realType), dimension(:, :), intent(in) :: funcsbar
+   !    real(kind=realType), dimension(:, :), intent(in) :: funcsbar
 
-      integer(kind=inttype), dimension(:,:) :: famlists
-      ! character, dimension(:,:), intent(in) :: bcdatanames
-      ! real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
-      ! integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+   !    integer(kind=inttype), dimension(:,:) :: famlists
+   !    ! character, dimension(:,:), intent(in) :: bcdatanames
+   !    ! real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+   !    ! integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
 
-      character, dimension(:), intent(in) :: bcdatanames
-      real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
-      integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
+   !    character, dimension(:), intent(in) :: bcdatanames
+   !    real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
+   !    integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
       
-      logical, intent(in) :: BCVarsEmpty
+   !    logical, intent(in) :: BCVarsEmpty
 
 
-      integer(kind=intType), intent(in) :: stateSize, extraSize, spatialSize
-      integer(kind=intType), intent(in) :: costSize, fSize, nTime
+   !    integer(kind=intType), intent(in) :: stateSize, extraSize, spatialSize
+   !    integer(kind=intType), intent(in) :: costSize, fSize, nTime
 
-      !--------------------- working variables ---------------------------------
+   !    !--------------------- working variables ---------------------------------
 
-      ! reverse mode output
-      real(kind=realType), dimension(stateSize) :: wbar
-      real(kind=realType), dimension(extraSize) :: extrabar
-      real(kind=realType), dimension(spatialSize) :: xvbar
-      real(kind=realType), dimension(size(bcDataValues,1), size(bcDataValues,2)) :: bcDataValuesbar
-      real(kind=realType), dimension(size(funcsBar,1), size(funcsBar, 2)) :: funcValues
-
-
-      ! forward mode output
-      real(kind=realType), dimension(size(wdot)) :: dwDot
-      real(kind=realType), dimension(costSize, size(famLists,1)) :: funcsDot
-      real(kind=realType), dimension(3, fSize, nTime) :: fDot
-      real(kind=realType), dimension(1, fSize, nTime) :: hfDot
+   !    ! reverse mode output
+   !    real(kind=realType), dimension(stateSize) :: wbar
+   !    real(kind=realType), dimension(extraSize) :: extrabar
+   !    real(kind=realType), dimension(spatialSize) :: xvbar
+   !    real(kind=realType), dimension(size(bcDataValues,1), size(bcDataValues,2)) :: bcDataValuesbar
+   !    real(kind=realType), dimension(size(funcsBar,1), size(funcsBar, 2)) :: funcValues
 
 
-      integer(kind=intType):: npts, sps, nn, level, mm, ierr, iim, nState
-      real(kind=realType) :: hflux(10),  hflux_d(10), hflux_b(10)
-
-      real(kind=realType) :: cellhf_b(4), cellhf_d(4)
-      real(kind=realType) :: area_b(4), area_d(4)
-      real(kind=realType) :: nodehf_b(10), nodehf_d(10)
-
-
-      real(kind=realType), dimension(:), pointer ::  localPtr
-      real(kind=realType), dimension(:), pointer :: nodeValLocPtr,   sumGlobalPtr,&
-                                                    nodeValLocPtr_b, sumGlobalPtr_b
-
-       ! Working Variables
-      real(kind=realType), dimension(:, :, :), allocatable :: forces
-      real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
-
-      type(blockType) :: tmpDomsd(nDom, 1, nTimeIntervalsSpectral)
+   !    ! forward mode output
+   !    real(kind=realType), dimension(size(wdot)) :: dwDot
+   !    real(kind=realType), dimension(costSize, size(famLists,1)) :: funcsDot
+   !    real(kind=realType), dimension(3, fSize, nTime) :: fDot
+   !    real(kind=realType), dimension(1, fSize, nTime) :: hfDot
 
 
+   !    integer(kind=intType):: npts, sps, nn, level, mm, ierr, iim, nState
+   !    real(kind=realType) :: hflux(10),  hflux_d(10), hflux_b(10)
 
-      real(kind=realType), dimension(:,:,:,:), allocatable  :: x, xtmp
-
-      real(kind=realType), dimension(:,:,:,:,:), allocatable  :: Xold
-      real(kind=realType), dimension(:,:,:,:), allocatable :: sI, sJ, sK
-      real(kind=realType), dimension(:,:,:), allocatable :: tau, q
-      real(kind=realType), dimension(:,:), allocatable :: cellHeatFlux, area, Fv, Fp
-
-
-      allocate(forces(3, fSize, nTimeIntervalsSpectral))
-
-      allocate(heatfluxes(1, fSize, nTimeIntervalsSpectral))
-
-      if ( frozenTurbulence ) then
-         nState = nwf
-      else
-         nState = nw
-      endif
-
-      sps = 1
-
-      level = 1
-      currentLevel = level
-      groundLevel = level
-
-         if (.not. derivVarsAllocated) then
-            call allocDerivativeValues(level)
-         end if
-
-         ! Zero all AD seesd.
-         do nn=1,nDom
-            call zeroADSeeds(nn,level, sps)
-         end do
-
-         ! Set the extra seeds now do the extra ones. Note that we are assuming the
-         ! machNumber used for the coefficients follows the Mach number,
-         ! not the grid mach number.
-         alphad = 0
-         betad = 0
-         machd = 0
-         machCoefd = 0
-         machGridd = 0
-         PinfDimd = 0
-         rhoinfDimd = 0
-         tinfdimd = 0
-         pointrefd(1) = 0
-         pointrefd(2) = 0
-         pointrefd(3) = 0
-         rgasdimd = zero
+   !    real(kind=realType) :: cellhf_b(4), cellhf_d(4)
+   !    real(kind=realType) :: area_b(4), area_d(4)
+   !    real(kind=realType) :: nodehf_b(10), nodehf_d(10)
 
 
-         ! ----------------------------- Run Master ---------------------------------
-         ! Run the super-dee-duper master rotuine
-         ! if (bcVarsEmpty) then
-         !    call master(.true., famLists, funcValues, forces, heatfluxes)
-         ! else
-         !    call master(.true., famLists, funcValues, forces, heatfluxes, &
-         !                bcDataNames, bcDataValues, bcDataFamLists)
-         ! end if
+   !    real(kind=realType), dimension(:), pointer ::  localPtr
+   !    real(kind=realType), dimension(:), pointer :: nodeValLocPtr,   sumGlobalPtr,&
+   !                                                  nodeValLocPtr_b, sumGlobalPtr_b
+
+   !     ! Working Variables
+   !    real(kind=realType), dimension(:, :, :), allocatable :: forces
+   !    real(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
+
+   !    type(blockType) :: tmpDomsd(nDom, 1, nTimeIntervalsSpectral)
 
 
-         !BWD
-         ! Run the super-dee-duper master forward rotuine
-         if (bcVarsEmpty) then
-            call master_d(wDot, xVDot, fDot, hfDot, dwDot, famLists, funcValues, funcsDot)
-         else
-            call master_d(wDot, xVDot, fDot, hfDot, dwDot, &
-               famLists, funcValues, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
-         end if
-         nn = 1
-         level = 1
-         sps = 1
-         mm = 1
 
-         ! tmpDomsd = flowdomsd
+   !    real(kind=realType), dimension(:,:,:,:), allocatable  :: x, xtmp
 
-         ! allocate(sk, source = flowDomsd(nn, level, sps)%sk)
-         ! allocate(q, source = flowDomsd(nn, level, sps)%viscSubface(mm)%q)
-         ! allocate(area, source = flowDomsd(nn, level, sps)%BCData(mm)%area)
-         ! allocate(cellHeatFlux, source = flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux)
+   !    real(kind=realType), dimension(:,:,:,:,:), allocatable  :: Xold
+   !    real(kind=realType), dimension(:,:,:,:), allocatable :: sI, sJ, sK
+   !    real(kind=realType), dimension(:,:,:), allocatable :: tau, q
+   !    real(kind=realType), dimension(:,:), allocatable :: cellHeatFlux, area, Fv, Fp
 
 
-         do nn=1,nDom
-            call zeroADSeeds(nn,level, sps)
-         end do
+   !    allocate(forces(3, fSize, nTimeIntervalsSpectral))
 
-         write(*,*) 'wbar',wbar
-         write(*,*)
-         write(*,*) 'xvbar',xvbar
-         write(*,*)
-         write(*,*) 'extraBar',extraBar
-         write(*,*)
-         write(*,*) 'fBar',fBar
-         write(*,*)
-         write(*,*) 'hfbar',hfbar
-         write(*,*)
-         write(*,*) 'dwbar',dwbar
-         write(*,*)
+   !    allocate(heatfluxes(1, fSize, nTimeIntervalsSpectral))
 
-         if (bcVarsEmpty) then
-            call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
-               funcValues, funcsBar)
-         else
-            call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
-               funcValues, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
-         end if
+   !    if ( frozenTurbulence ) then
+   !       nState = nwf
+   !    else
+   !       nState = nw
+   !    endif
 
-         write(*,*) 'wbar',wbar
-         write(*,*)
-         write(*,*) 'xvbar',xvbar
-         write(*,*)
-         write(*,*) 'extraBar',extraBar
-         write(*,*)
-         write(*,*) 'fBar',fBar
-         write(*,*)
-         write(*,*) 'hfbar',hfbar
-         write(*,*)
-         write(*,*) 'dwbar',dwbar
-         write(*,*)
+   !    sps = 1
 
-         ! ===================================================================
-         ! check getHeatFluxes
-         !===================================================================
+   !    level = 1
+   !    currentLevel = level
+   !    groundLevel = level
 
-         nn = 1
-         mm = 1
-         level = 1
-         sps = 1
+   !       if (.not. derivVarsAllocated) then
+   !          call allocDerivativeValues(level)
+   !       end if
 
-            write(*,*) '--------------------dot prod--------------------------------'
+   !       ! Zero all AD seesd.
+   !       do nn=1,nDom
+   !          call zeroADSeeds(nn,level, sps)
+   !       end do
 
-            ! write(*,*) sum(flowDomsd(nn, level, sps)%sk* tmpDomsd(nn, level, sps)%sk)
-            ! write(*,*) sum(sk* flowDomsd(nn, level, sps)%sk)
-            ! write(*,*) sum(q* flowDomsd(nn, level, sps)%viscSubface(mm)%q)
-            ! write(*,*) sum(sk* flowDomsd(nn, level, sps)%sk) + sum(q* flowDomsd(nn, level, sps)%viscSubface(mm)%q)
-
-            ! write(*,*) sum(cellHeatFlux* flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux)
-            ! write(*,*) sum(area* flowDomsd(nn, level, sps)%BCData(mm)%area)
-            ! write(*,*) sum(cellHeatFlux* flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux) + &
-            ! sum(area* flowDomsd(nn, level, sps)%BCData(mm)%area)
-
-            ! write(*,*) 'comparison'
-            ! ! write(*,*) 'f', sum(fDot*fbar)
-            ! write(*,*) 'hf', sum(hfDot*hfbar)
-            ! write(*,*) 'hf'
-            ! write(*,*) 'fwd', hfDot
-            ! write(*,*) 'bwd', hfbar
-            ! ! write(*,*) 'dw', sum(dwDot*dwbar)
-
-            write(*,*) 'w'!, sum(wDot*wbar)
-            write(*,*) 'fwd', wDot
-            write(*,*) 'bwd', wbar
-
-            write(*,*) 'xv'!, sum(xvDot*xvbar)
-            write(*,*) 'fwd', xvDot
-            write(*,*) 'bwd', xvbar
+   !       ! Set the extra seeds now do the extra ones. Note that we are assuming the
+   !       ! machNumber used for the coefficients follows the Mach number,
+   !       ! not the grid mach number.
+   !       alphad = 0
+   !       betad = 0
+   !       machd = 0
+   !       machCoefd = 0
+   !       machGridd = 0
+   !       PinfDimd = 0
+   !       rhoinfDimd = 0
+   !       tinfdimd = 0
+   !       pointrefd(1) = 0
+   !       pointrefd(2) = 0
+   !       pointrefd(3) = 0
+   !       rgasdimd = zero
 
 
-            write(*,*)  sum(wDot*wbar) + sum(xVDot*xvbar), sum(fDot*fbar) + sum(hfDot*hfbar) + sum(dwDot*dwbar)
-            write(*,*)  sum(wDot*wbar) + sum(xVDot*xvbar)- (sum(fDot*fbar) + sum(hfDot*hfbar) + sum(dwDot*dwbar))
-   end subroutine computeDotProductTest
+   !       ! ----------------------------- Run Master ---------------------------------
+   !       ! Run the super-dee-duper master rotuine
+   !       ! if (bcVarsEmpty) then
+   !       !    call master(.true., famLists, funcValues, forces, heatfluxes)
+   !       ! else
+   !       !    call master(.true., famLists, funcValues, forces, heatfluxes, &
+   !       !                bcDataNames, bcDataValues, bcDataFamLists)
+   !       ! end if
+
+
+   !       !BWD
+   !       ! Run the super-dee-duper master forward rotuine
+   !       if (bcVarsEmpty) then
+   !          call master_d(wDot, xVDot, fDot, hfDot, dwDot, famLists, funcValues, funcsDot)
+   !       else
+   !          call master_d(wDot, xVDot, fDot, hfDot, dwDot, &
+   !             famLists, funcValues, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
+   !       end if
+   !       nn = 1
+   !       level = 1
+   !       sps = 1
+   !       mm = 1
+
+   !       ! tmpDomsd = flowdomsd
+
+   !       ! allocate(sk, source = flowDomsd(nn, level, sps)%sk)
+   !       ! allocate(q, source = flowDomsd(nn, level, sps)%viscSubface(mm)%q)
+   !       ! allocate(area, source = flowDomsd(nn, level, sps)%BCData(mm)%area)
+   !       ! allocate(cellHeatFlux, source = flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux)
+
+
+   !       do nn=1,nDom
+   !          call zeroADSeeds(nn,level, sps)
+   !       end do
+
+   !       write(*,*) 'wbar',wbar
+   !       write(*,*)
+   !       write(*,*) 'xvbar',xvbar
+   !       write(*,*)
+   !       write(*,*) 'extraBar',extraBar
+   !       write(*,*)
+   !       write(*,*) 'fBar',fBar
+   !       write(*,*)
+   !       write(*,*) 'hfbar',hfbar
+   !       write(*,*)
+   !       write(*,*) 'dwbar',dwbar
+   !       write(*,*)
+
+   !       if (bcVarsEmpty) then
+   !          call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
+   !             funcValues, funcsBar)
+   !       else
+   !          call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
+   !             funcValues, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
+   !       end if
+
+   !       write(*,*) 'wbar',wbar
+   !       write(*,*)
+   !       write(*,*) 'xvbar',xvbar
+   !       write(*,*)
+   !       write(*,*) 'extraBar',extraBar
+   !       write(*,*)
+   !       write(*,*) 'fBar',fBar
+   !       write(*,*)
+   !       write(*,*) 'hfbar',hfbar
+   !       write(*,*)
+   !       write(*,*) 'dwbar',dwbar
+   !       write(*,*)
+
+   !       ! ===================================================================
+   !       ! check getHeatFluxes
+   !       !===================================================================
+
+   !       nn = 1
+   !       mm = 1
+   !       level = 1
+   !       sps = 1
+
+   !          write(*,*) '--------------------dot prod--------------------------------'
+
+   !          ! write(*,*) sum(flowDomsd(nn, level, sps)%sk* tmpDomsd(nn, level, sps)%sk)
+   !          ! write(*,*) sum(sk* flowDomsd(nn, level, sps)%sk)
+   !          ! write(*,*) sum(q* flowDomsd(nn, level, sps)%viscSubface(mm)%q)
+   !          ! write(*,*) sum(sk* flowDomsd(nn, level, sps)%sk) + sum(q* flowDomsd(nn, level, sps)%viscSubface(mm)%q)
+
+   !          ! write(*,*) sum(cellHeatFlux* flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux)
+   !          ! write(*,*) sum(area* flowDomsd(nn, level, sps)%BCData(mm)%area)
+   !          ! write(*,*) sum(cellHeatFlux* flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux) + &
+   !          ! sum(area* flowDomsd(nn, level, sps)%BCData(mm)%area)
+
+   !          ! write(*,*) 'comparison'
+   !          ! ! write(*,*) 'f', sum(fDot*fbar)
+   !          ! write(*,*) 'hf', sum(hfDot*hfbar)
+   !          ! write(*,*) 'hf'
+   !          ! write(*,*) 'fwd', hfDot
+   !          ! write(*,*) 'bwd', hfbar
+   !          ! ! write(*,*) 'dw', sum(dwDot*dwbar)
+
+   !          write(*,*) 'w'!, sum(wDot*wbar)
+   !          write(*,*) 'fwd', wDot
+   !          write(*,*) 'bwd', wbar
+
+   !          write(*,*) 'xv'!, sum(xvDot*xvbar)
+   !          write(*,*) 'fwd', xvDot
+   !          write(*,*) 'bwd', xvbar
+
+
+   !          write(*,*)  sum(wDot*wbar) + sum(xVDot*xvbar), sum(fDot*fbar) + sum(hfDot*hfbar) + sum(dwDot*dwbar)
+   !          write(*,*)  sum(wDot*wbar) + sum(xVDot*xvbar)- (sum(fDot*fbar) + sum(hfDot*hfbar) + sum(dwDot*dwbar))
+   ! end subroutine computeDotProductTest
 
 #else
       
-   subroutine computeMatrixFreeProductFwdCS(xvdot, extradot, wdot, bcDataValuesdot,&
-      useSpatial, useState, famLists,&
-      bcDataNames, bcDataValues, bcDataFamLists, bcVarsEmpty,&
-      dwdot, funcsDot, fDot, hfdot, &
-      costSize, fSize, nTime)
+   subroutine computeMatrixFreeProductFwdCS(xvdot, extradot, wdot, BCArraysDot,&
+                                          useSpatial, useState, famLists,&
+                                          BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                                          dwdot, funcsDot, fDot, hfdot, &
+                                          costSize, fSize, nTime)
 
       ! This routine is used to debug master_d. It uses the forward seeds to set perturbations
       ! and then computes the value of the derivatives using forward finite diffenece
@@ -767,14 +774,18 @@ contains
       complex(kind=realType), dimension(:), intent(in) :: xvdot
       complex(kind=realType), dimension(:), intent(in) :: extradot
       complex(kind=realType), dimension(:), intent(in) :: wdot
+      complex(kind=realType), dimension(:,:), intent(inout) :: BCArraysDot
+
+
       logical, intent(in) :: useSpatial, useState
       integer(kind=intType), dimension(:, :) :: famLists
       integer(kind=intType) :: costSize, fSize, nTime
 
-      character, dimension(:, :), intent(in) :: bcDataNames
-      complex(kind=realType), dimension(:), intent(in) :: bcDataValues, bcDataValuesDot
-      integer(kind=intType), dimension(:, :) :: bcDataFamLists
-      logical, intent(in) :: BCVarsEmpty
+      complex(kind=realType), dimension(:,:), intent(inout) :: BCArrays
+      character, dimension(:,:), intent(in) :: BCVarNames
+      integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
+      integer(kind=inttype), dimension(:), intent(in) :: nBCVars
+      
 
       ! Ouput Variables
       complex(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
@@ -876,17 +887,16 @@ contains
          end do spectalLoop1
       end do domainLoop1
 
-
+      BCArrays = BCArrays + BCArraysDot*h
 
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
-      if (bcVarsEmpty) then
-         call master(useSpatial, famLists, funcValues, forces, heatfluxes)
-      else
-         call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
-                     bcDataNames, bcDataValues, bcDataFamLists)
-      end if
-
+      ! if (bcVarsEmpty) then
+      !    call master(useSpatial, famLists, funcValues, forces, heatfluxes)
+      ! else
+      call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
+                 BCArrays,  BCVarNames, patchLoc, nBCVars)
+      ! end if
 
        ! Copy out the residual derivative into the provided dwDot and remove the
        ! perturbation
@@ -923,8 +933,11 @@ contains
 
       fDot = aimag(forces)/aimag(h)
       hfDot = aimag(heatfluxes)/aimag(h)
+      funcsDot = aimag(funcValues)/aimag(h)
+
       write(*,*) 'fDot', minval(real(fDot)), maxval(real(fDot))
       write(*,*) 'hfDot', minval(real(hfDot)), maxval(real(hfDot))
+      write(*,*) 'funcsDot', minval(real(funcsDot)), maxval(real(funcsDot))
 
    end subroutine computeMatrixFreeProductFwdCS
  ! this isn't compliling anymore 

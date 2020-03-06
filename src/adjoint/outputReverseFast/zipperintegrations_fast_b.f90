@@ -40,6 +40,7 @@ contains
 &   mass_mn, mass_a, mass_rho, mass_vx, mass_vy, mass_vz, mass_nx, &
 &   mass_ny, mass_nz
     real(kind=realtype) :: area, cellarea, overcellarea
+    real(kind=realtype) :: area_ptot, area_ps
     real(kind=realtype) :: mredim
     real(kind=realtype) :: internalflowfact, inflowfact, xc, yc, zc, mx&
 &   , my, mz
@@ -68,6 +69,8 @@ contains
     mass_nx = zero
     mass_ny = zero
     mass_nz = zero
+    area_ptot = zero
+    area_ps = zero
     refpoint(1) = lref*pointref(1)
     refpoint(2) = lref*pointref(2)
     refpoint(3) = lref*pointref(3)
@@ -139,6 +142,8 @@ contains
           mass_a = mass_a + am*massflowratelocal*uref
           mass_ps = mass_ps + pm*massflowratelocal
           mass_mn = mass_mn + mnm*massflowratelocal
+          area_ptot = area_ptot + ptot*pref*cellarea
+          area_ps = area_ps + pm*cellarea
           sfacecoordref(1) = sf*ss(1)*overcellarea
           sfacecoordref(2) = sf*ss(2)*overcellarea
           sfacecoordref(3) = sf*ss(3)*overcellarea
@@ -216,6 +221,8 @@ contains
     localvalues(iflowmp:iflowmp+2) = localvalues(iflowmp:iflowmp+2) + mp
     localvalues(iflowmm:iflowmm+2) = localvalues(iflowmm:iflowmm+2) + &
 &     mmom
+    localvalues(iareaptot) = localvalues(iareaptot) + area_ptot
+    localvalues(iareaps) = localvalues(iareaps) + area_ps
     localvalues(imassvx) = localvalues(imassvx) + mass_vx
     localvalues(imassvy) = localvalues(imassvy) + mass_vy
     localvalues(imassvz) = localvalues(imassvz) + mass_vz

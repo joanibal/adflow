@@ -45,9 +45,9 @@ contains
 &   cforcemd, cmomentd
     real(kind=realtype), dimension(3) :: vcoordref, vfreestreamref
     real(kind=realtype) :: mavgptot, mavgttot, mavgrho, mavgps, mflow, &
-&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea
+&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea, havg
     real(kind=realtype) :: mavgptotd, mavgttotd, mavgrhod, mavgpsd, &
-&   mflowd, mavgmnd, mavgad, mavgvxd, mavgvyd, mavgvzd, garead
+&   mflowd, mavgmnd, mavgad, mavgvxd, mavgvyd, mavgvzd, garead, havgd
     real(kind=realtype) :: vdotn, mag, u, v, w
     integer(kind=inttype) :: sps
     real(kind=realtype), dimension(8) :: dcdq, dcdqdot
@@ -257,14 +257,21 @@ contains
 &       ovrnts*globalvalsd(iheatflux, sps)
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+! if it is  0/0  set the havg to 0 to avoid nan
+      if (globalvals(iheattransfercoef, sps) .eq. 0) then
+        havg = 0
+        havgd = 0.0_8
+      else
+        havgd = (globalvalsd(iheattransfercoef, sps)*globalvals(&
+&         iheatedarea, sps)-globalvals(iheattransfercoef, sps)*&
+&         globalvalsd(iheatedarea, sps))/globalvals(iheatedarea, sps)**2
+        havg = globalvals(iheattransfercoef, sps)/globalvals(iheatedarea&
+&         , sps)
+      end if
       funcvaluesd(costfuncheattransfercoef) = funcvaluesd(&
-&       costfuncheattransfercoef) + (ovrnts*globalvalsd(&
-&       iheattransfercoef, sps)*globalvals(iheatedarea, sps)-ovrnts*&
-&       globalvals(iheattransfercoef, sps)*globalvalsd(iheatedarea, sps)&
-&       )/globalvals(iheatedarea, sps)**2
+&       costfuncheattransfercoef) + ovrnts*havgd
       funcvalues(costfuncheattransfercoef) = funcvalues(&
-&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
-&       , sps)/globalvals(iheatedarea, sps)
+&       costfuncheattransfercoef) + ovrnts*havg
 ! mass flow like objective
       mflowd = globalvalsd(imassflow, sps)
       mflow = globalvals(imassflow, sps)
@@ -575,7 +582,7 @@ contains
 &   cmoment
     real(kind=realtype), dimension(3) :: vcoordref, vfreestreamref
     real(kind=realtype) :: mavgptot, mavgttot, mavgrho, mavgps, mflow, &
-&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea
+&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea, havg
     real(kind=realtype) :: vdotn, mag, u, v, w
     integer(kind=inttype) :: sps
     real(kind=realtype), dimension(8) :: dcdq, dcdqdot
@@ -688,9 +695,15 @@ contains
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+! if it is  0/0  set the havg to 0 to avoid nan
+      if (globalvals(iheattransfercoef, sps) .eq. 0) then
+        havg = 0
+      else
+        havg = globalvals(iheattransfercoef, sps)/globalvals(iheatedarea&
+&         , sps)
+      end if
       funcvalues(costfuncheattransfercoef) = funcvalues(&
-&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
-&       , sps)/globalvals(iheatedarea, sps)
+&       costfuncheattransfercoef) + ovrnts*havg
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -1362,7 +1375,7 @@ contains
         havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8)&
 &         )
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheatedd = areaheatedd + blk*bcdatad(mm)%area(i, j)
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
@@ -1751,7 +1764,7 @@ contains
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
