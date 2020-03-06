@@ -113,7 +113,6 @@ contains
 !  differentiation of computehtot in reverse (adjoint) mode (with options i4 dr8 r8 noisize):
 !   gradient     of useful results: ht
 !   with respect to varying inputs: tt ht
-! ---------------------------------------------------------------
 ! --------------------------------------
 !                utilities
 ! --------------------------------------
@@ -152,7 +151,6 @@ contains
       ttd = 0.0_8
     end select
   end subroutine computehtot_b
-! ---------------------------------------------------------------
 ! --------------------------------------
 !                utilities
 ! --------------------------------------

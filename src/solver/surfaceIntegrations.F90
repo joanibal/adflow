@@ -23,7 +23,7 @@ contains
          moment, cForce, cForceP, cForceV, cForceM, cMoment
     real(kind=realType), dimension(3) :: VcoordRef, VFreestreamRef
     real(kind=realType) ::  mAvgPtot, mAvgTtot, mAvgRho, mAvgPs, mFlow, mAvgMn, mAvga, &
-                            mAvgVx, mAvgVy, mAvgVz, gArea
+                            mAvgVx, mAvgVy, mAvgVz, gArea, havg
 
     real(kind=realType) ::  vdotn, mag, u, v, w
     integer(kind=intType) :: sps
@@ -116,8 +116,16 @@ contains
 
        ! heat transfer cost functions
        funcValues(costFuncHeatFlux) = funcValues(costFuncHeatFlux) + ovrNTS*globalVals(iHeatFlux,sps)
-       funcValues(costFuncHeatTransferCoef) = funcValues(costFuncHeatTransferCoef) + &
-                                              ovrNTS*globalVals(iHeatTransferCoef,sps)/globalVals(iHeatedArea,sps)
+
+       ! if it is  0/0  set the havg to 0 to avoid NAN
+       if (globalVals(iHeatTransferCoef,sps) == 0 )then
+          havg = 0 
+       else
+          havg = globalVals(iHeatTransferCoef,sps)/globalVals(iHeatedArea,sps)
+       end if
+ 
+
+       funcValues(costFuncHeatTransferCoef) = funcValues(costFuncHeatTransferCoef) + ovrNTS*havg
 
        ! Mass flow like objective
        mFlow = globalVals(iMassFlow, sps)
@@ -691,7 +699,8 @@ contains
                bcData(mm)%cellHeatFlux(i, j) = qw
                
                hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)+1e-8))* blk
-               ! write(*,*) i, j , 'h', qw, (Tref*(1 - BCData(mm)%TNS_Wall(i,j))), scaleDim
+               ! write(*,*) i, j , 'havg', qw, (Tref*(1 - BCData(mm)%TNS_Wall(i,j))), scaleDim
+               
                areaHeated = areaHeated + BCData(mm)%area(i,j)* blk
           enddo
      else if( BCType(mm) == NSWallAdiabatic) Then
@@ -1011,7 +1020,8 @@ contains
        ! Extract the current family list
        nFam = famLists(iGroup, 1)
        famList => famLists(iGroup, 2:2+nFam-1)
-       funcValues = zero
+       funcValues(:, iGroup) = zero
+
        localVal = zero
 
        do sps=1, nTimeIntervalsSpectral
@@ -1232,6 +1242,8 @@ contains
        ! Extract the current family list
        nFam = famLists(iGroup, 1)
        famList => famLists(iGroup, 2:2+nFam-1)
+       funcValues(:, iGroup) = zero
+       funcValuesd(:, iGroup) = zero
 
        localVal = zero
        localVald = zero

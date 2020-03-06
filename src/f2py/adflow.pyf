@@ -672,22 +672,25 @@ python module libadflow
          end subroutine createpetscvars
 
 #ifndef USE_COMPLEX
-            subroutine computematrixfreeproductfwd(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime) ! in :test:adjointAPI.F90:adjointapi
+            subroutine computematrixfreeproductfwd(xvdot, extradot, wdot, bcarraysdot,&
+                                                   usespatial, usestate, famlists,&
+                                                   bcarrays,  bcvarnames, patchloc, nbcvars, &
+                                                   dwdot, funcsdot, fdot, hfdot, &
+                                                   costsize, fsize, ntime) ! in :test:adjointapi.f90:adjointapi
                 real(kind=realtype) dimension(:),intent(in) :: xvdot
                 real(kind=realtype) dimension(:),intent(in) :: extradot
                 real(kind=realtype) dimension(:),intent(in) :: wdot
-                real(kind=realtype) dimension(:,:),intent(in) :: bcdatavaluesdot
-                ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+                real(kind=realtype),  dimension(:,:), intent(in) :: bcarraysdot
+                
                 logical intent(in) :: usespatial
                 logical intent(in) :: usestate
                 integer(kind=inttype) dimension(:,:) :: famlists
-                ! character dimension(:,:),intent(in) :: bcdatanames
-                ! real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-                ! integer(kind=inttype) dimension(:,:) :: bcdatafamlists
-                character dimension(:),intent(in) :: bcdatanames
-                real(kind=realtype) dimension(:,:),intent(in) :: bcdatavalues
-                integer(kind=inttype) dimension(:) :: bcdatafamlists
-                logical intent(in) :: bcvarsempty
+                
+                real(kind=realtype),  dimension(:,:), intent(in) :: bcarrays
+                character,  dimension(:,:), intent(in) :: bcvarnames
+                integer(kind=inttype),  dimension(:, :), intent(in) :: patchloc
+                integer(kind=inttype),  dimension(:), intent(in) :: nbcvars
+
                 real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
                 real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
                 real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
@@ -696,7 +699,10 @@ python module libadflow
                 integer(kind=inttype) :: fsize
                 integer(kind=inttype) :: ntime
             end subroutine computematrixfreeproductfwd
-           subroutine computematrixfreeproductbwd(dwbar,funcsbar,fbar,hfbar,usespatial,usestate,xvbar,extrabar,wbar,spatialsize,extrasize,statesize,famlists,bcdatanames,bcdatavalues,bcdatavaluesbar,bcdatafamlists,bcvarsempty) ! in :test:adjointAPI.F90:adjointapi
+
+           subroutine computematrixfreeproductbwd(dwbar,funcsbar,fbar,hfbar,&
+                  usespatial,usestate,xvbar,extrabar,wbar,spatialsize,extrasize,statesize,famlists, &
+                        bcarrays,  bcvarnames, bcarraysbar, patchloc, nbcvars) ! in :test:adjointapi.f90:adjointapi
                 real(kind=realtype) dimension(:),intent(in) :: dwbar
                 real(kind=realtype) dimension(:,:),intent(in) :: funcsbar
                 real(kind=realtype) dimension(:,:,:) :: fbar
@@ -710,14 +716,11 @@ python module libadflow
                 integer(kind=inttype) intent(in) :: extrasize
                 integer(kind=inttype) intent(in) :: statesize
                 integer(kind=inttype) dimension(:,:),intent(in) :: famlists
-                ! character dimension(:,:),intent(in) :: bcdatanames
-                character dimension(:),intent(in) :: bcdatanames
-                ! real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-                real(kind=realtype) dimension(:,:),intent(in) :: bcdatavalues
-                ! real(kind=realtype) dimension(0, 0),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
-                real(kind=realtype) dimension(size(bcdatavalues,1), size(bcdatavalues,2)),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
-                ! real(kind=realtype) dimension(size(bcdatavalues)),intent(out),depend(bcdatavalues) :: bcdatavaluesbar
-                ! integer(kind=inttype) dimension(:,:) :: bcdatafamlists
+                real(kind=realtype), dimension(:,:), intent(in) :: bcarrays
+                real(kind=realtype), dimension(size(bcarrays,1), size(bcarrays,2)), intent(out) :: bcarraysbar
+                character, dimension(:,:), intent(in) :: bcvarnames
+                integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
+                integer(kind=inttype), dimension(:), intent(in) :: nbcvars
                 integer(kind=inttype) dimension(:) :: bcdatafamlists
                 logical intent(in) :: bcvarsempty
             end subroutine computematrixfreeproductbwd
@@ -732,91 +735,99 @@ python module libadflow
          end subroutine destroypetscvars
 
        end module adjointutils
-!        module adjointdebug
-! #ifndef USE_COMPLEX
-!         subroutine computematrixfreeproductfwdfd(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime,h)
-!           real(kind=realtype) dimension(:),intent(in) :: xvdot
-!           real(kind=realtype) dimension(:),intent(in) :: extradot
-!           real(kind=realtype) dimension(:),intent(in) :: wdot
-!           real(kind=realtype) dimension(:,:),intent(in) :: bcdatavaluesdot
-!           ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
-!           logical intent(in) :: usespatial
-!           logical intent(in) :: usestate
-!           integer(kind=inttype) dimension(:,:) :: famlists
-!           ! character dimension(:,:),intent(in) :: bcdatanames
-!           ! real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-!           ! integer(kind=inttype) dimension(:,:) :: bcdatafamlists
-!           character dimension(:),intent(in) :: bcdatanames
-!           real(kind=realtype) dimension(:,:),intent(in) :: bcdatavalues
-!           integer(kind=inttype) dimension(:) :: bcdatafamlists
-!           logical intent(in) :: bcvarsempty
-!           real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
-!           real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
-!           real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
-!           real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
-!           integer(kind=inttype) :: costsize
-!           integer(kind=inttype) :: fsize
-!           integer(kind=inttype) :: ntime
-!           real(kind=realtype) :: h
-!       end subroutine computematrixfreeproductfwdfd
+       module adjointdebug
+#ifndef USE_COMPLEX
+        subroutine computematrixfreeproductfwdfd(xvdot,extradot,wdot,bcarraysdot,&
+                                                 usespatial,usestate,famlists,&
+                                                 bcarrays,  bcvarnames, patchloc, nbcvars, &
+                                                 dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime,h)
+          real(kind=realtype) dimension(:),intent(in) :: xvdot
+          real(kind=realtype) dimension(:),intent(in) :: extradot
+          real(kind=realtype) dimension(:),intent(in) :: wdot
+          real(kind=realtype) dimension(:,:),intent(in) :: bcarraysdot
+          ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+          logical intent(in) :: usespatial
+          logical intent(in) :: usestate
+          integer(kind=inttype) dimension(:,:) :: famlists
+      
+          real(kind=realtype), dimension(:,:), intent(inout) :: bcarrays
+          character, dimension(:,:), intent(in) :: bcvarnames
+          integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
+          integer(kind=inttype), dimension(:), intent(in) :: nbcvars   
+
+          real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
+          real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
+          real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
+          real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
+          integer(kind=inttype) :: costsize
+          integer(kind=inttype) :: fsize
+          integer(kind=inttype) :: ntime
+          real(kind=realtype) :: h
+      end subroutine computematrixfreeproductfwdfd
 
 
-!       subroutine computedotproducttest(wdot, xvdot, bcdatavaluesdot, &
-!         fbar, hfbar, dwbar, funcsbar, &
-!         famlists, bcvarsempty, bcdatanames, bcdatavalues, bcdatafamlists, &
-!         costsize, fsize, ntime,  spatialsize, extrasize, statesize)
-!         real(kind=realtype), dimension(:), intent(in) :: wdot
-!         real(kind=realtype), dimension(:), intent(in) :: xvdot
-!         ! real(kind=realtype), dimension(:), intent(in) :: bcdatavaluesdot
-!         real(kind=realtype), dimension(:,:), intent(in) :: bcdatavaluesdot
+      ! subroutine computedotproducttest(wdot, xvdot, bcdatavaluesdot, &
+      !   fbar, hfbar, dwbar, funcsbar, &
+      !   famlists, bcvarsempty, bcdatanames, bcdatavalues, bcdatafamlists, &
+      !   costsize, fsize, ntime,  spatialsize, extrasize, statesize)
+      !   real(kind=realtype), dimension(:), intent(in) :: wdot
+      !   real(kind=realtype), dimension(:), intent(in) :: xvdot
+      !   ! real(kind=realtype), dimension(:), intent(in) :: bcdatavaluesdot
+      !   real(kind=realtype), dimension(:,:), intent(in) :: bcdatavaluesdot
 
-!         real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
-!         real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
-!         real(kind=realtype), dimension(:), intent(in) :: dwbar
+      !   real(kind=realtype), dimension(:,:,:), intent(in) :: fbar
+      !   real(kind=realtype), dimension(:,:,:), intent(in) :: hfbar
+      !   real(kind=realtype), dimension(:), intent(in) :: dwbar
 
-!         real(kind=realtype), dimension(:, :), intent(in) :: funcsbar
+      !   real(kind=realtype), dimension(:, :), intent(in) :: funcsbar
 
-!         integer(kind=inttype), dimension(:,:) :: famlists
-!         ! character, dimension(:,:), intent(in) :: bcdatanames
-!         character, dimension(:), intent(in) :: bcdatanames
-!         ! real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
-!         real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
-!         ! integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
-!         integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
-!         logical, intent(in) :: bcvarsempty
-
-
-!         integer(kind=inttype), intent(in) :: statesize, extrasize, spatialsize
-!         integer(kind=inttype), intent(in) :: costsize, fsize, ntime
-
-!       end subroutine computedotproducttest
+      !   integer(kind=inttype), dimension(:,:) :: famlists
+      !   ! character, dimension(:,:), intent(in) :: bcdatanames
+      !   character, dimension(:), intent(in) :: bcdatanames
+      !   ! real(kind=realtype), dimension(:),intent(in) :: bcdatavalues
+      !   real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
+      !   ! integer(kind=inttype), dimension(:,:), intent(in) :: bcdatafamlists
+      !   integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
+      !   logical, intent(in) :: bcvarsempty
 
 
-! #else
-!       subroutine computematrixfreeproductfwdcs(xvdot,extradot,wdot,bcdatavaluesdot,usespatial,usestate,famlists,bcdatanames,bcdatavalues,bcdatafamlists,bcvarsempty,dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime)
-!         real(kind=realtype) dimension(:),intent(in) :: xvdot
-!         real(kind=realtype) dimension(:),intent(in) :: extradot
-!         real(kind=realtype) dimension(:),intent(in) :: wdot
-!         real(kind=realtype) dimension(:,:),intent(in) :: bcdatavaluesdot
-!         ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
-!         logical intent(in) :: usespatial
-!         logical intent(in) :: usestate
-!         integer(kind=inttype) dimension(:,:) :: famlists
-!         character dimension(:,:),intent(in) :: bcdatanames
-!         real(kind=realtype) dimension(:),intent(in) :: bcdatavalues
-!         integer(kind=inttype) dimension(:,:) :: bcdatafamlists
-!         logical intent(in) :: bcvarsempty
-!         real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
-!         real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
-!         real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
-!         real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
-!         integer(kind=inttype) :: costsize
-!         integer(kind=inttype) :: fsize
-!         integer(kind=inttype) :: ntime
-!       end subroutine computematrixfreeproductfwdcs
-! #endif
+      !   integer(kind=inttype), intent(in) :: statesize, extrasize, spatialsize
+      !   integer(kind=inttype), intent(in) :: costsize, fsize, ntime
 
-!        end module adjointdebug
+      ! end subroutine computedotproducttest
+
+
+#else
+      ! the types in this routine will get complexified 
+      subroutine computematrixfreeproductfwdcs(xvdot, extradot, wdot, bcarraysdot,&
+                                               usespatial, usestate, famlists,&
+                                               bcarrays,  bcvarnames, patchloc, nbcvars, &
+                                               dwdot, funcsdot, fdot, hfdot, &
+                                               costsize, fsize, ntime)
+        real(kind=realtype) dimension(:),intent(in) :: xvdot
+        real(kind=realtype) dimension(:),intent(in) :: extradot
+        real(kind=realtype) dimension(:),intent(in) :: wdot
+        real(kind=realtype) dimension(:,:),intent(in) :: bcarraysdot
+        
+        ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
+        logical intent(in) :: usespatial
+        logical intent(in) :: usestate
+        integer(kind=inttype) dimension(:,:) :: famlists
+        real(kind=realtype), dimension(:,:), intent(in) :: bcarrays
+        character, dimension(:,:), intent(in) :: bcvarnames
+        integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
+        integer(kind=inttype), dimension(:), intent(in) :: nbcvars  
+        real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
+        real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
+        real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
+        real(kind=realtype) dimension(1,fsize,ntime),intent(out),depend(fsize,ntime) :: hfdot
+        integer(kind=inttype) :: costsize
+        integer(kind=inttype) :: fsize
+        integer(kind=inttype) :: ntime
+      end subroutine computematrixfreeproductfwdcs
+#endif
+
+       end module adjointdebug
 
        module zippermesh
          subroutine createzippermesh(zipperfamlist,nzipfam) ! in :test:createZipperMesh.F90

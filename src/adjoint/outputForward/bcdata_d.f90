@@ -113,7 +113,6 @@ contains
 !  differentiation of computehtot in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: ht
 !   with respect to varying inputs: tt ht
-! ---------------------------------------------------------------
 ! --------------------------------------
 !                utilities
 ! --------------------------------------
@@ -151,7 +150,6 @@ contains
       ht = gammaconstant*rgasdim*tt/(gammaconstant-one)
     end select
   end subroutine computehtot_d
-! ---------------------------------------------------------------
 ! --------------------------------------
 !                utilities
 ! --------------------------------------

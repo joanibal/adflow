@@ -31,7 +31,7 @@ contains
 &   cmoment
     real(kind=realtype), dimension(3) :: vcoordref, vfreestreamref
     real(kind=realtype) :: mavgptot, mavgttot, mavgrho, mavgps, mflow, &
-&   mavgmn, mavga, mavgvx, mavgvy, mavgvz
+&   mavgmn, mavga, mavgvx, mavgvy, mavgvz, garea, havg
     real(kind=realtype) :: vdotn, mag, u, v, w
     integer(kind=inttype) :: sps
     real(kind=realtype), dimension(8) :: dcdq, dcdqdot
@@ -143,9 +143,15 @@ contains
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
 &       ovrnts*globalvals(iheatflux, sps)
+! if it is  0/0  set the havg to 0 to avoid nan
+      if (globalvals(iheattransfercoef, sps) .eq. 0) then
+        havg = 0
+      else
+        havg = globalvals(iheattransfercoef, sps)/globalvals(iheatedarea&
+&         , sps)
+      end if
       funcvalues(costfuncheattransfercoef) = funcvalues(&
-&       costfuncheattransfercoef) + ovrnts*globalvals(iheattransfercoef&
-&       , sps)/globalvals(iheatedarea, sps)
+&       costfuncheattransfercoef) + ovrnts*havg
 ! mass flow like objective
       mflow = globalvals(imassflow, sps)
       if (mflow .ne. zero) then
@@ -170,6 +176,15 @@ contains
         mavgvx = zero
         mavgvy = zero
         mavgvz = zero
+      end if
+! area averaged objectives
+      garea = globalvals(iarea, sps)
+      if (garea .ne. zero) then
+! area averaged pressure
+        funcvalues(costfuncaavgptot) = funcvalues(costfuncaavgptot) + &
+&         ovrnts*globalvals(iareaptot, sps)/garea
+        funcvalues(costfuncaavgps) = funcvalues(costfuncaavgps) + ovrnts&
+&         *globalvals(iareaps, sps)/garea
       end if
       funcvalues(costfuncmdot) = funcvalues(costfuncmdot) + ovrnts*mflow
       funcvalues(costfuncmavgptot) = funcvalues(costfuncmavgptot) + &
@@ -597,7 +612,7 @@ contains
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'h', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
+! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else if (bctype(mm) .eq. nswalladiabatic) then
@@ -642,6 +657,7 @@ contains
     real(kind=realtype) :: massflowrate, mass_ptot, mass_ttot, mass_ps, &
 &   mass_mn, mass_a, mass_rho, mass_vx, mass_vy, mass_vz, mass_nx, &
 &   mass_ny, mass_nz
+    real(kind=realtype) :: area_ptot, area_ps
     real(kind=realtype) :: mredim
     integer(kind=inttype) :: i, j, ii, blk
     real(kind=realtype) :: internalflowfact, inflowfact, fact, xc, yc, &
@@ -703,6 +719,8 @@ contains
     mass_nx = zero
     mass_ny = zero
     mass_nz = zero
+    area_ptot = zero
+    area_ps = zero
     do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-bcdata&
 &       (mm)%inbeg)-1
       i = mod(ii, bcdata(mm)%inend - bcdata(mm)%inbeg) + bcdata(mm)%&
@@ -730,7 +748,7 @@ contains
       mnm = vmag/am
       cellarea = sqrt(ssi(i, j, 1)**2 + ssi(i, j, 2)**2 + ssi(i, j, 3)**&
 &       2)
-      area = area + cellarea
+      area = area + cellarea*blk
       overcellarea = 1/cellarea
       call computeptot(rhom, vxm, vym, vzm, pm, ptot)
       call computettot(rhom, vxm, vym, vzm, pm, ttot)
@@ -744,6 +762,8 @@ contains
       mass_a = mass_a + am*massflowratelocal*uref
       mass_ps = mass_ps + pm*massflowratelocal
       mass_mn = mass_mn + mnm*massflowratelocal
+      area_ptot = area_ptot + ptot*pref*cellarea*blk
+      area_ps = area_ps + pm*cellarea*blk
       sfacecoordref(1) = sf*ssi(i, j, 1)*overcellarea
       sfacecoordref(2) = sf*ssi(i, j, 2)*overcellarea
       sfacecoordref(3) = sf*ssi(i, j, 3)*overcellarea
@@ -810,6 +830,8 @@ contains
     localvalues(iflowmp:iflowmp+2) = localvalues(iflowmp:iflowmp+2) + mp
     localvalues(iflowmm:iflowmm+2) = localvalues(iflowmm:iflowmm+2) + &
 &     mmom
+    localvalues(iareaptot) = localvalues(iareaptot) + area_ptot
+    localvalues(iareaps) = localvalues(iareaps) + area_ps
     localvalues(imassvx) = localvalues(imassvx) + mass_vx
     localvalues(imassvy) = localvalues(imassvy) + mass_vy
     localvalues(imassvz) = localvalues(imassvz) + mass_vz
