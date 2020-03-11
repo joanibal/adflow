@@ -2946,11 +2946,13 @@ class ADFLOW(AeroSolver):
             self.adflow.inputmotion.sincoeffouryrot = AP.sinCoefFourier
 
         if not firstCall:
-            # BCData = self.getBCData()
-
             # get any possible BC Data coming out of the aeroProblem
             BCData = AP.getBCData()
             self.setBCData(BCData)
+
+            actuatorData = AP.getActuatorData()
+            # import ipdb; ipdb.set_trace()
+            self.setActuatorData(actuatorData)
 
             # update the bc data on the coarser mesh levels
             self.adflow.initializeflow.updatebcdataalllevels()
@@ -3555,6 +3557,25 @@ class ADFLOW(AeroSolver):
         tmp = self.mapVector(tmp, self.allWallsGroup, groupName)
         temperature = tmp[:, 0]
         return temperature
+
+    def setActuatorData(self, data):
+        pass
+        # variables = []
+        # dataArray = []
+        # groupNames = []
+
+        # for tmp in data:
+        #     varName, family = tmp
+        #     variables.append(varName)
+        #     dataArray.append(AP.bcVarData[tmp])
+        #     groupNames.append(family)
+
+        # data_varnames = 
+        # data_vec = np.array([100])
+        # famList = np.array([famid])
+        # nFams =  np.array([1])
+        
+        # self.adflow.actuatorregion.addactuatorregion(data_varnames, data_vec, famList, nFams)
 
     def setTargetCp(self, CpTargets, groupName=None, TS=0):
         """Set the CpTarget distribution for am inverse design problem.
