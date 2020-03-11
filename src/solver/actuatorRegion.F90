@@ -574,4 +574,44 @@ contains
   end subroutine integrateActuatorRegions_b
 #endif
 
+
+!   subroutine setActuatorData(dataVec, dataVarNames, famLists,  nVar, nFamMax)
+    
+!     use constants
+!     use cgnsNames
+!     use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, &
+!          cgnsSubFace, BCType
+!     use sorting, only : famInList
+!     use utils, only : setPointers,terminate, char2str
+!     use communication, only : myid
+!     !
+!     character, dimension(nVar, maxCGNSNameLen), intent(in) :: dataVarNames
+!     real(kind=realType), dimension(nVar), intent(in) :: dataVec
+!     integer(kind=intType), dimension(nVar, nFamMax), intent(in) :: famLists
+!     integer(kind=intType), intent(in) ::  nVar, nFamMax
+!     !
+!     !      Local
+
+!     integer(kind=intType) :: i, j, k, iVar, nFam, iRegion
+!     character(maxCGNSNameLen) :: varName
+!     ! Loop over any actuator regions since they also could have to set BCData
+!     regionLoop: do iRegion=1, nActuatorRegions
+!        varLoop2: do iVar=1, nVar
+!           nFam = famLists(iVar, 1)
+!           famInclude2: if (famInList(actuatorRegions(iRegion)%famID, famLists(iVar, 2:2+nFam-1))) then
+
+!              ! Extract the name
+!              varName = char2str(dataVarNames(iVar,:), maxCGNSNameLen)
+
+!              if (trim(varName) == "Thrust") then
+!                 actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+!                      dataVec(iVar)
+!              else if (trim(varName) == "Torque") then
+!                 actuatorRegions(iRegion)%T = dataVec(iVar)
+!              end if
+!           end if famInclude2
+!        end do varLoop2
+!     end do regionLoop
+!   end subroutine setActuatorData
+
 end module actuatorRegion
