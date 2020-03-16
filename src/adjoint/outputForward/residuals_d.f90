@@ -377,6 +377,8 @@ contains
       vy = w(i, j, k, ivy)
       vzd = wd(i, j, k, ivz)
       vz = w(i, j, k, ivz)
+
+
       if (res) then
 ! momentum residuals
         dwd(i, j, k, imx:imz) = dwd(i, j, k, imx:imz) - ftmpd
@@ -386,6 +388,8 @@ contains
 &         )*vxd - ftmpd(2)*vy - ftmp(2)*vyd - ftmpd(3)*vz - ftmp(3)*vzd
         dw(i, j, k, irhoe) = dw(i, j, k, irhoe) - ftmp(1)*vx - ftmp(2)*&
 &         vy - ftmp(3)*vz
+      ! write(*,*) i, j, k, 'vx',vx 
+      ! write(*,*) i, j, k, 'dw', ftmp(1)*vxd
       else
 ! add in the local power contribution:
         plocald = plocald + (vxd*ftmp(1)+vx*ftmpd(1)+vyd*ftmp(2)+vy*&

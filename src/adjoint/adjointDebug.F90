@@ -1,14 +1,15 @@
-! This is a special function that is sued to alloc derivative values
-! in blockpointers_d for use with the AD code.
+! This module is used for debugging and testing only 
+
 module adjointDebug
 
 contains
 
 #ifndef USE_COMPLEX
 
-   subroutine computeMatrixFreeProductFwdFD(xvDot, extraDot, wDot, BCArraysDot,&
+   subroutine computeMatrixFreeProductFwdFD(xvDot, extraDot, wDot, BCArraysDot, actArrayDot, &
       useSpatial, useState, famLists,&
       BCArrays,  BCVarNames, patchLoc, nBCVars, &
+      actArray,  actVarNames, actFamlists, &
       dwDot, funcsDot, fDot, hfDot, &
       costSize, fSize, nTime, h)
 
@@ -40,6 +41,7 @@ contains
       real(kind=realType), dimension(:), intent(in) :: extraDot
       real(kind=realType), dimension(:), intent(in) :: wDot
       real(kind=realType), dimension(:,:), intent(in) :: BCArraysDot
+      real(kind=realType), dimension(:), intent(in) :: actArrayDot
       
       ! size data
       logical, intent(in) :: useSpatial, useState
@@ -52,6 +54,11 @@ contains
       integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
       integer(kind=inttype), dimension(:), intent(in) :: nBCVars
       
+      ! actuator data 
+      real(kind=realType), dimension(:), intent(inout) :: actArray
+      character, dimension(:,:), intent(in) :: actVarNames
+      integer(kind=intType), dimension(:, :), intent(in) :: actFamLists
+
       ! Finite difference parameters
       real(kind=realType), intent(in) :: h ! step size for Finite Difference
       
@@ -96,6 +103,8 @@ contains
       ! Allocate the memory we need for derivatives if not done so
       ! already. Note this isn't deallocated until the adflow is
       ! destroyed.
+
+      ! a bit over kill for our needs, but so values are stored in the seeds
       if (.not. derivVarsAllocated) then
          call allocDerivativeValues(level)
       end if
@@ -127,14 +136,10 @@ contains
 
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
-      ! if (bcVarsEmpty) then
-      !    call master(useSpatial, famLists, funcValues, forces, heatfluxes)
-      ! else
       call master(useSpatial, famLists,  &
                   funcValues, forces, heatfluxes, &
-                  BCArrays,  BCVarNames, patchLoc, nBCVars)
-      ! end if
-
+                  BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                  actArray, actVarNames, actFamLists)
 
 
       ! Copy out the residual derivative into the provided dwDot
@@ -152,8 +157,6 @@ contains
                   end do
                end do
             end do
-
-
          end do
       end do
 
@@ -192,21 +195,14 @@ contains
       end do domainLoop1
 
       BCArrays = BCArrays + BCArraysDot*h
-      ! if (.not. bcVarsEmpty) then
-      !    bcDataValues = bcDataValues + bcDataValuesDot*h
-      ! endif 
-
+      actArray = actArray + actArrayDot*h
 
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
-      ! if (bcVarsEmpty) then
-      !    call master(useSpatial, famLists, funcValues, forces, heatfluxes)
-      ! else
       call master(useSpatial, famLists,  &
                   funcValues, forces, heatfluxes, &
-                  BCArrays,  BCVarNames, patchLoc, nBCVars)
-      ! end if
-
+                  BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                  actArray, actVarNames, actFamLists)
 
       ! ------------------------- set the output vectors ----------------------
       ! Copy out the residual derivative into the provided dwDot and remove the
@@ -245,18 +241,19 @@ contains
 
      
       BCArrays = BCArrays - BCArraysDot*h
-
+      actArray = actArray - actArrayDot*h
 
       fDot = (fDot + forces)/h
       hfDot = (hfDot + heatfluxes)/h
       funcsDot = (funcsDot + funcValues)/h
-      ! write(*,*) '----------------------- func values ---------------------'
-      ! write(*,*) funcsDot 
 
    end subroutine computeMatrixFreeProductFwdFD
 
 
    subroutine printADSeeds(nn, level, sps)
+      ! this routine is used for debugging master_d, and master_b.
+      ! it prints all fo the AD seeds used 
+
 
       use constants
       use block, only : flowDomsd, flowDoms
@@ -742,9 +739,10 @@ contains
 
 #else
       
-   subroutine computeMatrixFreeProductFwdCS(xvdot, extradot, wdot, BCArraysDot,&
+   subroutine computeMatrixFreeProductFwdCS(xvdot, extradot, wdot, BCArraysDot, actArrayDot, &
                                           useSpatial, useState, famLists,&
                                           BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                                          actArray,  actVarNames, actFamlists, &
                                           dwdot, funcsDot, fDot, hfdot, &
                                           costSize, fSize, nTime)
 
@@ -775,6 +773,7 @@ contains
       complex(kind=realType), dimension(:), intent(in) :: extradot
       complex(kind=realType), dimension(:), intent(in) :: wdot
       complex(kind=realType), dimension(:,:), intent(inout) :: BCArraysDot
+      real(kind=realType), dimension(:), intent(in) :: actArrayDot
 
 
       logical, intent(in) :: useSpatial, useState
@@ -786,6 +785,12 @@ contains
       integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
       integer(kind=inttype), dimension(:), intent(in) :: nBCVars
       
+      ! actuator data 
+      real(kind=realType), dimension(:), intent(inout) :: actArray
+      character, dimension(:,:), intent(in) :: actVarNames
+      integer(kind=intType), dimension(:, :), intent(in) :: actFamLists
+
+
 
       ! Ouput Variables
       complex(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
@@ -888,15 +893,12 @@ contains
       end do domainLoop1
 
       BCArrays = BCArrays + BCArraysDot*h
+      actArray = actArray + actArrayDot*h
 
       ! ----------------------------- Run Master ---------------------------------
-      ! Run the super-dee-duper master rotuine
-      ! if (bcVarsEmpty) then
-      !    call master(useSpatial, famLists, funcValues, forces, heatfluxes)
-      ! else
       call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
-                 BCArrays,  BCVarNames, patchLoc, nBCVars)
-      ! end if
+                 BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                  actArray, actVarNames, actFamLists)
 
        ! Copy out the residual derivative into the provided dwDot and remove the
        ! perturbation
@@ -931,6 +933,9 @@ contains
          end do
       end do
 
+      BCArrays = BCArrays - BCArraysDot*h
+      actArray = actArray - actArrayDot*h
+
       fDot = aimag(forces)/aimag(h)
       hfDot = aimag(heatfluxes)/aimag(h)
       funcsDot = aimag(funcValues)/aimag(h)
@@ -940,7 +945,11 @@ contains
       write(*,*) 'funcsDot', minval(real(funcsDot)), maxval(real(funcsDot))
 
    end subroutine computeMatrixFreeProductFwdCS
+ 
  ! this isn't compliling anymore 
+ ! something about how the interface for min and max values has changed
+ ! Error: Generic function ‘minval’ at (1) is not consistent with a specific intrinsic interface
+
 
    ! subroutine printCSSeeds(nn, level, sps)
 
@@ -968,105 +977,105 @@ contains
 
    !    ! call setPointers(nn, level, sps)
 
-   !    write(*,*) 'd2wall ', minval(imag(flowDoms(nn, level, sps)%d2wall)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%d2wall)/h)
-   !    write(*,*) 'x ', minval(imag(flowDoms(nn, level, sps)%x)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%x)/h)
-   !    write(*,*) 'si ', minval(imag(flowDoms(nn, level, sps)%si)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%si)/h)
-   !    write(*,*) 'sj ', minval(imag(flowDoms(nn, level, sps)%sj)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%sj)/h)
-   !    write(*,*) 'sk ', minval(imag(flowDoms(nn, level, sps)%sk)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%sk)/h)
-   !    write(*,*) 'vol ', minval(imag(flowDoms(nn, level, sps)%vol)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%vol)/h)
+   !    write(*,*) 'd2wall ', minval(aimag(flowDoms(nn, level, sps)%d2wall)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%d2wall)/h)
+   !    write(*,*) 'x ', minval(aimag(flowDoms(nn, level, sps)%x)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%x)/h)
+   !    write(*,*) 'si ', minval(aimag(flowDoms(nn, level, sps)%si)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%si)/h)
+   !    write(*,*) 'sj ', minval(aimag(flowDoms(nn, level, sps)%sj)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%sj)/h)
+   !    write(*,*) 'sk ', minval(aimag(flowDoms(nn, level, sps)%sk)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%sk)/h)
+   !    write(*,*) 'vol ', minval(aimag(flowDoms(nn, level, sps)%vol)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%vol)/h)
 
-   !    write(*,*) 's ', minval(imag(flowDoms(nn, level, sps)%s)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%s)/h)
-   !    write(*,*) 'sFaceI ', minval(imag(flowDoms(nn, level, sps)%sFaceI)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%sFaceI)/h)
-   !    write(*,*) 'sFaceJ ', minval(imag(flowDoms(nn, level, sps)%sFaceJ)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%sFaceJ)/h)
-   !    write(*,*) 'sFaceK ', minval(imag(flowDoms(nn, level, sps)%sFaceK)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%sFaceK)/h)
+   !    write(*,*) 's ', minval(aimag(flowDoms(nn, level, sps)%s)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%s)/h)
+   !    write(*,*) 'sFaceI ', minval(aimag(flowDoms(nn, level, sps)%sFaceI)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%sFaceI)/h)
+   !    write(*,*) 'sFaceJ ', minval(aimag(flowDoms(nn, level, sps)%sFaceJ)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%sFaceJ)/h)
+   !    write(*,*) 'sFaceK ', minval(aimag(flowDoms(nn, level, sps)%sFaceK)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%sFaceK)/h)
 
-   !    write(*,*) 'w ', minval(imag(flowDoms(nn, level, sps)%w)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%w)/h)
-   !    write(*,*) 'dw ', minval(imag(flowDoms(nn, level, sps)%dw)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%dw)/h)
-   !    write(*,*) 'fw ', minval(imag(flowDoms(nn, level, sps)%fw)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%fw)/h)
-   !    write(*,*) 'scratch ', minval(imag(flowDoms(nn, level, sps)%scratch)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%scratch)/h)
+   !    write(*,*) 'w ', minval(aimag(flowDoms(nn, level, sps)%w)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%w)/h)
+   !    write(*,*) 'dw ', minval(aimag(flowDoms(nn, level, sps)%dw)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%dw)/h)
+   !    write(*,*) 'fw ', minval(aimag(flowDoms(nn, level, sps)%fw)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%fw)/h)
+   !    write(*,*) 'scratch ', minval(aimag(flowDoms(nn, level, sps)%scratch)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%scratch)/h)
 
-   !    write(*,*) 'p ', minval(imag(flowDoms(nn, level, sps)%p)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%p)/h)
-   !    write(*,*) 'gamma ', minval(imag(flowDoms(nn, level, sps)%gamma)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%gamma)/h)
-   !    write(*,*) 'aa ', minval(imag(flowDoms(nn, level, sps)%aa)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%aa)/h)
+   !    write(*,*) 'p ', minval(aimag(flowDoms(nn, level, sps)%p)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%p)/h)
+   !    write(*,*) 'gamma ', minval(aimag(flowDoms(nn, level, sps)%gamma)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%gamma)/h)
+   !    write(*,*) 'aa ', minval(aimag(flowDoms(nn, level, sps)%aa)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%aa)/h)
 
-   !    write(*,*) 'rlv ', minval(imag(flowDoms(nn, level, sps)%rlv)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%rlv)/h)
-   !    write(*,*) 'rev ', minval(imag(flowDoms(nn, level, sps)%rev)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%rev)/h)
+   !    write(*,*) 'rlv ', minval(aimag(flowDoms(nn, level, sps)%rlv)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%rlv)/h)
+   !    write(*,*) 'rev ', minval(aimag(flowDoms(nn, level, sps)%rev)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%rev)/h)
 
-   !    write(*,*) 'radI ', minval(imag(flowDoms(nn, level, sps)%radI)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%radI)/h)
-   !    write(*,*) 'radJ ', minval(imag(flowDoms(nn, level, sps)%radJ)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%radJ)/h)
-   !    write(*,*) 'radK ', minval(imag(flowDoms(nn, level, sps)%radK)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%radK)/h)
+   !    write(*,*) 'radI ', minval(aimag(flowDoms(nn, level, sps)%radI)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%radI)/h)
+   !    write(*,*) 'radJ ', minval(aimag(flowDoms(nn, level, sps)%radJ)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%radJ)/h)
+   !    write(*,*) 'radK ', minval(aimag(flowDoms(nn, level, sps)%radK)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%radK)/h)
 
-   !    write(*,*) 'ux ', minval(imag(flowDoms(nn, level, sps)%ux)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%ux)/h)
-   !    write(*,*) 'uy ', minval(imag(flowDoms(nn, level, sps)%uy)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%uy)/h)
-   !    write(*,*) 'uz ', minval(imag(flowDoms(nn, level, sps)%uz)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%uz)/h)
-   !    write(*,*) 'vx ', minval(imag(flowDoms(nn, level, sps)%vx)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%vx)/h)
-   !    write(*,*) 'vy ', minval(imag(flowDoms(nn, level, sps)%vy)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%vy)/h)
-   !    write(*,*) 'vz ', minval(imag(flowDoms(nn, level, sps)%vz)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%vz)/h)
-   !    write(*,*) 'wx ', minval(imag(flowDoms(nn, level, sps)%wx)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%wx)/h)
-   !    write(*,*) 'wy ', minval(imag(flowDoms(nn, level, sps)%wy)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%wy)/h)
-   !    write(*,*) 'wz ', minval(imag(flowDoms(nn, level, sps)%wz)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%wz)/h)
-   !    write(*,*) 'qx ', minval(imag(flowDoms(nn, level, sps)%qx)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%qx)/h)
-   !    write(*,*) 'qy ', minval(imag(flowDoms(nn, level, sps)%qy)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%qy)/h)
-   !    write(*,*) 'qz ', minval(imag(flowDoms(nn, level, sps)%qz)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%qz)/h)
+   !    write(*,*) 'ux ', minval(aimag(flowDoms(nn, level, sps)%ux)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%ux)/h)
+   !    write(*,*) 'uy ', minval(aimag(flowDoms(nn, level, sps)%uy)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%uy)/h)
+   !    write(*,*) 'uz ', minval(aimag(flowDoms(nn, level, sps)%uz)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%uz)/h)
+   !    write(*,*) 'vx ', minval(aimag(flowDoms(nn, level, sps)%vx)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%vx)/h)
+   !    write(*,*) 'vy ', minval(aimag(flowDoms(nn, level, sps)%vy)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%vy)/h)
+   !    write(*,*) 'vz ', minval(aimag(flowDoms(nn, level, sps)%vz)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%vz)/h)
+   !    write(*,*) 'wx ', minval(aimag(flowDoms(nn, level, sps)%wx)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%wx)/h)
+   !    write(*,*) 'wy ', minval(aimag(flowDoms(nn, level, sps)%wy)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%wy)/h)
+   !    write(*,*) 'wz ', minval(aimag(flowDoms(nn, level, sps)%wz)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%wz)/h)
+   !    write(*,*) 'qx ', minval(aimag(flowDoms(nn, level, sps)%qx)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%qx)/h)
+   !    write(*,*) 'qy ', minval(aimag(flowDoms(nn, level, sps)%qy)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%qy)/h)
+   !    write(*,*) 'qz ', minval(aimag(flowDoms(nn, level, sps)%qz)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%qz)/h)
 
-   !    write(*,*) 'bmti1 ',minval(imag(flowDoms(nn, level, sps)%bmti1)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bmti1)/h)
-   !    write(*,*) 'bmti2 ',minval(imag(flowDoms(nn, level, sps)%bmti2)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bmti2)/h)
-   !    write(*,*) 'bmtj1 ',minval(imag(flowDoms(nn, level, sps)%bmtj1)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bmtj1)/h)
-   !    write(*,*) 'bmtj2 ',minval(imag(flowDoms(nn, level, sps)%bmtj2)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bmtj2)/h)
-   !    write(*,*) 'bmtk1 ',minval(imag(flowDoms(nn, level, sps)%bmtk1)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bmtk1)/h)
-   !    write(*,*) 'bmtk2 ',minval(imag(flowDoms(nn, level, sps)%bmtk2)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bmtk2)/h)
-   !    write(*,*) 'bvti1 ',minval(imag(flowDoms(nn, level, sps)%bvti1)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bvti1)/h)
-   !    write(*,*) 'bvti2 ',minval(imag(flowDoms(nn, level, sps)%bvti2)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bvti2)/h)
-   !    write(*,*) 'bvtj1 ',minval(imag(flowDoms(nn, level, sps)%bvtj1)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bvtj1)/h)
-   !    write(*,*) 'bvtj2 ',minval(imag(flowDoms(nn, level, sps)%bvtj2)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bvtj2)/h)
-   !    write(*,*) 'bvtk1 ',minval(imag(flowDoms(nn, level, sps)%bvtk1)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bvtk1)/h)
-   !    write(*,*) 'bvtk2 ',minval(imag(flowDoms(nn, level, sps)%bvtk2)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bvtk2)/h)
+   !    write(*,*) 'bmti1 ',minval(aimag(flowDoms(nn, level, sps)%bmti1)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bmti1)/h)
+   !    write(*,*) 'bmti2 ',minval(aimag(flowDoms(nn, level, sps)%bmti2)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bmti2)/h)
+   !    write(*,*) 'bmtj1 ',minval(aimag(flowDoms(nn, level, sps)%bmtj1)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bmtj1)/h)
+   !    write(*,*) 'bmtj2 ',minval(aimag(flowDoms(nn, level, sps)%bmtj2)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bmtj2)/h)
+   !    write(*,*) 'bmtk1 ',minval(aimag(flowDoms(nn, level, sps)%bmtk1)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bmtk1)/h)
+   !    write(*,*) 'bmtk2 ',minval(aimag(flowDoms(nn, level, sps)%bmtk2)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bmtk2)/h)
+   !    write(*,*) 'bvti1 ',minval(aimag(flowDoms(nn, level, sps)%bvti1)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bvti1)/h)
+   !    write(*,*) 'bvti2 ',minval(aimag(flowDoms(nn, level, sps)%bvti2)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bvti2)/h)
+   !    write(*,*) 'bvtj1 ',minval(aimag(flowDoms(nn, level, sps)%bvtj1)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bvtj1)/h)
+   !    write(*,*) 'bvtj2 ',minval(aimag(flowDoms(nn, level, sps)%bvtj2)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bvtj2)/h)
+   !    write(*,*) 'bvtk1 ',minval(aimag(flowDoms(nn, level, sps)%bvtk1)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bvtk1)/h)
+   !    write(*,*) 'bvtk2 ',minval(aimag(flowDoms(nn, level, sps)%bvtk2)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bvtk2)/h)
 
 
    !    bocoLoop: do mm=1, flowDoms(nn, level, sps)%nBocos
@@ -1074,65 +1083,65 @@ contains
    !       select case (flowDoms(nn, level, sps)%BCType(mm))
 
    !       case (NSWallAdiabatic)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%norm',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Fv ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Fp ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Tv ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Tp ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%area ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%area)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%area)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%uSlip ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%cellHeatFlux ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%nodeHeatFlux ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%norm',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Fv ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Fp ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Tv ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Tp ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%area ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%area)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%area)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%uSlip ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%cellHeatFlux ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%nodeHeatFlux ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h)
 
 
    !          !=======================================================
 
    !       case (NSWallIsothermal)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%norm',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Fv ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Fp ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Tv ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Tp ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%area ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%area)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%area)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%uSlip ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%TNS_Wall ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%TNS_Wall)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%TNS_Wall)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%cellHeatFlux ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%nodeHeatFlux ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h), &
-   !                      maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%norm',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Fv ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Fp ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Tv ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Tp ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%area ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%area)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%area)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%uSlip ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%uSlip)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%TNS_Wall ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%TNS_Wall)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%TNS_Wall)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%cellHeatFlux ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%cellHeatFlux)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%nodeHeatFlux ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h), &
+   !                      maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%nodeHeatFlux)/h)
 
    !          !=======================================================
 
    !       case (EulerWall)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%norm',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h), &
-   !                                  maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Fv ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h), &
-   !                                  maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Fp ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h), &
-   !                                  maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Tv ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h), &
-   !                                  maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%Tp ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h), &
-   !                                  maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h)
-   !          write(*,*) 'mm', mm, 'bcData(mm)%area ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%area)/h), &
-   !                                  maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%area)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%norm',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h), &
+   !                                  maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%norm)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Fv ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h), &
+   !                                  maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fv)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Fp ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h), &
+   !                                  maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Fp)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Tv ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h), &
+   !                                  maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tv)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%Tp ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h), &
+   !                                  maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%Tp)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%area ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%area)/h), &
+   !                                  maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%area)/h)
 
 
 
@@ -1143,8 +1152,8 @@ contains
    !          ! Just allocate the memory for the normal mesh
    !          ! velocity.
 
-   !          write(*,*) 'mm', mm, 'bcData(mm)%rface ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h), &
-   !                                                   maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%rface ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h), &
+   !                                                   maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h)
 
    !          !=======================================================
 
@@ -1155,8 +1164,8 @@ contains
 
    !          ! Modified by HDN
 
-   !          write(*,*) 'mm', mm, 'bcData(mm)%rface ',minval(imag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h), &
-   !                                                   maxval(imag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h)
+   !          write(*,*) 'mm', mm, 'bcData(mm)%rface ',minval(aimag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h), &
+   !                                                   maxval(aimag(flowDoms(nn, level, sps)%bcData(mm)%rface)/h)
 
    !          !=======================================================
 
@@ -1167,11 +1176,11 @@ contains
    !          ! the entire state vector to be prescribed.
 
 
-   !          write(*,*) 'mm', mm, 'BCData(mm)%ps ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%ps ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h)
    !          if(nt2 >= nt1) then
-   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
-   !                               maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
+   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
+   !                               maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
    !          endif
 
    !       case (SupersonicOutflow)
@@ -1183,16 +1192,16 @@ contains
    !          ! variables needed. Note the there are two ways to
    !          ! specify boundary conditions for a subsonic inflow.
 
-   !          write(*,*) 'mm', mm, 'BCData(mm)%ptInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%htInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%ttInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%ptInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%htInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%ttInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h)
 
    !          if(nt2 >= nt1) then
-   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
-   !                               maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
+   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
+   !                               maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
 
    !          endif
 
@@ -1205,8 +1214,8 @@ contains
    !          ! interface with prescribed pressure. Allocate the
    !          ! memory for the static pressure.
 
-   !          write(*,*) 'mm', mm, 'BCData(mm)%ps ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%ps ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ps)/h)
 
 
    !       case (DomainInterfaceRhoUVW)
@@ -1216,8 +1225,8 @@ contains
    !          ! the memory for the variables needed.
 
    !          if(nt2 >= nt1) then
-   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
-   !                               maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
+   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
+   !                               maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
 
    !          endif
 
@@ -1229,16 +1238,16 @@ contains
    !          ! Domain interface with prescribed total conditions.
    !          ! Allocate the memory for the variables needed.
 
-   !          write(*,*) 'mm', mm, 'BCData(mm)%ptInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%htInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h)
-   !          write(*,*) 'mm', mm, 'BCData(mm)%ttInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h), &
-   !                            maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%ptInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ptInlet)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%htInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%htInlet)/h)
+   !          write(*,*) 'mm', mm, 'BCData(mm)%ttInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h), &
+   !                            maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%ttInlet)/h)
 
    !          if(nt2 >= nt1) then
-   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
-   !                               maxval(imag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
+   !             write(*,*) 'mm', mm, 'BCData(mm)%turbInlet ',minval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h), &
+   !                               maxval(aimag(flowDoms(nn, level, sps)%BCData(mm)%turbInlet)/h)
 
    !          endif
 
@@ -1253,10 +1262,10 @@ contains
 
 
    !    viscbocoLoop: do mm=1,flowDoms(nn, level, sps)%nViscBocos
-   !       write(*,*) 'mm', mm, 'viscSubface(mm)%tau ',minval(imag(flowDoms(nn, level, sps)%viscSubface(mm)%tau)/h), &
-   !                               maxval(imag(flowDoms(nn, level, sps)%viscSubface(mm)%tau)/h)
-   !       write(*,*) 'mm', mm, 'viscSubface(mm)%q ',minval(imag(flowDoms(nn, level, sps)%viscSubface(mm)%q)/h), &
-   !                               maxval(imag(flowDoms(nn, level, sps)%viscSubface(mm)%q)/h)
+   !       write(*,*) 'mm', mm, 'viscSubface(mm)%tau ',minval(aimag(flowDoms(nn, level, sps)%viscSubface(mm)%tau)/h), &
+   !                               maxval(aimag(flowDoms(nn, level, sps)%viscSubface(mm)%tau)/h)
+   !       write(*,*) 'mm', mm, 'viscSubface(mm)%q ',minval(aimag(flowDoms(nn, level, sps)%viscSubface(mm)%q)/h), &
+   !                               maxval(aimag(flowDoms(nn, level, sps)%viscSubface(mm)%q)/h)
    !    end do viscbocoLoop
 
    !    ! For overset, the weights may be active in the comm structure. We
@@ -1265,41 +1274,41 @@ contains
    !       ! Pointers to the overset comms to make it easier to read
    !       sends: do i=1,commPatternOverset(level, sps)%nProcSend
    !          write(*,*) 'commPatternOverset(level, sps)%sendList(i)%interpd ',&
-   !                      minval(imag(commPatternOverset(level, sps)%sendList(i)%interp)/h), &
-   !                      maxval(imag(commPatternOverset(level, sps)%sendList(i)%interp)/h)
+   !                      minval(aimag(commPatternOverset(level, sps)%sendList(i)%interp)/h), &
+   !                      maxval(aimag(commPatternOverset(level, sps)%sendList(i)%interp)/h)
    !       end do sends
-   !       write(*,*) 'internalOverset(level, sps)%donorInterpd ',minval(imag(internalOverset(level, sps)%donorInterp)/h), &
-   !                               maxval(imag(internalOverset(level, sps)%donorInterp)/h)
+   !       write(*,*) 'internalOverset(level, sps)%donorInterpd ',minval(aimag(internalOverset(level, sps)%donorInterp)/h), &
+   !                               maxval(aimag(internalOverset(level, sps)%donorInterp)/h)
    !    end if
 
-   !    write(*,*) 'alphad ', imag(alpha)/h
-   !    write(*,*) 'betad ', imag(beta)/h
-   !    write(*,*) 'machd ', imag(mach)/h
-   !    write(*,*) 'machGridd ', imag(machGrid)/h
-   !    write(*,*) 'machCoefd ', imag(machCoef)/h
-   !    write(*,*) 'pinfdimd ', imag(pinfdim)/h
-   !    write(*,*) 'tinfdimd ', imag(tinfdim)/h
-   !    write(*,*) 'rhoinfdimd ', imag(rhoinfdim)/h
-   !    write(*,*) 'rgasdimd ', imag(rgasdim)/h
-   !    write(*,*) 'pointrefd ', imag(pointref)/h
-   !    write(*,*) 'prefd ', imag(pref)/h
-   !    write(*,*) 'rhoRefd ', imag(rhoRef)/h
-   !    write(*,*) 'Trefd ', imag(Tref)/h
-   !    write(*,*) 'murefd ', imag(muref)/h
-   !    write(*,*) 'urefd ', imag(uref)/h
-   !    write(*,*) 'hrefd ', imag(href)/h
-   !    write(*,*) 'timerefd ', imag(timeref)/h
-   !    write(*,*) 'pinfd ', imag(pinf)/h
-   !    write(*,*) 'pinfCorrd ', imag(pinfCorr)/h
-   !    write(*,*) 'rhoinfd ', imag(rhoinf)/h
-   !    write(*,*) 'uinfd ', imag(uinf)/h
-   !    write(*,*) 'rgasd ', imag(rgas)/h
-   !    write(*,*) 'muinfd ', imag(muinf)/h
-   !    write(*,*) 'gammainfd ', imag(gammainf)/h
-   !    write(*,*) 'winfd ', imag(winf)/h
-   !    write(*,*) 'veldirfreestreamd ', imag(veldirfreestream)/h
-   !    write(*,*) 'liftdirectiond ', imag(liftdirection)/h
-   !    write(*,*) 'dragdirectiond ', imag(dragdirection)/h
+   !    write(*,*) 'alphad ', aimag(alpha)/h
+   !    write(*,*) 'betad ', aimag(beta)/h
+   !    write(*,*) 'machd ', aimag(mach)/h
+   !    write(*,*) 'machGridd ', aimag(machGrid)/h
+   !    write(*,*) 'machCoefd ', aimag(machCoef)/h
+   !    write(*,*) 'pinfdimd ', aimag(pinfdim)/h
+   !    write(*,*) 'tinfdimd ', aimag(tinfdim)/h
+   !    write(*,*) 'rhoinfdimd ', aimag(rhoinfdim)/h
+   !    write(*,*) 'rgasdimd ', aimag(rgasdim)/h
+   !    write(*,*) 'pointrefd ', aimag(pointref)/h
+   !    write(*,*) 'prefd ', aimag(pref)/h
+   !    write(*,*) 'rhoRefd ', aimag(rhoRef)/h
+   !    write(*,*) 'Trefd ', aimag(Tref)/h
+   !    write(*,*) 'murefd ', aimag(muref)/h
+   !    write(*,*) 'urefd ', aimag(uref)/h
+   !    write(*,*) 'hrefd ', aimag(href)/h
+   !    write(*,*) 'timerefd ', aimag(timeref)/h
+   !    write(*,*) 'pinfd ', aimag(pinf)/h
+   !    write(*,*) 'pinfCorrd ', aimag(pinfCorr)/h
+   !    write(*,*) 'rhoinfd ', aimag(rhoinf)/h
+   !    write(*,*) 'uinfd ', aimag(uinf)/h
+   !    write(*,*) 'rgasd ', aimag(rgas)/h
+   !    write(*,*) 'muinfd ', aimag(muinf)/h
+   !    write(*,*) 'gammainfd ', aimag(gammainf)/h
+   !    write(*,*) 'winfd ', aimag(winf)/h
+   !    write(*,*) 'veldirfreestreamd ', aimag(veldirfreestream)/h
+   !    write(*,*) 'liftdirectiond ', aimag(liftdirection)/h
+   !    write(*,*) 'dragdirectiond ', aimag(dragdirection)/h
 
    !    ! Zero all the reverse seeds in the dirichlet input arrays
    !    write(*,*) 'iDom, iBoco, iData, iDirichlet'
@@ -1310,7 +1319,7 @@ contains
    !                if (associated(cgnsDoms(iDom)%bocoInfo(iBoco)%dataSet(iData)%dirichletArrays)) then
    !                   do iDirichlet = 1, size(cgnsDoms(iDom)%bocoInfo(iBoco)%dataSet(iData)%dirichletArrays)
    !                      write(*,*) iDom, iBoco, iData, iDirichlet, 'dataArr(:) '&
-   !                      ,imag(cgnsDoms(iDom)%bocoInfo(iBoco)%dataSet(iData)%dirichletArrays(iDirichlet)%dataArr(:))/h
+   !                      ,aimag(cgnsDoms(iDom)%bocoInfo(iBoco)%dataSet(iData)%dirichletArrays(iDirichlet)%dataArr(:))/h
    !                   end do
    !                end if
    !             end do
@@ -1320,8 +1329,8 @@ contains
 
    !    ! And the reverse seeds in the actuator zones
    !    do i=1, nActuatorRegions
-   !       write(*,*) 'actuatorRegionsd(i)%F ',imag(actuatorRegions(i)%F)/h
-   !       write(*,*) 'actuatorRegionsd(i)%T ',imag(actuatorRegions(i)%T)/h
+   !       write(*,*) 'actuatorRegionsd(i)%F ',aimag(actuatorRegions(i)%F)/h
+   !       write(*,*) 'actuatorRegionsd(i)%T ',aimag(actuatorRegions(i)%T)/h
    !    end do
 
    ! end subroutine printCSSeeds

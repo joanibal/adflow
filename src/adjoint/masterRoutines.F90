@@ -3,8 +3,9 @@ contains
    subroutine master(useSpatial,&
                      famLists, funcValues,&
                      forces, heatfluxes,&
-                     BCArrays,  BCVarNames, patchLoc, nBCVars)
-    ! TODO update 
+                     BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                     actArray, actVarNames, actFamLists)
+
     use constants
     use communication, only : adflow_comm_world
     use BCRoutines, only : applyallBC_block
@@ -40,6 +41,7 @@ contains
     use inputOverset, only : oversetUpdateMode
     use oversetCommUtilities, only : updateOversetConnectivity
     use actuatorRegionData, only : nActuatorRegions
+    use actuatorRegion, only : setActuatorData
     use wallDistanceData, only : xSurfVec, xSurf, wallScatter
 #include <petscversion.h>
 #if PETSC_VERSION_GE(3,8,0)
@@ -63,6 +65,11 @@ contains
     integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
 
+    ! Boundary Condition data 
+    real(kind=realType), optional, dimension(:), intent(in) :: actArray
+    character, optional, dimension(:,:), intent(in) :: actVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: actFamLists
+
     ! Output Variables
     real(kind=realType), intent(out), optional, dimension(:, :, :) :: forces
     real(kind=realType), intent(out), optional, dimension(:, :, :) :: heatfluxes
@@ -83,8 +90,13 @@ contains
           end do
           call setBCDataFineGrid(.true.)
        end if
+       
+       if (present(actArray)) then
+         call setActuatorData(actArray, actVarNames, actFamLists, &
+                   size(actArray,1), size(actFamLists,2))
+       end if
 
-        do sps=1,nTimeIntervalsSpectral
+       do sps=1,nTimeIntervalsSpectral
           do nn=1,nDom
              call setPointers(nn, 1, sps)
              call xhalo_block()
@@ -258,8 +270,8 @@ contains
   subroutine master_d(xdot, wdot, &
                      forcesDot, heatfluxesDot,dwDot, &
                      famLists, funcValuesd, &
-                     BCArraysDot, &
-                     BCArrays,  BCVarNames, patchLoc, nBCVars)
+                     BCArraysDot, BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                     actArrayDot, actArray, actVarNames, actFamLists)
   
     use constants
     use diffsizes, only :  ISIZE1OFDrfbcdata, ISIZE1OFDrfviscsubface
@@ -299,6 +311,7 @@ contains
     use oversetData, only : oversetPresent
     use inputOverset, only : oversetUpdateMode
     use oversetCommUtilities, only : updateOversetConnectivity_d
+    use actuatorRegion, only : setActuatorData_d
     use actuatorRegionData, only : nActuatorRegions
 #include <petsc/finclude/petsc.h>
     use petsc
@@ -316,6 +329,12 @@ contains
     character, optional, dimension(:,:), intent(in) :: BCVarNames
     integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
+
+    ! Actuator data 
+    real(kind=realType), optional, dimension(:), intent(in) :: actArray
+    real(kind=realType), optional, dimension(:), intent(in) :: actArrayDot
+    character, optional, dimension(:,:), intent(in) :: actVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: actFamLists
 
     ! Output variables:
     real(kind=realType), intent(out), dimension(:) :: dwDot
@@ -336,8 +355,6 @@ contains
     real(kind=realType) :: dummyReal, dummyReald
 
     fSize = size(forcesDot, 2)
-   !  allocate(forces(3, fSize, nTimeIntervalsSpectral))
-   !  allocate(heatfluxes(1, fsize, nTimeIntervalsSpectral))
     allocate(funcValues, mold=funcValuesd)
     allocate(forces, mold=forcesDot)
     allocate(heatfluxes, mold=heatfluxesDot)
@@ -418,6 +435,11 @@ contains
           call setBCData_d(sps, BCArrays, BCArraysDot, BCVarNames, patchLoc, nBCVars)
        end do
        call setBCDataFineGrid_d(.true.)
+    end if
+
+    if (present(actArray)) then
+    call setActuatorData_d(actArray, actArrayDot, actVarNames, actFamLists, &
+                size(actArray,1), size(actFamLists,2))
     end if
 
     do sps=1,nTimeIntervalsSpectral
@@ -590,7 +612,8 @@ contains
 
  subroutine master_b(wbar, xbar, extraBar, forcesBar, heatfluxBar, dwBar, nState, famLists, &
        funcValues, funcValuesd, &
-      BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars)
+      BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars, &
+      actArray, actArrayBar, actVarNames, actFamLists)
 
     ! This is the main reverse mode differentiaion of master. It
     ! compute the reverse mode sensitivity of *all* outputs with
@@ -642,6 +665,9 @@ contains
     use oversetCommUtilities, only : updateOversetConnectivity_b
     use BCRoutines, only : applyAllBC_block
     use actuatorRegionData, only : nActuatorRegions
+    use actuatorRegion, only : setActuatorData_b
+
+
 #include <petsc/finclude/petsc.h>
     use petsc
     implicit none
@@ -654,7 +680,7 @@ contains
     real(kind=realType), optional, dimension(:, :) :: funcValues, funcValuesd
 
 
-    real(kind=realType), dimension(:,:), intent(in) :: BCArraysBar
+    real(kind=realType), dimension(:,:), intent(out) :: BCArraysBar
 
 
     ! Boundary Condition data 
@@ -663,6 +689,15 @@ contains
     integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
       
+
+
+    ! Actuator data 
+    real(kind=realType), optional, dimension(:), intent(in) :: actArray
+    real(kind=realType), optional, dimension(:), intent(inout) :: actArrayBar
+    character, optional, dimension(:,:), intent(in) :: actVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: actFamLists
+
+
     ! Output Arguments:
     real(kind=realType), optional, intent(out), dimension(:) :: wBar, xBar, extraBar
 
@@ -945,6 +980,10 @@ contains
        deallocate(bcDataValuesdLocal)
     end if
 
+    if (present(actArray)) then
+      call setActuatorData_b(actArray, actArrayBar, actVarNames, actFamLists, &
+                  size(actArray,1), size(actFamLists,2))
+    end if
 
     call referenceState_b
     call adjustInflowAngle_b

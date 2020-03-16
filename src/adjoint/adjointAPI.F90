@@ -2,9 +2,10 @@ module adjointAPI
 
 contains
 #ifndef USE_COMPLEX
-  subroutine computeMatrixFreeProductFwd(xvdot, extradot, wdot, BCArraysDot,&
+  subroutine computeMatrixFreeProductFwd(xvdot, extradot, wdot, BCArraysDot,actArrayDot, &
        useSpatial, useState, famLists,&
        BCArrays,  BCVarNames, patchLoc, nBCVars, &
+       actArray,  actVarNames, actFamlists, &
        dwdot, funcsDot, fDot, hfdot, &
        costSize, fSize, nTime)
 
@@ -28,6 +29,7 @@ contains
     real(kind=realType), dimension(:), intent(in) :: extradot
     real(kind=realType), dimension(:), intent(in) :: wdot
     real(kind=realType), dimension(:,:), intent(in) :: BCArraysDot
+    real(kind=realType), dimension(:), intent(in) :: actArrayDot
 
     logical, intent(in) :: useSpatial, useState
     integer(kind=intType), dimension(:, :) :: famLists
@@ -40,6 +42,11 @@ contains
     integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), dimension(:), intent(in) :: nBCVars
       
+    ! actuator data 
+    real(kind=realType), dimension(:), intent(inout) :: actArray
+    character, dimension(:,:), intent(in) :: actVarNames
+    integer(kind=intType), dimension(:, :), intent(in) :: actFamLists
+
 
     ! Ouput Variables
     real(kind=realType), dimension(size(wdot)), intent(out) :: dwDot
@@ -87,27 +94,20 @@ contains
     pointrefd(3) = extraDot(iPointRefZ)
     rgasdimd = zero
 
-   !  ! Run the super-dee-duper master forward rotuine
-   ! if (bcVarsEmpty) then
-   !    call master_d(wDot, xVDot, fDot, hfDot, dwDot, famLists, funcs, funcsDot)
-   ! else
-   !    call master_d(wDot, xVDot, fDot, hfDot, dwDot, &
-   !         famLists, funcs, funcsDot, bcDataNames, bcDataValues, bcDataValuesdot, bcDataFamLists)
-   !  end if
-
-
 
    call master_d(xVDot, wDot, &
                  fDot, hfDot, dwDot,  &
                  famLists, funcsDot,&
                  BCArraysDot, & 
-                 BCArrays,  BCVarNames, patchLoc, nBCVars)
+                 BCArrays,  BCVarNames, patchLoc, nBCVars, &
+                 actArrayDot, actArray, actVarNames, actFamLists)
 
   end subroutine computeMatrixFreeProductFwd
 
   subroutine computeMatrixFreeProductBwd(dwbar, funcsBar, fbar, hfbar,useSpatial, useState, xvbar, &
        extrabar, wbar, spatialSize, extraSize, stateSize, famLists, &
-       BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars)
+       BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars,&
+       actArray,  actArrayBar,  actVarNames, actFamlists)
     use constants
     use communication, only : adflow_comm_world
     use blockPointers, only : nDom, dwd, il, jl, kl
@@ -141,6 +141,14 @@ contains
     integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), dimension(:), intent(in) :: nBCVars
       
+
+
+    ! Actuator data 
+    real(kind=realType), optional, dimension(:), intent(in) :: actArray
+    real(kind=realType), optional, dimension(:), intent(out) :: actArrayBar
+    character, optional, dimension(:,:), intent(in) :: actVarNames
+    integer(kind=intType), optional, dimension(:, :), intent(in) :: actFamLists
+
 
     ! Ouput Variables
     real(kind=realType), dimension(stateSize), intent(out) :: wbar
@@ -186,20 +194,9 @@ contains
 
     call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
             funcs, funcsBar, &
-            BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars)
+            BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars, &
+            actArray, actArrayBar, actVarNames, actFamLists)
   
-   !  if (bcVarsEmpty) then
-   !     call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
-   !          funcs, funcsBar)
-   !  else
-   !     write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
-   !    !  write(*,*) bcDataValuesbar
-   !     call master_b(wbar, xvbar, extraBar, fBar, hfbar, dwbar, nState, famLists, &
-   !          funcs, funcsBar, bcDataNames, bcDataValues, bcDataValuesbar, bcDataFamLists)
-   !    ! write(*,*) 'master bcDataValuesbar', shape(bcDataValuesbar)
-   !    ! write(*,*) bcDataValuesbar
-
-   !  end if
 
     ! Reset the correct equation parameters if we were useing the frozen
     ! Turbulent
@@ -271,12 +268,8 @@ contains
           call zeroADSeeds(nn,level, sps)
        end do
     end do
-    ! allocate(xvbar(1000000), extraBar(100), fBar(3, 1466, 1))
-    ! extraBar = zero
-    ! xvbar = zero
-    ! fbar = zero
+
     call master_state_b(wBar, dwBar, nState)
-    !call master_b(wbar, xvbar, extraBar, fBar, dwBar, nstate)
 
     ! Reset the correct equation parameters if we are using the frozen
     ! Turbulent
