@@ -522,6 +522,16 @@ python module libadflow
          subroutine writeactuatorregions(filename)
            character*(*) intent(in) :: filename
          end subroutine writeactuatorregions
+
+
+
+          subroutine setactuatordata(datavec, datavarnames, famlists,  nvar, nfammax)
+            real(kind=realtype), dimension(:), intent(in) :: datavec
+            character, dimension(:, :), intent(in) :: datavarnames
+            integer(kind=inttype), dimension(:, :), intent(in) :: famlists
+            integer(kind=inttype), optional,intent(in),depend(datavec) :: nvar=shape(datavec,0)
+            integer(kind=inttype), optional,intent(in),depend(famlists) :: nfammax=shape(famlists,1)
+           end subroutine setactuatordata
        end module actuatorregion
 
        module solvers
@@ -672,15 +682,18 @@ python module libadflow
          end subroutine createpetscvars
 
 #ifndef USE_COMPLEX
-            subroutine computematrixfreeproductfwd(xvdot, extradot, wdot, bcarraysdot,&
+            subroutine computematrixfreeproductfwd(xvdot, extradot, wdot, bcarraysdot, actarraydot, &
                                                    usespatial, usestate, famlists,&
                                                    bcarrays,  bcvarnames, patchloc, nbcvars, &
+                                                   actarray, actvarnames, actfamlists, &
                                                    dwdot, funcsdot, fdot, hfdot, &
                                                    costsize, fsize, ntime) ! in :test:adjointapi.f90:adjointapi
+                
                 real(kind=realtype) dimension(:),intent(in) :: xvdot
                 real(kind=realtype) dimension(:),intent(in) :: extradot
                 real(kind=realtype) dimension(:),intent(in) :: wdot
                 real(kind=realtype),  dimension(:,:), intent(in) :: bcarraysdot
+                real(kind=realtype) dimension(:), intent(in) :: actarraydot
                 
                 logical intent(in) :: usespatial
                 logical intent(in) :: usestate
@@ -690,6 +703,13 @@ python module libadflow
                 character,  dimension(:,:), intent(in) :: bcvarnames
                 integer(kind=inttype),  dimension(:, :), intent(in) :: patchloc
                 integer(kind=inttype),  dimension(:), intent(in) :: nbcvars
+
+                ! actuator data 
+                real(kind=realtype)  dimension(:), intent(inout) :: actarray
+                character  dimension(:,:), intent(in) :: actvarnames
+                integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
+
+
 
                 real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
                 real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
@@ -702,7 +722,9 @@ python module libadflow
 
            subroutine computematrixfreeproductbwd(dwbar,funcsbar,fbar,hfbar,&
                   usespatial,usestate,xvbar,extrabar,wbar,spatialsize,extrasize,statesize,famlists, &
-                        bcarrays,  bcvarnames, bcarraysbar, patchloc, nbcvars) ! in :test:adjointapi.f90:adjointapi
+                        bcarrays,  bcvarnames, bcarraysbar, patchloc, nbcvars, &
+                        actarray, actarraybar, actvarnames, actfamlists)
+                        ! in :test:adjointapi.f90:adjointapi
                 real(kind=realtype) dimension(:),intent(in) :: dwbar
                 real(kind=realtype) dimension(:,:),intent(in) :: funcsbar
                 real(kind=realtype) dimension(:,:,:) :: fbar
@@ -721,6 +743,13 @@ python module libadflow
                 character, dimension(:,:), intent(in) :: bcvarnames
                 integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
                 integer(kind=inttype), dimension(:), intent(in) :: nbcvars
+
+                real(kind=realtype)  dimension(:), intent(inout) :: actarray
+                real(kind=realtype) dimension(size(actarray,1)), intent(out) :: actarraybar
+                character  dimension(:,:), intent(in) :: actvarnames
+                integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
+
+
                 integer(kind=inttype) dimension(:) :: bcdatafamlists
                 logical intent(in) :: bcvarsempty
             end subroutine computematrixfreeproductbwd
@@ -737,14 +766,17 @@ python module libadflow
        end module adjointutils
        module adjointdebug
 #ifndef USE_COMPLEX
-        subroutine computematrixfreeproductfwdfd(xvdot,extradot,wdot,bcarraysdot,&
+        subroutine computematrixfreeproductfwdfd(xvdot,extradot,wdot,bcarraysdot, actarraydot, &
                                                  usespatial,usestate,famlists,&
                                                  bcarrays,  bcvarnames, patchloc, nbcvars, &
+                                                 actarray, actvarnames, actfamlists, &
                                                  dwdot,funcsdot,fdot,hfdot,costsize,fsize,ntime,h)
+
           real(kind=realtype) dimension(:),intent(in) :: xvdot
           real(kind=realtype) dimension(:),intent(in) :: extradot
           real(kind=realtype) dimension(:),intent(in) :: wdot
           real(kind=realtype) dimension(:,:),intent(in) :: bcarraysdot
+          real(kind=realtype) dimension(:), intent(in) :: actarraydot
           ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
           logical intent(in) :: usespatial
           logical intent(in) :: usestate
@@ -754,6 +786,11 @@ python module libadflow
           character, dimension(:,:), intent(in) :: bcvarnames
           integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
           integer(kind=inttype), dimension(:), intent(in) :: nbcvars   
+
+          ! actuator data 
+          real(kind=realtype)  dimension(:), intent(inout) :: actarray
+          character  dimension(:,:), intent(in) :: actvarnames
+          integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
 
           real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
           real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
@@ -799,16 +836,18 @@ python module libadflow
 
 #else
       ! the types in this routine will get complexified 
-      subroutine computematrixfreeproductfwdcs(xvdot, extradot, wdot, bcarraysdot,&
+      subroutine computematrixfreeproductfwdcs(xvdot, extradot, wdot, bcarraysdot, actarraydot,&
                                                usespatial, usestate, famlists,&
                                                bcarrays,  bcvarnames, patchloc, nbcvars, &
+                                               actarray, actvarnames, actfamlists, &
                                                dwdot, funcsdot, fdot, hfdot, &
                                                costsize, fsize, ntime)
         real(kind=realtype) dimension(:),intent(in) :: xvdot
         real(kind=realtype) dimension(:),intent(in) :: extradot
         real(kind=realtype) dimension(:),intent(in) :: wdot
         real(kind=realtype) dimension(:,:),intent(in) :: bcarraysdot
-        
+        real(kind=realtype) dimension(:), intent(in) :: actarraydot
+       
         ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
         logical intent(in) :: usespatial
         logical intent(in) :: usestate
@@ -817,6 +856,13 @@ python module libadflow
         character, dimension(:,:), intent(in) :: bcvarnames
         integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
         integer(kind=inttype), dimension(:), intent(in) :: nbcvars  
+
+        ! actuator data 
+        real(kind=realtype)  dimension(:), intent(inout) :: actarray
+        character  dimension(:,:), intent(in) :: actvarnames
+        integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
+
+
         real(kind=realtype) dimension(size(wdot)),intent(out),depend(wdot) :: dwdot
         real(kind=realtype) dimension(costsize, size(famlists,1)),intent(out),depend(famlists,costsize) :: funcsdot
         real(kind=realtype) dimension(3,fsize,ntime),intent(out),depend(fsize,ntime) :: fdot
