@@ -142,14 +142,14 @@ contains
 
              massFlowRateLocal = rhom*vnm*mReDim
              massFlowRate = massFlowRate + massFlowRateLocal
- 
+
              pm = pm*pRef
- 
+
              mass_Ptot = mass_pTot + Ptot * massFlowRateLocal * Pref
              mass_Ttot = mass_Ttot + Ttot * massFlowRateLocal * Tref
              mass_rho  = mass_rho + rhom * massFlowRateLocal * rhoRef
              mass_a  = mass_a + am * massFlowRateLocal * uRef
- 
+
              mass_Ps = mass_Ps + pm*massFlowRateLocal
              mass_MN = mass_MN + MNm*massFlowRateLocal
 
@@ -159,16 +159,16 @@ contains
              sFaceCoordRef(1) = sF * ss(1)*overCellArea
              sFaceCoordRef(2) = sF * ss(2)*overCellArea
              sFaceCoordRef(3) = sF * ss(3)*overCellArea
- 
+
              mass_Vx = mass_Vx + (vxm*uRef - sFaceCoordRef(1)) *massFlowRateLocal
              mass_Vy = mass_Vy + (vym*uRef - sFaceCoordRef(2)) *massFlowRateLocal
              mass_Vz = mass_Vz + (vzm*uRef - sFaceCoordRef(3)) *massFlowRateLocal
- 
+
              mass_nx = mass_nx + ss(1)*overCellArea * massFlowRateLocal
              mass_ny = mass_ny + ss(2)*overCellArea * massFlowRateLocal
              mass_nz = mass_nz + ss(3)*overCellArea * massFlowRateLocal
- 
- 
+
+
              ! Compute the average cell center.
              xc = zero
              yc = zero
@@ -178,66 +178,66 @@ contains
                 yc = yc + (vars(conn(2, i), iZippFlowY))
                 zc = zc + (vars(conn(3, i), iZippFlowZ))
              end do
- 
+
              ! Finish average for cell center
              xc = third*xc
              yc = third*yc
              zc = third*zc
- 
+
              xc = xc - refPoint(1)
              yc = yc - refPoint(2)
              zc = zc - refPoint(3)
- 
+
              pm = -(pm-pInf*pRef)
              fx = pm*ss(1)
              fy = pm*ss(2)
              fz = pm*ss(3)
- 
+
              ! Update the pressure force and moment coefficients.
              Fp(1) = Fp(1) + fx
              Fp(2) = Fp(2) + fy
              Fp(3) = Fp(3) + fz
- 
+
              mx = yc*fz - zc*fy
              my = zc*fx - xc*fz
              mz = xc*fy - yc*fx
- 
+
              Mp(1) = Mp(1) + mx
              Mp(2) = Mp(2) + my
              Mp(3) = Mp(3) + mz
- 
+
              ! Momentum forces
- 
+
              ! Get unit normal vector.
              ss = ss/cellArea
              massFlowRateLocal = massFlowRateLocal/timeRef*internalFlowFact*inflowFact
- 
+
              fx = massFlowRateLocal*ss(1) * vxm
              fy = massFlowRateLocal*ss(2) * vym
              fz = massFlowRateLocal*ss(3) * vzm
- 
+
              FMom(1) = FMom(1) - fx
              FMom(2) = FMom(2) - fy
              FMom(3) = FMom(3) - fz
- 
+
              mx = yc*fz - zc*fy
              my = zc*fx - xc*fz
              mz = xc*fy - yc*fx
- 
+
              MMom(1) = MMom(1) + mx
              MMom(2) = MMom(2) + my
              MMom(3) = MMom(3) + mz
           end if validTrianlge
        end if
     enddo
-  
+
     ! Increment the local values array with what we computed here
     localValues(iMassFlow) = localValues(iMassFlow) + massFlowRate
     localValues(iArea) = localValues(iArea) + area
     localValues(iMassRho) = localValues(iMassRho) + mass_rho
     localValues(iMassa) = localValues(iMassa) + mass_a
     localValues(iMassPtot) = localValues(iMassPtot) + mass_Ptot
-    localValues(iMassTtot) = localValues(iMassTtot) + mass_Ttot 
+    localValues(iMassTtot) = localValues(iMassTtot) + mass_Ttot
     localValues(iMassPs)   = localValues(iMassPs)   + mass_Ps
     localValues(iMassMN)   = localValues(iMassMN)   + mass_MN
     localValues(iFp:iFp+2)   = localValues(iFp:iFp+2) + Fp
