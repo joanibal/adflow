@@ -103,7 +103,6 @@ class ADFLOW(AeroSolver):
         String type for float: 'd' or 'D'. Not needed to be uset by user.
         """
     def __init__(self, comm=None, options=None, debug=False, dtype='d'):
-
         startInitTime = time.time()
 
         # --------------------- Set adflow Module ------------------------------
@@ -2948,6 +2947,7 @@ class ADFLOW(AeroSolver):
 
         if not firstCall:
             # get any possible BC Data coming out of the aeroProblem
+
             BCData = AP.getBCData()
             self.setBCData(BCData)
 
@@ -2989,16 +2989,17 @@ class ADFLOW(AeroSolver):
                         self.getPatchData(groupName=family)
 
             # BCAllPatchData = PatchData[PatchData[:,:,-1] > 0]
-            BCDataArrays, BCDataVarNames, BCDataArrSizes = \
-            self.adflow.bcdata.getbcdata(TS+1, patchLoc, patchNumBCVar, patchNumNodes,\
-                                        numpy.sum(patchNumBCVar), numpy.max(patchNumNodes)) 
+            if patchNumNodes.size != 0:
+                BCDataArrays, BCDataVarNames, BCDataArrSizes = \
+                self.adflow.bcdata.getbcdata(TS+1, patchLoc, patchNumBCVar, patchNumNodes,\
+                                            numpy.sum(patchNumBCVar), numpy.max(patchNumNodes)) 
 
-            patchLocArray = numpy.zeros((0,2), dtype=numpy.intc)
-            for idx_patch in range(len(patchLoc)):
-                for _ in range(patchNumBCVar[idx_patch]):
-                    patchLocArray = numpy.vstack((patchLocArray, patchLoc[idx_patch]))
-            
-            BCData.update(self._convertFortBCDataToBCData(BCDataArrays, BCDataVarNames, BCDataArrSizes, patchLoc, patchNumBCVar, [family]*len(patchLoc)))
+                patchLocArray = numpy.zeros((0,2), dtype=numpy.intc)
+                for idx_patch in range(len(patchLoc)):
+                    for _ in range(patchNumBCVar[idx_patch]):
+                        patchLocArray = numpy.vstack((patchLocArray, patchLoc[idx_patch]))
+                
+                BCData.update(self._convertFortBCDataToBCData(BCDataArrays, BCDataVarNames, BCDataArrSizes, patchLoc, patchNumBCVar, [family]*len(patchLoc)))
 
 
         return BCData

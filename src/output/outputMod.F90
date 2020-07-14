@@ -935,7 +935,7 @@ contains
        do k=kBeg,kEnd
           do j=jBeg,jEnd
              do i=iBeg,iEnd
-                wIO(i,j,k,1) = p(i,j,k)/(RGas*w(i,j,k,irho))
+                wIO(i,j,k,1) = p(i,j,k)/(RGas*w(i,j,k,irho))*Tref 
              enddo
           enddo
        enddo
@@ -2037,7 +2037,6 @@ contains
   
          !        ================================================================
       case (cgnsHeatTransferCoef)
-
          ! Some constants needed to compute the stanton number.
   
          fact = pRef*sqrt(pRef/rhoRef)
