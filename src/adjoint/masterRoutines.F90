@@ -311,20 +311,12 @@ contains
     use oversetData, only : oversetPresent
     use inputOverset, only : oversetUpdateMode
     use oversetCommUtilities, only : updateOversetConnectivity_d
-    use actuatorRegionData, only : nActuatorRegions
     use actuatorRegion, only : setActuatorData_d
-
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
+    use actuatorRegionData, only : nActuatorRegions
 #include <petsc/finclude/petsc.h>
-  use petsc
-  implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
+    use petsc
+    implicit none
+
     ! Input Arguments:
     ! input derivative seeds
     real(kind=realType), intent(in), dimension(:) :: wDot, xDot
@@ -675,17 +667,9 @@ contains
     use actuatorRegionData, only : nActuatorRegions
     use actuatorRegion, only : setActuatorData_b
 
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
-    use petsc, only : add_values, scatter_reverse
-  implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
+    use petsc
+    implicit none
 
     ! Input variables:
     real(kind=realType), intent(in), dimension(:) :: dwBar

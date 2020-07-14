@@ -9,17 +9,9 @@ subroutine getForces(forces, npts, sps)
   use surfaceFamilies, only : fullfamList
   use oversetData, only : zipperMeshes, zipperMesh, oversetPresent
   use surfaceFamilies, only : familyExchange, BCFamExchange
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
   integer(kind=intType), intent(in) :: npts, sps
   real(kind=realType), intent(inout) :: forces(3,npts)
 
@@ -143,17 +135,9 @@ subroutine getForces_d(forces, forcesd, npts, sps)
   use utils, only : setPointers, setPointers_d, EChk, terminate
   use oversetData, only : zipperMeshes, zipperMesh, oversetPresent
   use surfaceFamilies, only : familyExchange, BCFamExchange
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
   integer(kind=intType), intent(in) :: npts, sps
   real(kind=realType), intent(out), dimension(3, npts) :: forces, forcesd
   integer(kind=intType) :: mm, nn, i, j, ii, jj, iDim, ierr
@@ -265,17 +249,9 @@ subroutine getForces_b(forcesd, npts, sps)
   use utils, only : EChk, setPointers, setPointers_d
   use oversetData, only : zipperMeshes, zipperMesh, oversetPresent
   use surfaceFamilies, only : familyExchange, BCFamExchange
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
   integer(kind=intType), intent(in) :: npts, sps
   real(kind=realType), intent(inout) :: forcesd(3, npts)
   integer(kind=intType) :: mm, nn, i, j, ii, iDim, ierr
@@ -387,17 +363,9 @@ subroutine surfaceCellCenterToNode(exch)
   use surfaceFamilies, only : familyExchange
   use utils, only : setPointers, EChk
   use sorting, only : famInList
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
 
   type(familyExchange) :: exch
   integer(kind=intType) ::  sps
@@ -917,17 +885,9 @@ subroutine computeWeighting(exch)
   use surfaceFamilies, only : familyExchange
   use utils, only : setPointers, EChk
   use sorting, only : famInList
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
   type(familyExchange) :: exch
   integer(kind=intType) ::  sps
   integer(kind=intType) :: mm, nn, i, j, ii, jj, iDim, ierr
@@ -1361,17 +1321,9 @@ subroutine computeNodalTractions_b(sps)
    use surfaceFamilies, only: BCFamExchange, familyExchange
    use communication
    use utils, only : EChk, setPointers, setPointers_d, setPointers_b, isWallType
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
    use petsc
    implicit none
-#else
-   implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
 
    integer(kind=intType), intent(in) :: sps
    integer(kind=intType) :: mm, nn, iDim, ierr
@@ -1503,26 +1455,8 @@ subroutine computeNodalForces_d(sps)
         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
 
-        if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
-             BCType(mm) == NSWallIsothermal) then
-           BCDatad(mm)%F = zero
-           do j=jBeg, jEnd
-              do i=iBeg, iEnd
-                 qfd = fourth*(BCDatad(mm)%Fp(i,j,:) + BCDatad(mm)%Fv(i,j,:))
-                 BCDatad(mm)%F(i  , j,   :) = BCDatad(mm)%F(i  , j,   :) + qfd
-                 BCDatad(mm)%F(i-1, j,   :) = BCDatad(mm)%F(i-1, j  , :) + qfd
-                 BCDatad(mm)%F(i  , j-1, :) = BCDatad(mm)%F(i  , j-1, :) + qfd
-                 BCDatad(mm)%F(i-1, j-1, :) = BCDatad(mm)%F(i-1, j-1, :) + qfd
-              end do
-           end do
-        end if
-     end do
-  end do
-end subroutine computeNodalForces_d
-
-subroutine computeNodalForces_b(sps)
-
-  ! Reverse mode linearization of nodalForces
+subroutine getHeatFluxCellCenter(hflux, npts, sps)
+   !TODO implement this subroutine 
 
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
@@ -1619,7 +1553,6 @@ subroutine getHeatFlux(hflux, npts, sps)
      end do
   end do
 
-  call surfaceCellCenterToNode(exch)
 
   ! Now extract into the flat array:
   ii = 0
@@ -1631,17 +1564,17 @@ subroutine getHeatFlux(hflux, npts, sps)
      ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
      do mm=1,nBocos
         bocoType3: if (BCType(mm) == NSWallIsoThermal) then
-           do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-              do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
+              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
                  ii = ii + 1
-                 hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
+                 hflux(ii) = BCData(mm)%cellHeatFlux(i, j)
               end do
            end do
 
          ! Simply put in zeros for the other wall BCs
         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-           do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-              do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
+              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
                  ii = ii + 1
                  hflux(ii) = zero
               end do
@@ -1649,7 +1582,6 @@ subroutine getHeatFlux(hflux, npts, sps)
         end if bocoType3
      end do
   end do
-end subroutine getHeatFlux
 
 subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
    ! forward mode differenitaion of getHeatFlux

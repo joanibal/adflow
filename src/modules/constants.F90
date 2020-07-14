@@ -5,11 +5,8 @@ module constants
 
   use precision
 #ifndef USE_TAPENADE
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
-#endif
 #endif
   implicit none
   save
@@ -435,7 +432,6 @@ module constants
        costfuncaavgps   = 88, &
        costFuncHeatFlux = 89, &
        costFuncHeatTransferCoef = 90
-
 
   integer(kind=intType), parameter :: nLocalValues=52
   integer(kind=intType), parameter :: &

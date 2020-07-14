@@ -628,6 +628,7 @@ end subroutine applyAllBC
 
        t2 = pp2(i,j)/(RGas*ww2(i,j,irho))
        t1 = two*bcData(nn)%TNS_Wall(i,j) - t2
+       
 
        ! Make sure that t1 is within reasonable bounds. These
        ! bounds are such that the clipping is never active in the

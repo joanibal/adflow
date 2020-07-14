@@ -3,17 +3,9 @@ module NKSolver
   use constants
 
   ! MPI comes from constants, so we need to avoid MPIF_H in PETSc
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
 
   ! PETSc Matrices:
   ! dRdw: This is the actual matrix-free matrix computed with FD
@@ -1612,17 +1604,9 @@ end module NKSolver
 module ANKSolver
 
   use constants
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
 #include <petsc/finclude/petsc.h>
   use petsc
   implicit none
-#else
-  implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
 
   Mat  dRdw, dRdwPre
   Vec wVec, rVec, deltaW, baseRes
@@ -3063,11 +3047,11 @@ contains
     ! operations.
 
     ! wVec contains the state vector
-    call VecGetArrayReadF90(wVec,wvec_pointer,ierr)
+    call VecGetArrayF90(wVec,wvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     ! deltaW contains the full update
-    call VecGetArrayReadF90(deltaW,dvec_pointer,ierr)
+    call VecGetArrayF90(deltaW,dvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     if(.not. ANK_coupled) then
@@ -3162,10 +3146,10 @@ contains
 
     ! Restore the pointers to PETSc vectors
 
-    call VecRestoreArrayReadF90(wVec,wvec_pointer,ierr)
+    call VecRestoreArrayF90(wVec,wvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
-    call VecRestoreArrayReadF90(deltaW,dvec_pointer,ierr)
+    call VecRestoreArrayF90(deltaW,dvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     ! Make sure that we did not get any NaN's in the process
@@ -3213,11 +3197,11 @@ contains
     ! operations.
 
     ! wVec contains the state vector
-    call VecGetArrayReadF90(wVecTurb,wvec_pointer,ierr)
+    call VecGetArrayF90(wVecTurb,wvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     ! deltaW contains the full update
-    call VecGetArrayReadF90(deltaWTurb,dvec_pointer,ierr)
+    call VecGetArrayF90(deltaWTurb,dvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     ii = 1
@@ -3271,10 +3255,10 @@ contains
 
     ! Restore the pointers to PETSc vectors
 
-    call VecRestoreArrayReadF90(wVecTurb,wvec_pointer,ierr)
+    call VecRestoreArrayF90(wVecTurb,wvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
-    call VecRestoreArrayReadF90(deltaWTurb,dvec_pointer,ierr)
+    call VecRestoreArrayF90(deltaWTurb,dvec_pointer,ierr)
     call EChk(ierr,__FILE__,__LINE__)
 
     ! Make sure that we did not get any NaN's in the process
