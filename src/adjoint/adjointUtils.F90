@@ -59,7 +59,7 @@ contains
     integer(kind=intType) :: ierr, nn, sps, sps2, i, j, k, l, ll, ii, jj, kk
     integer(kind=intType) :: nColor, iColor, jColor, irow, icol, fmDim, frow
     integer(kind=intType) :: nTransfer, nState, lStart, lEnd, tmp, icount, cols(8), nCol
-    integer(kind=intType) :: n_stencil, i_stencil, m, iFringe, fInd, lvl
+    integer(kind=intType) :: n_stencil, i_stencil, m, iFringe, fInd, lvl, orderturbsave
     integer(kind=intType), dimension(:, :), pointer :: stencil
     real(kind=alwaysRealType) :: delta_x, one_over_dx
     real(kind=realType) :: weights(8)
@@ -67,7 +67,7 @@ contains
     integer(kind=intType), dimension(2:10) :: coarseRows
     integer(kind=intType), dimension(8, 2:10) :: coarseCols
     integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, mm, colInd
-    logical :: resetToRANS, secondOrdSave, turbOnly, flowRes, turbRes, buildCoarseMats
+    logical :: resetToRANS, turbOnly, flowRes, turbRes, buildCoarseMats
 
     ! Determine if we are assembling a turb only PC
     turbOnly = .False.
@@ -179,8 +179,9 @@ contains
 
        ! Very important to use only Second-Order dissipation for PC
        lumpedDiss=.True.
-       secondOrdSave = secondOrd
-       secondOrd = .False.
+       ! also use first order advection terms for turbulence
+       orderturbsave = orderturb
+       orderturb = firstOrder
     else
        if (viscous) then
           stencil => visc_drdw_stencil
@@ -559,7 +560,8 @@ contains
     ! Return dissipation Parameters to normal -> VERY VERY IMPORTANT
     if (usePC) then
        lumpedDiss = .False.
-       secondOrd = secondOrdSave
+       ! also recover the turbulence advection order
+       orderturb = orderturbsave
     end if
 
     ! Reset the correct equation parameters if we were useing the frozen
