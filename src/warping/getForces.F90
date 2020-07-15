@@ -1455,8 +1455,25 @@ subroutine computeNodalForces_d(sps)
         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
 
-subroutine getHeatFluxCellCenter(hflux, npts, sps)
-   !TODO implement this subroutine 
+        if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
+             BCType(mm) == NSWallIsothermal) then
+           BCDatad(mm)%F = zero
+           do j=jBeg, jEnd
+              do i=iBeg, iEnd
+                 qfd = fourth*(BCDatad(mm)%Fp(i,j,:) + BCDatad(mm)%Fv(i,j,:))
+                 BCDatad(mm)%F(i  , j,   :) = BCDatad(mm)%F(i  , j,   :) + qfd
+                 BCDatad(mm)%F(i-1, j,   :) = BCDatad(mm)%F(i-1, j  , :) + qfd
+                 BCDatad(mm)%F(i  , j-1, :) = BCDatad(mm)%F(i  , j-1, :) + qfd
+                 BCDatad(mm)%F(i-1, j-1, :) = BCDatad(mm)%F(i-1, j-1, :) + qfd
+              end do
+           end do
+        end if
+     end do
+  end do
+end subroutine computeNodalForces_d
+
+subroutine computeNodalForces_b(sps)
+
 
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
@@ -1582,6 +1599,7 @@ subroutine getHeatFlux(hflux, npts, sps)
         end if bocoType3
      end do
   end do
+end subroutine getHeatFlux
 
 subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
    ! forward mode differenitaion of getHeatFlux
