@@ -115,7 +115,7 @@ contains
        funcValues(costFuncCpError2) = funcValues(costFuncCpError2) + ovrNTS*globalVals(iCpError2,sps)
 
        ! heat transfer cost functions
-       funcValues(costFuncHeatFlux) = funcValues(costFuncHeatFlux) + ovrNTS*globalVals(iHeatFlux,sps)
+       funcValues(costFuncHeatFlux) = funcValues(costFuncHeatFlux) + ovrNTS*globalVals(iTotHeatTransfer,sps)
 
        ! if it is  0/0  set the havg to 0 to avoid NAN
        if (globalVals(iHeatTransferCoef,sps) == 0 )then
@@ -719,7 +719,7 @@ contains
      localValues(iSepAvg:iSepAvg+2) = localValues(iSepAvg:iSepAvg+2) + sepSensorAvg
      localValues(iAxisMoment) = localValues(iAxisMoment) + Mpaxis + Mvaxis
      localValues(iCpError2) = localValues(iCpError2) + CpError2
-     localValues(iHeatFlux) = localValues(iHeatFlux) + Q
+     localValues(iTotHeatTransferCoef) = localValues(iTotHeatTransferCoef) + Q
      localValues(iHeatTransferCoef) = localValues(iHeatTransferCoef) + hAvg
      localValues(iHeatedArea) = localValues(iHeatedArea) + areaHeated
 

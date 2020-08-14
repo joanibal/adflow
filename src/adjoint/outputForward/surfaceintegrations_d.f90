@@ -254,9 +254,9 @@ contains
 &       ovrnts*globalvals(icperror2, sps)
 ! heat transfer cost functions
       funcvaluesd(costfuncheatflux) = funcvaluesd(costfuncheatflux) + &
-&       ovrnts*globalvalsd(iheatflux, sps)
+&       ovrnts*globalvalsd(itotheattransfer, sps)
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
-&       ovrnts*globalvals(iheatflux, sps)
+&       ovrnts*globalvals(itotheattransfer, sps)
 ! if it is  0/0  set the havg to 0 to avoid nan
       if (globalvals(iheattransfercoef, sps) .eq. 0) then
         havg = 0
@@ -694,7 +694,7 @@ contains
 &       ovrnts*globalvals(icperror2, sps)
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
-&       ovrnts*globalvals(iheatflux, sps)
+&       ovrnts*globalvals(itotheattransfer, sps)
 ! if it is  0/0  set the havg to 0 to avoid nan
       if (globalvals(iheattransfercoef, sps) .eq. 0) then
         havg = 0
@@ -912,6 +912,7 @@ contains
     real(kind=realtype) :: arg1d
     real(kind=realtype) :: result1
     real(kind=realtype) :: result1d
+    type(unknowntype) :: itotheattransfercoef
     select case  (bcfaceid(mm)) 
     case (imin, jmin, kmin) 
       fact = -one
@@ -1414,8 +1415,10 @@ contains
 &     mvaxis
     localvaluesd(icperror2) = localvaluesd(icperror2) + cperror2d
     localvalues(icperror2) = localvalues(icperror2) + cperror2
-    localvaluesd(iheatflux) = localvaluesd(iheatflux) + qd
-    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvaluesd(itotheattransfercoef) = localvaluesd(&
+&     itotheattransfercoef) + qd
+    localvalues(itotheattransfercoef) = localvalues(itotheattransfercoef&
+&     ) + q
     localvaluesd(iheattransfercoef) = localvaluesd(iheattransfercoef) + &
 &     havgd
     localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
@@ -1470,6 +1473,7 @@ contains
     intrinsic exp
     real(kind=realtype) :: arg1
     real(kind=realtype) :: result1
+    type(unknowntype) :: itotheattransfercoef
     select case  (bcfaceid(mm)) 
     case (imin, jmin, kmin) 
       fact = -one
@@ -1783,7 +1787,8 @@ contains
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
     localvalues(icperror2) = localvalues(icperror2) + cperror2
-    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvalues(itotheattransfercoef) = localvalues(itotheattransfercoef&
+&     ) + q
     localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
 &     havg
     localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated

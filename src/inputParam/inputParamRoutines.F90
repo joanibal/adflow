@@ -298,7 +298,7 @@ contains
        case(cgnsAxisMoment)
           sortNumber(i) = 116
 
-       case(cgnsHeatFlux)
+       case(cgnsTotHeatTransfer)
           sortNumber(i) = 117
 
        case(cgnsStanton)
@@ -1609,9 +1609,9 @@ contains
           nMon = nMon + 1; nMonSum = nMonSum + 1
           tmpNames(nMon) = cgnsCavitation
 
-      case("heatflux")
+      case("totheattransfer")
          nMon = nMon + 1; nMonSum = nMonSum + 1
-         tmpNames(nMon) = cgnsHeatFlux
+         tmpNames(nMon) = cgnsTotHeatTransfer
 
       case("heattransfercoef")
          nMon = nMon + 1; nMonSum = nMonSum + 1

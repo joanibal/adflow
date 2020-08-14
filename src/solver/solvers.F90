@@ -1435,8 +1435,8 @@ contains
              case (cgnsAxisMoment)
                 monLoc(mm) = monLoc(mm) + localValues(iaxisMoment)
 
-             case (cgnsHeatFlux)
-                monLoc(mm) = monLoc(mm) + localValues(iheatFlux)
+             case (cgnsTotHeatTransfer)
+                monLoc(mm) = monLoc(mm) + localValues(iTotHeatTransfer)
 
              end select
 

@@ -199,7 +199,7 @@ contains
 &       ovrnts*globalvals(icperror2, sps)
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
-&       ovrnts*globalvals(iheatflux, sps)
+&       ovrnts*globalvals(itotheattransfer, sps)
 ! if it is  0/0  set the havg to 0 to avoid nan
       if (globalvals(iheattransfercoef, sps) .eq. 0) then
         havg = 0
@@ -687,8 +687,8 @@ contains
 &           - globalvals(iheattransfercoef, sps)*tempd0/globalvals(&
 &           iheatedarea, sps)
         end if
-        globalvalsd(iheatflux, sps) = globalvalsd(iheatflux, sps) + &
-&         ovrnts*funcvaluesd(costfuncheatflux)
+        globalvalsd(itotheattransfer, sps) = globalvalsd(&
+&         itotheattransfer, sps) + ovrnts*funcvaluesd(costfuncheatflux)
         globalvalsd(icperror2, sps) = globalvalsd(icperror2, sps) + &
 &         ovrnts*funcvaluesd(costfunccperror2)
         globalvalsd(ipower, sps) = globalvalsd(ipower, sps) + ovrnts*&
@@ -929,7 +929,7 @@ contains
 &       ovrnts*globalvals(icperror2, sps)
 ! heat transfer cost functions
       funcvalues(costfuncheatflux) = funcvalues(costfuncheatflux) + &
-&       ovrnts*globalvals(iheatflux, sps)
+&       ovrnts*globalvals(itotheattransfer, sps)
 ! if it is  0/0  set the havg to 0 to avoid nan
       if (globalvals(iheattransfercoef, sps) .eq. 0) then
         havg = 0
@@ -1185,6 +1185,7 @@ contains
     real(kind=realtype) :: tempd17
     real(kind=realtype) :: temp5
     real(kind=realtype) :: tempd16
+    type(unknowntype) :: itotheattransfercoef
     real(kind=realtype) :: temp4
     real(kind=realtype) :: tempd15
     select case  (bcfaceid(mm)) 
@@ -1363,7 +1364,7 @@ contains
     end if
     areaheatedd = localvaluesd(iheatedarea)
     havgd = localvaluesd(iheattransfercoef)
-    qd = localvaluesd(iheatflux)
+    qd = localvaluesd(itotheattransfercoef)
     cperror2d = localvaluesd(icperror2)
     mpaxisd = localvaluesd(iaxismoment)
     mvaxisd = localvaluesd(iaxismoment)
@@ -1912,6 +1913,7 @@ contains
     intrinsic mod
     intrinsic max
     intrinsic exp
+    type(unknowntype) :: itotheattransfercoef
     select case  (bcfaceid(mm)) 
     case (imin, jmin, kmin) 
       fact = -one
@@ -2219,7 +2221,8 @@ contains
     localvalues(iaxismoment) = localvalues(iaxismoment) + mpaxis + &
 &     mvaxis
     localvalues(icperror2) = localvalues(icperror2) + cperror2
-    localvalues(iheatflux) = localvalues(iheatflux) + q
+    localvalues(itotheattransfercoef) = localvalues(itotheattransfercoef&
+&     ) + q
     localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
 &     havg
     localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated

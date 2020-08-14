@@ -468,7 +468,7 @@ module constants
        iCpError2   = 47, &
        iAreaPTot   = 48, &
        iAreaPs     = 49, &
-       iHeatFlux   = 50, & 
+       iTotHeatTransfer   = 50, & 
        iHeatTransferCoef   = 51, &
        iHeatedArea   = 52
        

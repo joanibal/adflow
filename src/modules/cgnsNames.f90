@@ -277,7 +277,8 @@
 
 !
 !       Names of the heat transfer parameters
-!
+       character(len=maxCGNSNameLen), parameter :: cgnsTotHeatTransfer = "TotHeatTransfer"
+
        character(len=maxCGNSNameLen), parameter :: cgnsHeatFlux = "HeatFlux"
        character(len=maxCGNSNameLen), parameter :: &
                              cgnsHeatTransferCoef = "HeatTransferCoef"
