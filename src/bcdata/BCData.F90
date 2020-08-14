@@ -2336,20 +2336,23 @@ contains
 
    
     call setBCVarPresent(ind)
-   
-    do m=1, size(BCDataArray,1)
+    write(*,*) 'bcVarNames', bcVarNames
+    do m=1, size(bcVarPresent,1)
        if( bcVarPresent(m) ) then
           k = ind(1,m)
           l = ind(2,m)
           do n=1, size(BCDataArray,1)
 
             varName = char2str(BCDataVarNames(n,:), maxCGNSNameLen)
+            write(*,*) varName
+            
             if (bcVarNames(m) == varname) then
               
               lenDataArr = size(dataSet(k)%dirichletArrays(l)%dataArr)
 
               ! size of array BCDataArray should be checked on python level before 
               ! calling setBCData
+              write(*,*) varName, BCDataArray(n,1:lenDataArr)
               dataSet(k)%dirichletArrays(l)%dataArr(1:lenDataArr) = BCDataArray(n,1:lenDataArr)
             end if
 
@@ -2383,7 +2386,7 @@ contains
    
     call setBCVarPresent(ind)
    
-    do m=1, size(BCDataArray,1)
+    do m=1, size(bcVarPresent,1)
        if( bcVarPresent(m) ) then
           k = ind(1,m)
           l = ind(2,m)
@@ -2430,7 +2433,7 @@ contains
    
     call setBCVarPresent(ind)
    
-    do m=1, size(BCDataArray,1)
+    do m=1, size(bcVarPresent,1)
        if( bcVarPresent(m) ) then
           k = ind(1,m)
           l = ind(2,m)

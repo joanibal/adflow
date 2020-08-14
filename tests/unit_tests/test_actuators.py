@@ -6,7 +6,7 @@ import sys
 import os
 baseDir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(baseDir,'../../'))
-from python.pyADflow import ADFLOW
+from adflow.pyADflow import ADFLOW
 from pprint import pprint as pp
 import copy
 
@@ -184,12 +184,13 @@ class ActuatorDerivTests(unittest.TestCase):
             xDvDot=xDvDot, residualDeriv=True, funcDeriv=True, fDeriv=True, hfDeriv=True, mode='AD')
 
 
-            np.testing.assert_allclose(resDot_FD,resDot, rtol=1e-8)
+            np.testing.assert_allclose(resDot_FD,resDot, atol=1e-10)
             for func in funcsDot:
-                np.testing.assert_allclose(funcsDot_FD[func],funcsDot[func], rtol=1e-8)
+                np.testing.assert_allclose(funcsDot_FD[func],funcsDot[func], atol=1e-7)
 
-            np.testing.assert_allclose(fDot_FD,fDot, rtol=1e-8)
-            np.testing.assert_allclose(hfDot_FD,hfDot, rtol=1e-8)
+            np.testing.assert_allclose(fDot_FD,fDot, atol=1e-7)
+            np.testing.assert_allclose(hfDot_FD,hfDot, atol=1e-10)
+
 
     # def test_fwd_CS(self):
     #     # arch=self.arch['complex']

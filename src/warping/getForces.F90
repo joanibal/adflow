@@ -1570,6 +1570,9 @@ subroutine getHeatFlux(hflux, npts, sps)
   end do
 
 
+   call surfaceCellCenterToNode(exch)
+
+
   ! Now extract into the flat array:
   ii = 0
   do nn=1,nDom
@@ -1580,17 +1583,17 @@ subroutine getHeatFlux(hflux, npts, sps)
      ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
      do mm=1,nBocos
         bocoType3: if (BCType(mm) == NSWallIsoThermal) then
-           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
-              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
+            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                  ii = ii + 1
-                 hflux(ii) = BCData(mm)%cellHeatFlux(i, j)
+                 hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
               end do
            end do
 
          ! Simply put in zeros for the other wall BCs
         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
-              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
+            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                  ii = ii + 1
                  hflux(ii) = zero
               end do
@@ -1937,7 +1940,6 @@ subroutine getTNSWall(tnsw, npts, sps)
                end if
 
 
-            !   write(*,*) 'tnsw', tnsw(ii-(iEnd-iBeg): ii)
            end do
 
          else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
