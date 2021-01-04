@@ -115,15 +115,14 @@ contains
        funcValues(costFuncCpError2) = funcValues(costFuncCpError2) + ovrNTS*globalVals(iCpError2,sps)
 
        ! heat transfer cost functions
-       funcValues(costFuncHeatFlux) = funcValues(costFuncHeatFlux) + ovrNTS*globalVals(iTotHeatTransfer,sps)
+       funcValues(costFuncTotHeatTransfer) = funcValues(costFuncTotHeatTransfer) + ovrNTS*globalVals(iTotHeatTransfer,sps)
 
        ! if it is  0/0  set the havg to 0 to avoid NAN
        if (globalVals(iHeatTransferCoef,sps) == 0 )then
-          havg = 0 
+          havg = 0
        else
           havg = globalVals(iHeatTransferCoef,sps)/globalVals(iHeatedArea,sps)
        end if
- 
 
        funcValues(costFuncHeatTransferCoef) = funcValues(costFuncHeatTransferCoef) + ovrNTS*havg
 
@@ -519,7 +518,6 @@ contains
        sepSensorAvg(1) = sepSensorAvg(1)  + sensor * xc
        sepSensorAvg(2) = sepSensorAvg(2)  + sensor * yc
        sepSensorAvg(3) = sepSensorAvg(3)  + sensor * zc
-      
        if (computeCavitation) then
           plocal = pp2(i,j)
           tmp = two/(gammaInf*MachCoef*MachCoef)
@@ -697,10 +695,8 @@ contains
 
                ! Save the face based heatflux
                bcData(mm)%cellHeatFlux(i, j) = qw
-               
                hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)+1e-8))* blk
-               ! write(*,*) i, j , 'havg', qw, (Tref*(1 - BCData(mm)%TNS_Wall(i,j))), scaleDim
-               
+
                areaHeated = areaHeated + BCData(mm)%area(i,j)* blk
           enddo
      else if( BCType(mm) == NSWallAdiabatic) Then
@@ -719,7 +715,7 @@ contains
      localValues(iSepAvg:iSepAvg+2) = localValues(iSepAvg:iSepAvg+2) + sepSensorAvg
      localValues(iAxisMoment) = localValues(iAxisMoment) + Mpaxis + Mvaxis
      localValues(iCpError2) = localValues(iCpError2) + CpError2
-     localValues(iTotHeatTransferCoef) = localValues(iTotHeatTransferCoef) + Q
+     localValues(iTotHeatTransfer) = localValues(iTotHeatTransfer) + Q
      localValues(iHeatTransferCoef) = localValues(iHeatTransferCoef) + hAvg
      localValues(iHeatedArea) = localValues(iHeatedArea) + areaHeated
 

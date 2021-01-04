@@ -964,19 +964,11 @@ contains
     end do spsLoop2
 
 
-
     if (present(BCVarNames)) then
-       allocate(bcDataValuesdLocal, mold=BCArrays)
-
-       bcDataValuesdLocal = zero
        call setBCDataFineGrid_b(.true.)
        do sps=1, nTimeIntervalsSpectral
-          call setBCData_b(sps, BCArrays, bcDataValuesdLocal, BCVarNames, patchLoc, nBCVars)
+          call setBCData_b(sps, BCArrays, BCArraysBar, BCVarNames, patchLoc, nBCVars)
        end do
-      !  Reverse seeds need to accumulated across all processors:
-       call mpi_allreduce(bcDataValuesdLocal, BCArraysBar, size(BCArraysBar), adflow_real, &
-            mpi_sum, ADflow_comm_world, ierr)
-       deallocate(bcDataValuesdLocal)
     end if
 
     if (present(actArray)) then

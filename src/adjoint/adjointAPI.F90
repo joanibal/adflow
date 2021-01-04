@@ -36,13 +36,13 @@ contains
     integer(kind=intType) :: costSize, fSize, nTime
 
 
-    ! Boundary Condition data 
+    ! Boundary Condition data
     real(kind=realType), dimension(:,:), intent(in) :: BCArrays
     character, dimension(:,:), intent(in) :: BCVarNames
     integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), dimension(:), intent(in) :: nBCVars
-      
-    ! actuator data 
+
+    ! actuator data
     real(kind=realType), dimension(:), intent(inout) :: actArray
     character, dimension(:,:), intent(in) :: actVarNames
     integer(kind=intType), dimension(:, :), intent(in) :: actFamLists
@@ -98,7 +98,7 @@ contains
    call master_d(xVDot, wDot, &
                  fDot, hfDot, dwDot,  &
                  famLists, funcsDot,&
-                 BCArraysDot, & 
+                 BCArraysDot, &
                  BCArrays,  BCVarNames, patchLoc, nBCVars, &
                  actArrayDot, actArray, actVarNames, actFamLists)
 
@@ -131,19 +131,19 @@ contains
     logical, intent(in) :: useSpatial, useState
     integer(kind=intType), intent(in) :: famLists(:, :)
 
-    
+
    !  real(kind=realType), dimension(:,:), intent(in) :: BCArraysBar
 
 
-    ! Boundary Condition data 
+    ! Boundary Condition data
     real(kind=realType), dimension(:,:), intent(in) :: BCArrays
     character, dimension(:,:), intent(in) :: BCVarNames
     integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), dimension(:), intent(in) :: nBCVars
-      
 
 
-    ! Actuator data 
+
+    ! Actuator data
     real(kind=realType), optional, dimension(:), intent(in) :: actArray
     real(kind=realType), optional, dimension(:), intent(out) :: actArrayBar
     character, optional, dimension(:,:), intent(in) :: actVarNames
@@ -196,7 +196,7 @@ contains
             funcs, funcsBar, &
             BCArrays,  BCVarNames, BCArraysBar, patchLoc, nBCVars, &
             actArray, actArrayBar, actVarNames, actFamLists)
-  
+
 
     ! Reset the correct equation parameters if we were useing the frozen
     ! Turbulent

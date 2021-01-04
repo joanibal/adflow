@@ -7,7 +7,7 @@ import os
 import sys
 baseDir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(baseDir,'../../'))
-from python.pyADflow import ADFLOW
+from adflow.pyADflow import ADFLOW
 import copy
 from baseclasses import AeroProblem
 from commonUtils import adflowDefOpts

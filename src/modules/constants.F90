@@ -430,7 +430,7 @@ module constants
        costFuncCpError2 = 86, &
        costfuncaavgptot = 87, &
        costfuncaavgps   = 88, &
-       costFuncHeatFlux = 89, &
+       costFuncTotHeatTransfer = 89, &
        costFuncHeatTransferCoef = 90
 
   integer(kind=intType), parameter :: nLocalValues=52

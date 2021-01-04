@@ -1516,7 +1516,7 @@ subroutine getHeatFlux(hflux, npts, sps)
        zeroCellVal, zeroNodeVal, fullfamList
   use surfaceIntegrations, only : integrateSurfaces
 
-  use utils, only : setPointers
+  use utils, only : setPointers, isWallType
   implicit none
   !
   !      Local variables.
@@ -1528,6 +1528,7 @@ subroutine getHeatFlux(hflux, npts, sps)
   integer(kind=intType) :: mm, nn, i, j, ii
   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
   type(familyExchange), pointer :: exch
+
 
   ! Set the pointer to the wall exchange:
   exch => BCFamExchange(iBCGroupWalls, sps)
@@ -1544,12 +1545,9 @@ subroutine getHeatFlux(hflux, npts, sps)
   do nn=1, nDom
      call setPointers(nn, 1_intType, sps)
      do mm=1, nBocos
+        bocoType1: if(isWallType(BCType(mm))) then
 
-        bocoType1: if (BCType(mm) == NSWallIsoThermal) then
            BCData(mm)%cellVal => BCData(mm)%area(:, :)
-        else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
-           BCData(mm)%cellVal => zeroCellVal
-           BCData(mm)%nodeVal => zeroNodeVal
         end if bocoType1
      end do
   end do
@@ -1562,13 +1560,14 @@ subroutine getHeatFlux(hflux, npts, sps)
   do nn=1, nDom
      call setPointers(nn, 1_intType, sps)
      do mm=1, nBocos
-        bocoType2: if (BCType(mm) == NSWallIsoThermal) then
+         bocoType2: if(isWallType(BCType(mm))) then
+
            BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
            BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
         end if bocoType2
+
      end do
   end do
-
 
    call surfaceCellCenterToNode(exch)
 
@@ -1582,20 +1581,13 @@ subroutine getHeatFlux(hflux, npts, sps)
      ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
      ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
      do mm=1,nBocos
-        bocoType3: if (BCType(mm) == NSWallIsoThermal) then
+        bocoType3: if(isWallType(BCType(mm))) then
+
+      !   bocoType3: if (BCType(mm) == NSWallIsoThermal) then
             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                  ii = ii + 1
                  hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
-              end do
-           end do
-
-         ! Simply put in zeros for the other wall BCs
-        else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                 ii = ii + 1
-                 hflux(ii) = zero
               end do
            end do
         end if bocoType3
@@ -1633,15 +1625,11 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
       call setPointers_d(nn, 1_intType, sps)
       do mm=1, nBocos
 
-         if (BCType(mm) == NSWallIsoThermal) then
+        bocoType1: if(isWallType(BCType(mm))) then
             BCData(mm)%cellVal => BCData(mm)%area(:, :)
             BCDatad(mm)%cellVal => BCDatad(mm)%area(:, :)
 
-         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
-            BCData(mm)%cellVal => zeroCellVal
-            BCDatad(mm)%cellVal => zeroCellVal
-
-         end if
+        end if bocoType1
       end do
    end do
 
@@ -1654,20 +1642,16 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
       call setPointers_d(nn, 1_intType, sps)
       do mm=1, nBocos
 
-         if (BCType(mm) == NSWallIsoThermal) then
+
+
+         bocoType2: if(isWallType(BCType(mm))) then
             BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
             BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
 
-         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
-            BCData(mm)%cellVal => zeroCellVal
-            BCData(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
-
-            BCDatad(mm)%cellVal => zeroCellVal
-            BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
-         end if
+        end if bocoType2
       end do
    end do
 
@@ -1683,7 +1667,7 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
       ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
       do mm=1,nBocos
 
-         if (BCType(mm) == NSWallIsoThermal) then
+        bocoType3: if(isWallType(BCType(mm))) then
             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                   ii = ii + 1
@@ -1691,18 +1675,7 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
                   hfluxd(ii) = BCDatad(mm)%nodeHeatFlux(i, j)
                end do
             end do
-
-          ! Simply put in zeros for the other wall BCs
-         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                  ii = ii + 1
-                  hflux(ii) = zero
-                  hfluxd(ii) = zero
-               end do
-            end do
-         end if
-
+        end if bocoType3
       end do
    end do
 end subroutine getHeatFlux_d
@@ -1759,25 +1732,17 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
       call setPointers_b(nn,1_intType,sps)
 
       do mm=1,nBocos
-         if(BCType(mm) == NSWallIsothermal) then
+        bocoType3: if(isWallType(BCType(mm))) then
             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
                   ii = ii + 1
                   BCDatad(mm)%nodeHeatFlux(i, j) = hfluxd(ii)
                end do
             end do
+        end if bocoType3
 
 
-         else if (BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                  ii = ii + 1
 
-                  ! should already be zeroed... but I think this is clearer
-                  BCDatad(mm)%nodeHeatFlux(i, j) = zero
-               end do
-            end do
-         end if
       end do
    end do
 
@@ -1787,20 +1752,16 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
       call setPointers_b(nn, 1_intType, sps)
       do mm=1, nBocos
 
-         if (BCType(mm) == NSWallIsoThermal) then
+        bocoType2: if(isWallType(BCType(mm))) then
             BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
             BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
 
-         else if (BCType(mm) == EulerWall .or. BCType(mm) == NSWallAdiabatic) then
-            BCData(mm)%cellVal => zeroCellVal
-            BCData(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
+        end if bocoType2
 
-            BCDatad(mm)%cellVal => zeroCellVal
-            BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
-         end if
+
       end do
    end do
 
@@ -1811,10 +1772,10 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
       call setPointers_b(nn, 1_intType, sps)
       do mm=1, nBocos
 
-         if (BCType(mm) == NSWallIsoThermal) then
+        bocoType1: if(isWallType(BCType(mm))) then
             BCData(mm)%cellVal => BCData(mm)%area(:, :)
             BCDatad(mm)%cellVal => BCDatad(mm)%area(:, :)
-         end if
+        end if bocoType1
       end do
    end do
 
@@ -1824,7 +1785,7 @@ end subroutine getHeatFlux_b
 
 
 subroutine getHeatFluxCellCenter(hflux, npts, sps)
-   !TODO implement this subroutine 
+   !TODO implement this subroutine
 
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData
@@ -1916,16 +1877,16 @@ subroutine getTNSWall(tnsw, npts, sps)
            jBeg = BCdata(mm)%jnBeg; jEnd = BCData(mm)%jnEnd
            iBeg = BCData(mm)%inBeg; iEnd = BCData(mm)%inEnd
             do j=jBeg,jEnd
-            
+
                if (j==iBeg) then
-                      
+
                   ii = ii + 1
                   tnsw(ii) = tnsw(ii) + BCData(mm)%TNS_Wall(iBeg,j)*Tref
-                  
+
                   do i=iBeg+1, iEnd
                      ii = ii + 1
                      tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(i,j)*Tref - tnsw(ii-1)
-                  end do 
+                  end do
 
                else
                   ii = ii + 1
@@ -1935,8 +1896,8 @@ subroutine getTNSWall(tnsw, npts, sps)
                      ii = ii + 1
                      tnsw(ii) = tnsw(ii) + 4*BCData(mm)%TNS_Wall(i,j)*Tref - &
                               tnsw(ii-(iEnd-iBeg+1)) - tnsw(ii-(iEnd-iBeg+2)) - tnsw(ii-1)
-                  end do  
-               
+                  end do
+
                end if
 
 

@@ -5,11 +5,11 @@ import copy
 from baseclasses import AeroProblem
 import sys
 from pprint import pprint as pp
-
 import os
 baseDir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(baseDir,'../../'))
 from adflow.pyADflow import ADFLOW
+from mpi4py import MPI
 
 
 class BCGetSetTests(unittest.TestCase):
@@ -542,12 +542,9 @@ class BCDerivsTests(unittest.TestCase):
             print(np.dot(xDvBar[DV], xDvDot[DV]), np.dot(resDot, dwBar))
             np.testing.assert_array_almost_equal(np.dot(xDvBar[DV], xDvDot[DV]), np.dot(resDot, dwBar), decimal=14)
 
-class BCNodalDerivsTests(unittest.TestCase):
+class BCNodalDerivsTests_serial(unittest.TestCase):
+    N_PROCS = 1
     def setUp(self):
-        # import petsc4py
-
-        # petsc4py.init(arch='real-debug-gfortran-3.7.7')
-        # from petsc4py import PETSc
 
         gridFile = os.path.join(baseDir, '../input_files/conic_conv_nozzle_mb_L4_array.cgns')
         intSurfFile = os.path.join(baseDir, '../input_files/integration_plane_viscous.fmt')
@@ -555,7 +552,8 @@ class BCNodalDerivsTests(unittest.TestCase):
         self.options = {'gridfile': gridFile}
 
         self.options['mgstartlevel'] = 1
-
+        self.options['mgstartlevel'] = 1
+        self.options['mgcycle'] = 'sg'
         self.options['ncycles'] = 1
         self.options['useanksolver'] = False
         self.options['l2convergence'] = 1e-12
@@ -664,7 +662,6 @@ class BCNodalDerivsTests(unittest.TestCase):
         np.testing.assert_allclose(hfDot_dict,hfDot, atol=1e-20)
 
 
-
     def test_bwd(self):
 
         group = 'outlet'
@@ -673,8 +670,11 @@ class BCNodalDerivsTests(unittest.TestCase):
         n =  5*9
         ap = self.ap
         self.CFDSolver.setAeroProblem(self.ap)
-
-        ap.setBCVar(BCVar,  np.ones(n)*79326.7, group)
+        
+        bc_data = self.CFDSolver.getBCData()
+        bc_array = bc_data.getBCArraysFlatData(BCVar, familyGroup=group)
+        
+        ap.setBCVar(BCVar,  np.ones(bc_array.size)*79326.7, group)
         ap.addDV(BCVar,  name=DV,  familyGroup=group)
         
 
@@ -694,6 +694,187 @@ class BCNodalDerivsTests(unittest.TestCase):
 
             np.testing.assert_array_almost_equal(np.dot(xDvBar[DV],xDvDot[DV]),\
                                                     np.dot(resDot, dwBar), decimal=14)
+
+
+class BCNodalDerivsTests_parallel(unittest.TestCase):
+    N_PROCS = 2
+
+    def setUp(self):
+        # import petsc4py
+        # petsc4py.init(arch='real-debug-gfortran-3.7.7')
+        # from petsc4py import PETSc
+
+        gridFile = os.path.join(baseDir, '../input_files/conic_conv_nozzle_mb_L4_array.cgns')
+        intSurfFile = os.path.join(baseDir, '../input_files/integration_plane_viscous.fmt')
+
+        self.options = {'gridfile': gridFile}
+
+        self.options['mgstartlevel'] = 1
+        self.options['mgstartlevel'] = 1
+        self.options['mgcycle'] = 'sg'
+        self.options['ncycles'] = 1
+        self.options['useanksolver'] = False
+        self.options['l2convergence'] = 1e-12
+        ap = AeroProblem(name='nozzle_flow', alpha=90, mach=0.5, altitude=0,
+                    areaRef=1.0, chordRef=1.0, R=287.87,
+                    evalFuncs=['mdot_up', 'mdot_down', 'mdot_plane',
+                                'mavgptot_up', 'mavgptot_down', 'mavgptot_plane',
+                                'mavgttot_up', 'mavgttot_down', 'mavgttot_plane',
+                                'mavgps_up', 'mavgps_down', 'mavgps_plane',
+                                ])
+
+        self.ap = ap 
+
+        CFDSolver = ADFLOW(options=self.options)
+        CFDSolver.addIntegrationSurface(intSurfFile, 'viscous_plane')
+        CFDSolver.finalizeUserIntegrationSurfaces()
+
+        CFDSolver.addFamilyGroup('upstream',['inlet'])
+        CFDSolver.addFamilyGroup('downstream',['outlet'])
+        CFDSolver.addFamilyGroup('all_flow',['inlet', 'outlet'])
+        CFDSolver.addFamilyGroup('output_fam',['all_flow', 'allWalls'])
+
+        CFDSolver.addFunction('mdot', 'upstream', name="mdot_up")
+        CFDSolver.addFunction('mdot', 'downstream', name="mdot_down")
+        CFDSolver.addFunction('mdot', 'viscous_plane', name="mdot_plane")
+
+        CFDSolver.addFunction('mavgptot', 'downstream', name="mavgptot_down")
+        CFDSolver.addFunction('mavgptot', 'upstream', name="mavgptot_up")
+        CFDSolver.addFunction('mavgptot', 'viscous_plane', name="mavgptot_plane")
+
+        CFDSolver.addFunction('aavgptot', 'downstream', name="aavgptot_down")
+        CFDSolver.addFunction('aavgptot', 'upstream', name="aavgptot_up")
+        CFDSolver.addFunction('aavgptot', 'viscous_plane', name="aavgptot_plane")
+
+        CFDSolver.addFunction('mavgttot', 'downstream', name="mavgttot_down")
+        CFDSolver.addFunction('mavgttot', 'upstream', name="mavgttot_up")
+        CFDSolver.addFunction('mavgttot', 'viscous_plane', name="mavgttot_plane")
+
+        CFDSolver.addFunction('mavgps', 'downstream', name="mavgps_down")
+        CFDSolver.addFunction('mavgps', 'upstream', name="mavgps_up")
+        CFDSolver.addFunction('mavgps', 'viscous_plane', name="mavgps_plane")
+
+        CFDSolver.addFunction('aavgps', 'downstream', name="aavgps_down")
+        CFDSolver.addFunction('aavgps', 'upstream', name="aavgps_up")
+        CFDSolver.addFunction('aavgps', 'viscous_plane', name="aavgps_plane")
+
+        self.CFDSolver= CFDSolver
+
+        self.comm = MPI.COMM_WORLD
+
+    def test_fwd(self):
+        group = 'outlet'
+        BCVar = 'Pressure'
+        DV = 'outlet_pressure'
+        n =  5*9
+        ap = self.ap
+        self.CFDSolver.setAeroProblem(self.ap)
+        
+        bc_data = self.CFDSolver.getBCData()
+        bc_array = bc_data.getBCArraysFlatData(BCVar, familyGroup=group)
+        n =  bc_array.size
+        print('array size', bc_array.size)
+        ap.setBCVar(BCVar,  np.ones(bc_array.size)*79326.7, group)
+        ap.addDV(BCVar,  name=DV,  familyGroup=group)
+        
+
+        self.CFDSolver(ap)
+
+        for irank in range(self.comm.size):
+            nnodes = bc_array.size
+            nnodes = self.comm.bcast(nnodes, root=irank)
+            for ii in range(nnodes):
+                seed = np.zeros(n)
+                if self.comm.rank == irank:
+                    seed[ii] = 1
+                
+                xDvDot = {DV:seed}
+                    
+
+                resDot, funcsDot, fDot, hfDot = self.CFDSolver.computeJacobianVectorProductFwd(
+                xDvDot=xDvDot, residualDeriv=True, funcDeriv=True, fDeriv=True, hfDeriv=True, mode='AD')
+
+                resDot_FD, funcsDot_FD, fDot_FD, hfDot_FD = self.CFDSolver.computeJacobianVectorProductFwd(
+                xDvDot=xDvDot, residualDeriv=True, funcDeriv=True, fDeriv=True, hfDeriv=True, mode='FD', h=1)
+                
+                np.testing.assert_allclose(resDot_FD,resDot, atol=1e-8)
+                # atol used here because the FD can return an error order 1e-15, but the rel error is nan since it should be 0
+                for func in funcsDot:
+                    np.testing.assert_allclose(funcsDot_FD[func],funcsDot[func],  atol=1e-5)
+                
+                np.testing.assert_allclose(fDot_FD,fDot, atol=1e-10)
+                np.testing.assert_allclose(hfDot_FD,hfDot, atol=1e-10)
+
+    def test_fwd_vs_float(self):
+
+        ap = copy.deepcopy(self.ap)
+
+        ap.setBCVar('Pressure',  79326.7, 'outlet')
+        ap.addDV('Pressure', familyGroup='outlet', name='outlet_pressure')
+ 
+        self.CFDSolver(ap)
+        resDot, funcsDot, fDot, hfDot = self.CFDSolver.computeJacobianVectorProductFwd(
+        xDvDot={'outlet_pressure':1.0}, residualDeriv=True, funcDeriv=True, fDeriv=True, hfDeriv=True, mode='AD')
+        
+        ap = copy.deepcopy(self.ap)
+        group = 'outlet'
+        BCVar = 'Pressure'
+
+        bc_data = self.CFDSolver.getBCData()
+        bc_array = bc_data.getBCArraysFlatData(BCVar, familyGroup=group)
+        n =  bc_array.size
+
+        resDot_dict, funcsDot_dict, fDot_dict, hfDot_dict = self.CFDSolver.computeJacobianVectorProductFwd(
+        xDvDot={'outlet_pressure': np.ones(n)}, residualDeriv=True, funcDeriv=True, fDeriv=True, hfDeriv=True, mode='AD')     
+
+        np.testing.assert_allclose(resDot_dict,resDot, atol=1e-20)
+
+        for func in funcsDot:
+            np.testing.assert_allclose(funcsDot_dict[func],funcsDot[func],  atol=1e-20)
+
+        np.testing.assert_allclose(fDot_dict,fDot, atol=1e-20)
+        np.testing.assert_allclose(hfDot_dict,hfDot, atol=1e-20)
+
+    def test_bwd(self):
+
+        group = 'outlet'
+        BCVar = 'Pressure'
+        DV = 'outlet_pressure'
+        ap = self.ap
+        self.CFDSolver.setAeroProblem(self.ap)
+        
+        bc_data = self.CFDSolver.getBCData()
+        bc_array = bc_data.getBCArraysFlatData(BCVar, familyGroup=group)
+        n =  bc_array.size
+        print('array size', bc_array.size)
+        ap.setBCVar(BCVar,  np.ones(bc_array.size)*79326.7, group)
+        ap.addDV(BCVar,  name=DV,  familyGroup=group)
+        
+
+        self.CFDSolver(ap)
+
+        for irank in range(self.comm.size):
+            nnodes = bc_array.size
+            nnodes = self.comm.bcast(nnodes, root=irank)
+            for ii in range(nnodes):
+                seed = np.zeros(n)
+                if self.comm.rank == irank:
+                    seed[ii] = 1
+                
+                xDvDot = {DV:seed}
+                    
+
+
+                resDot, funcsDot, fDot, hfDot = self.CFDSolver.computeJacobianVectorProductFwd(
+                xDvDot=xDvDot, residualDeriv=True, funcDeriv=True, fDeriv=True, hfDeriv=True, mode='AD')
+
+                dwBar = self.CFDSolver.getStatePerturbation(ii)
+
+                _, _, xDvBar = self.CFDSolver.computeJacobianVectorProductBwd(
+                    resBar=dwBar, wDeriv=True, xVDeriv=True, xDvDerivAero=True)
+
+                np.testing.assert_array_almost_equal(np.dot(xDvBar[DV],xDvDot[DV]),\
+                                                        np.dot(resDot, dwBar), decimal=14)
 
 
 
