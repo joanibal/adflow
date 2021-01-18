@@ -127,7 +127,7 @@ class ADFLOW(AeroSolver):
         for key in self.basicCostFunctions:
             self.adflowCostFunctions[key] = [None, key]
 
-        # Separate list of the suplied supplied functions
+        # Separate list of the supplied supplied functions
         self.adflowUserCostFunctions = OrderedDict()
 
         # This is the real solver so dtype is 'd'
@@ -139,13 +139,12 @@ class ADFLOW(AeroSolver):
         if comm is None:
             comm = MPI.COMM_WORLD
 
-        self.comm = comm
-        self.adflow.communication.adflow_comm_world = self.comm.py2f()
+        self.adflow.communication.adflow_comm_world = comm.py2f()
         self.adflow.communication.adflow_comm_self = MPI.COMM_SELF.py2f()
-        self.adflow.communication.sendrequests = numpy.zeros(self.comm.size)
-        self.adflow.communication.recvrequests = numpy.zeros(self.comm.size)
-        self.myid = self.adflow.communication.myid = self.comm.rank
-        self.adflow.communication.nproc = self.comm.size
+        self.adflow.communication.sendrequests = numpy.zeros(comm.size)
+        self.adflow.communication.recvrequests = numpy.zeros(comm.size)
+        self.myid = self.adflow.communication.myid = comm.rank
+        self.adflow.communication.nproc = comm.size
 
 
         # ------------------------ Set Options ---------------------------------
@@ -160,8 +159,8 @@ class ADFLOW(AeroSolver):
         defSetupTime = time.time()
 
         # Initialize the inherited aerosolver.
-        AeroSolver.__init__(self, 'ADFLOW', category='Three Dimensional CFD',
-                            def_options=defOpts, options=options)
+        AeroSolver.__init__(self, 'ADFLOW', category='Three Dimensional CFD', defaultOptions=defOpts,
+                            options=options, comm=comm, informs=informs)
 
         baseClassTime = time.time()
         # Update turbresscale depending on the turbulence model specified
@@ -177,7 +176,6 @@ class ADFLOW(AeroSolver):
         # Set the frompython flag to true... this also changes how
         # terminate calls are handled
         self.adflow.killsignals.frompython = True
-
 
         # Dictionary of design variables and their index
         self.aeroDVs = []
@@ -425,20 +423,28 @@ class ADFLOW(AeroSolver):
 
     def setDisplacements(self, aeroProblem, dispFile):
         """
-        This function allows the user to perform aerodyanmic
+        This function allows the user to perform aerodynamic
         analysis/optimization while using a fixed set of displacements
         computed from a previous structural analysis. Essentially this
-        allows the jig shape to designed, but performing anlysis on
-        the flying shape. Note that the fixed set of displacements do
-        not affect the sensitivities.
+        allows the jig shape to designed, but performing analysis on
+        the flying shape.
 
         Parameters
         ----------
         aeroProblem : aeroProblem class
            The AP object that the displacements should be applied to.
         dispFile : str
-           The file contaning the displacments. This file should have
+           The file contaning the displacements. This file should have
            been obtained from TACS
+
+        Notes
+        -----
+        The fixed set of displacements do not affect the sensitivities,
+        since they are fixed and not affected by any DVs.
+
+        Also, in the case where the current surface mesh was not used
+        to generate the displacements file, a nearest neighbor search
+        is used to apply the displacements.
         """
         self.setAeroProblem(aeroProblem)
 
@@ -459,7 +465,7 @@ class ADFLOW(AeroSolver):
         try:
             from scipy.spatial import KDTree
         except ImportError:
-            raise Error('scip.spatial must be available to use setDisplacements')
+            raise Error('scipy must be available to use setDisplacements')
         tree = KDTree(numpy.array(X))
         d, index = tree.query(localX)
         for j in range(len(localX)):
@@ -2666,12 +2672,13 @@ class ADFLOW(AeroSolver):
                 self.DVGeo.addPointSet(coords0, ptSetName)
 
             # Check if our point-set is up to date:
-            if not self.DVGeo.pointSetUpToDate(ptSetName):
+            if not self.DVGeo.pointSetUpToDate(ptSetName) or aeroProblem.adflowData.disp is not None:
                 coords = self.DVGeo.update(ptSetName, config=aeroProblem.name)
 
                 # Potentially add a fixed set of displacements to it.
                 if aeroProblem.adflowData.disp is not None:
                     coords += self.curAP.adflowData.disp
+
                 self.setSurfaceCoordinates(coords, self.designFamilyGroup)
 
         self._setAeroProblemData(aeroProblem)
@@ -2901,7 +2908,7 @@ class ADFLOW(AeroSolver):
         # Update gamma only if it has changed from what currently is set
         if abs(self.adflow.inputphysics.gammaconstant - gammaConstant) > 1.0e-12:
             self.adflow.inputphysics.gammaconstant = gammaConstant
-            self.adflow.updategamma() # NOTE! It is absolutely necessary to call this function, otherwise gamma is not properly updated.
+            self.adflow.flowutils.updategamma() # NOTE! It is absolutely necessary to call this function, otherwise gamma is not properly updated.
 
         # 4. Periodic Parameters --- These are not checked/verified
         # and come directly from aeroProblem. Make sure you specify
