@@ -138,14 +138,14 @@ class ADFLOW(AeroSolver):
 
         # Initialize the inherited AeroSolver
         super().__init__(
-            name,
-            category,
+            'ADFLOW',
+            'Three Dimensional CFD',
             defaultOptions=defaultOptions,
             options=options,
             immutableOptions=immutableOptions,
             deprecatedOptions=deprecatedOptions,
             comm=comm,
-            informs=informs,
+            informs={},
         )
 
         baseClassTime = time.time()
