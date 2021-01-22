@@ -328,7 +328,7 @@ class BCDerivsTests(unittest.TestCase):
         group = 'outlet'
         BCVar = 'Pressure'
 
-        ap.setBCVar('Pressure',  79326.7, 'outlet')
+        ap.setBCVar(BCVar,  79326.7, group)
         ap.addDV(BCVar,  name='outlet_pressure',  familyGroup=group,)
         key = 'outlet_pressure'
         xDvDot = {key:1.0}
