@@ -58,14 +58,14 @@ contains
     logical, intent(in) :: useSpatial
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
     real(kind=realType), optional, dimension(:, :), intent(out) :: funcValues
-   
-    ! Boundary Condition data 
+
+    ! Boundary Condition data
     real(kind=realType), optional, dimension(:,:), intent(in) :: BCArrays
     character, optional, dimension(:,:), intent(in) :: BCVarNames
     integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
 
-    ! Boundary Condition data 
+    ! Boundary Condition data
     real(kind=realType), optional, dimension(:), intent(in) :: actArray
     character, optional, dimension(:,:), intent(in) :: actVarNames
     integer(kind=intType), optional, dimension(:, :), intent(in) :: actFamLists
@@ -90,7 +90,7 @@ contains
           end do
           call setBCDataFineGrid(.true.)
        end if
-       
+
        if (present(actArray)) then
          call setActuatorData(actArray, actVarNames, actFamLists, &
                    size(actArray,1), size(actFamLists,2))
@@ -272,7 +272,7 @@ contains
                      famLists, funcValuesd, &
                      BCArraysDot, BCArrays,  BCVarNames, patchLoc, nBCVars, &
                      actArrayDot, actArray, actVarNames, actFamLists)
-  
+
     use constants
     use diffsizes, only :  ISIZE1OFDrfbcdata, ISIZE1OFDrfviscsubface
     use communication, only : adflow_comm_world
@@ -323,14 +323,14 @@ contains
     real(kind=realType), optional, dimension(:,:), intent(in) :: BCArraysDot
 
     integer(kind=intType), optional, dimension(:, :), intent(in) :: famLists
-   
-    ! Boundary Condition data 
+
+    ! Boundary Condition data
     real(kind=realType), optional, dimension(:,:), intent(in) :: BCArrays
     character, optional, dimension(:,:), intent(in) :: BCVarNames
     integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
 
-    ! Actuator data 
+    ! Actuator data
     real(kind=realType), optional, dimension(:), intent(in) :: actArray
     real(kind=realType), optional, dimension(:), intent(in) :: actArrayDot
     character, optional, dimension(:,:), intent(in) :: actVarNames
@@ -350,7 +350,7 @@ contains
 
     integer(kind=intType) :: ierr, nn, sps, mm,i,j,k, l, fSize, ii, jj, iRegion
     integer(kind=intType) :: iGroup
-    
+
     real(kind=realType), dimension(nSections) :: t
     real(kind=realType) :: dummyReal, dummyReald
 
@@ -358,7 +358,7 @@ contains
     allocate(funcValues, mold=funcValuesd)
     allocate(forces, mold=forcesDot)
     allocate(heatfluxes, mold=heatfluxesDot)
- 
+
 
     call VecPlaceArray(x_like, xdot, ierr)
     call EChk(ierr, __FILE__, __LINE__)
@@ -682,15 +682,15 @@ contains
     real(kind=realType), dimension(:,:), intent(out) :: BCArraysBar
 
 
-    ! Boundary Condition data 
+    ! Boundary Condition data
     real(kind=realType), optional, dimension(:,:), intent(in) :: BCArrays
     character, optional, dimension(:,:), intent(in) :: BCVarNames
     integer(kind=intType), optional, dimension(:, :), intent(in) :: patchLoc
     integer(kind=inttype), optional, dimension(:), intent(in) :: nBCVars
-      
 
 
-    ! Actuator data 
+
+    ! Actuator data
     real(kind=realType), optional, dimension(:), intent(in) :: actArray
     real(kind=realType), optional, dimension(:), intent(inout) :: actArrayBar
     character, optional, dimension(:,:), intent(in) :: actVarNames
@@ -727,11 +727,11 @@ contains
 
             ! Compute the pressures/viscositites
             call computePressureSimple(.False.)
-  
+
             ! Compute Laminar/eddy viscosity if required
             call computeLamViscosity(.False.)
             call computeEddyViscosity(.False.)
-  
+
             ! Make sure to call the turb BC's first incase we need to
             ! correct for K
             if (equations == RANSequations) then
@@ -741,10 +741,10 @@ contains
             call applyAllBC_block(.True.)
          end do
       end do
-  
+
       ! Exchange values
       call whalo2(currentLevel, 1_intType, nw, .True., .True., .True.)
-  
+
       ! Need to re-apply the BCs. The reason is that BC halos behind
       ! interpolated cells need to be recomputed with their new
       ! interpolated values from actual compute cells. Only needed for
@@ -761,7 +761,7 @@ contains
             end do
          end do
       end if
-  
+
 
 
     ! extraLocalBar accumulates the seeds onto the extra variables

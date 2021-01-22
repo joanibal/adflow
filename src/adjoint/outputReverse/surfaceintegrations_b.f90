@@ -1358,11 +1358,9 @@ contains
       call pushinteger4(i)
       call pushinteger4(j)
       call pushinteger4(blk)
-      call pushcontrol2b(0)
-    else if (bctype(mm) .eq. nswalladiabatic) then
-      call pushcontrol2b(1)
+      call pushcontrol1b(0)
     else
-      call pushcontrol2b(2)
+      call pushcontrol1b(1)
     end if
     areaheatedd = localvaluesd(iheatedarea)
     havgd = localvaluesd(iheattransfercoef)
@@ -1382,7 +1380,7 @@ contains
     fvd = localvaluesd(ifv:ifv+2)
     fpd = 0.0_8
     fpd = localvaluesd(ifp:ifp+2)
-    call popcontrol2b(branch)
+    call popcontrol1b(branch)
     if (branch .eq. 0) then
       scaledimd = 0.0_8
       do ii=0,(bcdata(mm)%jnend-bcdata(mm)%jnbeg)*(bcdata(mm)%inend-&
@@ -1421,7 +1419,7 @@ contains
       call popinteger4(j)
       call popinteger4(i)
     else
-      if (branch .eq. 1) bcdatad(mm)%cellheatflux = 0.0_8
+      bcdatad(mm)%cellheatflux = 0.0_8
       scaledimd = 0.0_8
     end if
     call popcontrol1b(branch)
@@ -2203,10 +2201,9 @@ contains
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
-    else if (bctype(mm) .eq. nswalladiabatic) then
+    else
 ! if we an adiabatic wall, set the heat flux to zero
       bcdata(mm)%cellheatflux = zero
     end if

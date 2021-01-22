@@ -4304,6 +4304,10 @@ class ADFLOW(AeroSolver):
         bc_data_dot = self.getBCDataFromBCVar(bcDvsDot)
         bc_data = self.getBCDataFromBCVar(self.curAP.getBCData())
 
+        for group in actDvsDot:
+            for actVar in actDvsDot[group]:
+                actDataDot[group][actVar] = actDvsDot[group][actVar]
+
         # convert the data to a fortran compatible set of arrays
         BCArrays,  BCVarNames, _, patchLoc, nBCVars, _  = self._convertBCDataToFortBCData(bc_data)
         BCArraysDot,  _, __, _, _, _  = self._convertBCDataToFortBCData(bc_data_dot)

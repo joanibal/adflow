@@ -1378,18 +1378,13 @@ contains
         havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8)&
 &         )
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheatedd = areaheatedd + blk*bcdatad(mm)%area(i, j)
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
-    else if (bctype(mm) .eq. nswalladiabatic) then
+    else
 ! if we an adiabatic wall, set the heat flux to zero
       bcdatad(mm)%cellheatflux = 0.0_8
       bcdata(mm)%cellheatflux = zero
-      qd = 0.0_8
-      areaheatedd = 0.0_8
-      havgd = 0.0_8
-    else
       qd = 0.0_8
       areaheatedd = 0.0_8
       havgd = 0.0_8
@@ -1767,10 +1762,9 @@ contains
 ! save the face based heatflux
         bcdata(mm)%cellheatflux(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
-! write(*,*) i, j , 'havg', qw, (tref*(1 - bcdata(mm)%tns_wall(i,j))), scaledim
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
-    else if (bctype(mm) .eq. nswalladiabatic) then
+    else
 ! if we an adiabatic wall, set the heat flux to zero
       bcdata(mm)%cellheatflux = zero
     end if

@@ -22,9 +22,9 @@ class ActuatorBasicTests(unittest.TestCase):
                         'usenksolver':True,
                         'volumevariables': ['temp', 'mach', 'resrho' ],
                         'surfacevariables':['temp', 'vx', 'vy', 'vz', 'p', 'ptloss', 'mach', 'rho'],
-                        'equationType':'euler',
+                        'equationType':'Euler',
                         'l2convergence': 1e-13}
-                        
+
         CFDSolver = ADFLOW(options=self.options)
 
         CFDSolver.addFunction('mdot', 'inlet', name="mdot_in")
@@ -55,14 +55,14 @@ class ActuatorBasicTests(unittest.TestCase):
         CFDSolver.addFunction('mavgps', 'outlet', name="ps_out")
 
         self.CFDSolver = CFDSolver
-        
+
         self.ap = AeroProblem(name='actuator_in_pipe', alpha=00, mach=0.6, altitude=0,
                         areaRef=1.0, chordRef=1.0,
-                    evalFuncs=['mdot_in', 'mdot_out', 
-                               'mavgptot_in', 'mavgptot_out', 
-                               'mavgttot_in', 'mavgttot_out', 
+                    evalFuncs=['mdot_in', 'mdot_out',
+                               'mavgptot_in', 'mavgptot_out',
+                               'mavgttot_in', 'mavgttot_out',
                                'mavgps_in', 'mavgps_out',
-                               'area_in', 'area_out', 
+                               'area_in', 'area_out',
                                'aavgps_in', 'aavgps_out',
                                'aavgptot_in', 'aavgptot_out',
                                'ps_in', 'ps_out',
@@ -97,11 +97,11 @@ class ActuatorBasicTests(unittest.TestCase):
         self.CFDSolver(ap)
         funcs = {}
         self.CFDSolver.evalFunctions(ap, funcs)
-            
+
 
         force_cfd =  -funcs[self.ap.name + '_mdot_out']*funcs[self.ap.name + '_vx_out'] + funcs[self.ap.name + '_ps_out']*funcs[self.ap.name +'_area_out'] \
                  - ( funcs[self.ap.name + '_mdot_in']*funcs[self.ap.name + '_vx_in'] + funcs[self.ap.name + '_ps_in']*funcs[self.ap.name +'_area_in'])
-        
+
         # The low accuracy is because the intgrated quantities don't have a lot of precision
         np.testing.assert_allclose(force_cfd, force, rtol=1e-3)
 
@@ -114,12 +114,12 @@ class ActuatorDerivTests(unittest.TestCase):
                         'mgcycle':'sg',
                         'ncycles':1,
                         'useanksolver':True,
-                        'usenksolver':False,
+                        # 'usenksolver':True,
                         'volumevariables': ['temp', 'mach', 'resrho' ],
                         'surfacevariables':['temp', 'vx', 'vy', 'vz', 'p', 'ptloss', 'mach', 'rho'],
-                        'equationType':'euler',
+                        'equationType':'Euler',
                         'l2convergence': 1e-13}
-                        
+
         CFDSolver = ADFLOW(options=self.options)
 
         CFDSolver.addFunction('mdot', 'inlet', name="mdot_in")
@@ -150,14 +150,14 @@ class ActuatorDerivTests(unittest.TestCase):
         CFDSolver.addFunction('mavgps', 'outlet', name="ps_out")
 
         self.CFDSolver = CFDSolver
-        
+
         self.ap = AeroProblem(name='actuator_in_pipe', alpha=00, mach=0.6, altitude=0,
                         areaRef=1.0, chordRef=1.0,
-                    evalFuncs=['mdot_in', 'mdot_out', 
-                               'mavgptot_in', 'mavgptot_out', 
-                               'mavgttot_in', 'mavgttot_out', 
+                    evalFuncs=['mdot_in', 'mdot_out',
+                               'mavgptot_in', 'mavgptot_out',
+                               'mavgttot_in', 'mavgttot_out',
                                'mavgps_in', 'mavgps_out',
-                               'area_in', 'area_out', 
+                               'area_in', 'area_out',
                                'aavgps_in', 'aavgps_out',
                                'aavgptot_in', 'aavgptot_out',
                                'ps_in', 'ps_out',
@@ -167,13 +167,14 @@ class ActuatorDerivTests(unittest.TestCase):
         self.ap.addDV('Thrust', familyGroup='actuator', name='actuator_thrust')
         self.ap.setActuatorVar('Torque',  599.0, 'actuator')
         self.ap.addDV('Torque', familyGroup='actuator', name='actuator_torque')
-        
+
         actuatorFile = os.path.join(baseDir, '../input_files/actuator_disk.xyz')
         self.CFDSolver.addActuatorRegion(actuatorFile, np.array([0,0,0]),np.array([1,0,0]), 'actuator', thrust=600 )
 
 
     def test_fwd(self):
         self.CFDSolver(self.ap)
+        "note the torque dv does not effect anything so the deriv is and should be zero"
         for DV in self.ap.DVs:
             xDvDot = {DV:1}
 
@@ -198,7 +199,7 @@ class ActuatorDerivTests(unittest.TestCase):
     #     petsc4py.init(arch='complex-debug')
     #     from petsc4py import PETSc
     #     from python.pyADflow_C import ADFLOW_C
-        
+
     #     self.options['useanksolver'] = False
     #     CFDSolver = ADFLOW_C(options=self.options)
 
@@ -224,7 +225,7 @@ class ActuatorDerivTests(unittest.TestCase):
 
     #     CFDSolver.addFunction('aavgps', 'downstream', name="aavgps_down")
     #     CFDSolver.addFunction('aavgps', 'upstream', name="aavgps_up")
-        
+
     #     actuatorFile = os.path.join(baseDir, '../input_files/actuator_disk.xyz')
     #     CFDSolver.addActuatorRegion(actuatorFile, np.array([0,0,0]),np.array([1,0,0]), 'actuator', thrust=600 )
     #     CFDSolver(self.ap, writeSolution=False)

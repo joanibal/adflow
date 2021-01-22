@@ -699,7 +699,7 @@ contains
 
                areaHeated = areaHeated + BCData(mm)%area(i,j)* blk
           enddo
-     else if( BCType(mm) == NSWallAdiabatic) Then
+     else
           ! If we an adiabatic wall, set the heat flux to zero
           bcData(mm)%cellHeatFlux = zero
      end if viscHeatFlux
