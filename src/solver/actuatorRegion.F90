@@ -66,7 +66,7 @@ contains
     ! axis.
     axisVec = axis2-axis1
     axisVecNorm = sqrt((axisVec(1)**2 + axisvec(2)**2 + axisVec(3)**2))
-    if (axisVecNorm < 1e-12) then 
+    if (axisVecNorm < 1e-12) then
        print *,"Error: Axis cannot be determined by the supplied points. They are too close"
        stop
     end if
@@ -576,7 +576,7 @@ contains
 
 
   subroutine setActuatorData(dataVec, dataVarNames, famLists,  nVar, nFamMax)
-    
+
     use constants
     use cgnsNames
     use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, &
@@ -604,7 +604,7 @@ contains
              varName = char2str(dataVarNames(iVar,:), maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
-                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
                      dataVec(iVar)
              else if (trim(varName) == "Torque") then
                 actuatorRegions(iRegion)%T = dataVec(iVar)
@@ -615,7 +615,7 @@ contains
   end subroutine setActuatorData
 
   subroutine setActuatorData_d(dataVec, dataVecd, dataVarNames, famLists,  nVar, nFamMax)
-    
+
     use constants
     use cgnsNames
     use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, &
@@ -643,9 +643,9 @@ contains
              varName = char2str(dataVarNames(iVar,:), maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
-                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+                actuatorRegions(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
                      dataVec(iVar)
-                actuatorRegionsd(iRegion)%F = actuatorRegions(iRegion)%axisVec* & 
+                actuatorRegionsd(iRegion)%F = actuatorRegions(iRegion)%axisVec* &
                      dataVecd(iVar)
              else if (trim(varName) == "Torque") then
                 actuatorRegions(iRegion)%T = dataVec(iVar)
@@ -658,7 +658,7 @@ contains
   end subroutine setActuatorData_d
 
   subroutine setActuatorData_b(dataVec, dataVecd, dataVarNames, famLists,  nVar, nFamMax)
-    
+
     use constants
     use cgnsNames
     use blockPointers, only : BCData, nDom, nBocos, nBKGlobal, &
@@ -667,7 +667,7 @@ contains
     use utils, only : setPointers,terminate, char2str
     use communication, only : myid
     !
-    real(kind=realType), dimension(nVar), intent(in) :: dataVec 
+    real(kind=realType), dimension(nVar), intent(in) :: dataVec
     real(kind=realType), dimension(nVar), intent(inout) :: dataVecd
     character, dimension(nVar, maxCGNSNameLen), intent(in) :: dataVarNames
     integer(kind=intType), dimension(nVar, nFamMax), intent(in) :: famLists
@@ -687,7 +687,7 @@ contains
              varName = char2str(dataVarNames(iVar,:), maxCGNSNameLen)
 
              if (trim(varName) == "Thrust") then
-                dataVecd(iVar) = & 
+                dataVecd(iVar) = &
                      sum(actuatorRegions(iRegion)%axisVec*actuatorRegionsd(iRegion)%F)
              else if (trim(varName) == "Torque") then
                 dataVecd(iVar) =  actuatorRegionsd(iRegion)%T

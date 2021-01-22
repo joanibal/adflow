@@ -345,7 +345,7 @@ contains
 
     real(kind=realType), dimension(3) :: refPoint
     real(kind=realType), dimension(3,2) :: axisPoints
-    real(kind=realType) :: mx, my, mz, cellArea, m0x, m0y, m0z, Mvaxis, Mpaxis, qw
+    real(kind=realType) :: mx, my, mz, area, cellArea, m0x, m0y, m0z, Mvaxis, Mpaxis, qw
     real(kind=realType) :: CpError, CpError2
 
     real(kind=realType):: Q, scaleDim, hAvg, areaHeated
@@ -383,6 +383,8 @@ contains
     sepSensorAvg = zero
     Mpaxis = zero; Mvaxis = zero;
     CpError2 = zero;
+
+    area = zero
 
     Q = zero
     hAvg = zero
@@ -489,6 +491,7 @@ contains
        cellArea = sqrt(ssi(i,j,1)**2 + ssi(i,j,2)**2 + ssi(i,j,3)**2)
 
        bcData(mm)%area(i, j) = cellArea
+       area = area + cellArea * blk
 
        ! Get normalized surface velocity:
        v(1) = ww2(i, j, ivx)
@@ -718,6 +721,8 @@ contains
      localValues(iTotHeatTransfer) = localValues(iTotHeatTransfer) + Q
      localValues(iHeatTransferCoef) = localValues(iHeatTransferCoef) + hAvg
      localValues(iHeatedArea) = localValues(iHeatedArea) + areaHeated
+     localValues(iArea) = localValues(iArea) + area
+
 
 #ifndef USE_TAPENADE
     localValues(iyPlus) = max(localValues(iyPlus), yplusMax)

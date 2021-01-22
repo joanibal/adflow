@@ -317,8 +317,8 @@ contains
     real(kind=realtype) :: tauxy, tauxz, tauyz
     real(kind=realtype), dimension(3) :: refpoint
     real(kind=realtype), dimension(3, 2) :: axispoints
-    real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis, qw
+    real(kind=realtype) :: mx, my, mz, area, cellarea, m0x, m0y, m0z, &
+&   mvaxis, mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: q, scaledim, havg, areaheated
     intrinsic sqrt
@@ -356,6 +356,7 @@ contains
     mpaxis = zero
     mvaxis = zero
     cperror2 = zero
+    area = zero
     q = zero
     havg = zero
     areaheated = zero
@@ -447,6 +448,7 @@ contains
       cellarea = sqrt(ssi(i, j, 1)**2 + ssi(i, j, 2)**2 + ssi(i, j, 3)**&
 &       2)
       bcdata(mm)%area(i, j) = cellarea
+      area = area + cellarea*blk
 ! get normalized surface velocity:
       v(1) = ww2(i, j, ivx)
       v(2) = ww2(i, j, ivy)
@@ -635,6 +637,7 @@ contains
     localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
 &     havg
     localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated
+    localvalues(iarea) = localvalues(iarea) + area
   end subroutine wallintegrationface
   subroutine flowintegrationface(isinflow, localvalues, mm)
     use constants

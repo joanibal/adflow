@@ -1136,10 +1136,10 @@ contains
     real(kind=realtype), dimension(3) :: refpoint
     real(kind=realtype), dimension(3) :: refpointd
     real(kind=realtype), dimension(3, 2) :: axispoints
-    real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis, qw
-    real(kind=realtype) :: mxd, myd, mzd, cellaread, m0xd, m0yd, m0zd, &
-&   mvaxisd, mpaxisd, qwd
+    real(kind=realtype) :: mx, my, mz, area, cellarea, m0x, m0y, m0z, &
+&   mvaxis, mpaxis, qw
+    real(kind=realtype) :: mxd, myd, mzd, aread, cellaread, m0xd, m0yd, &
+&   m0zd, mvaxisd, mpaxisd, qwd
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: cperrord, cperror2d
     real(kind=realtype) :: q, scaledim, havg, areaheated
@@ -1301,6 +1301,7 @@ contains
       cellarea = sqrt(ssi(i, j, 1)**2 + ssi(i, j, 2)**2 + ssi(i, j, 3)**&
 &       2)
       bcdata(mm)%area(i, j) = cellarea
+      area = area + cellarea*blk
 ! get normalized surface velocity:
       v(1) = ww2(i, j, ivx)
       v(2) = ww2(i, j, ivy)
@@ -1362,6 +1363,7 @@ contains
     else
       call pushcontrol1b(1)
     end if
+    aread = localvaluesd(iarea)
     areaheatedd = localvaluesd(iheatedarea)
     havgd = localvaluesd(iheattransfercoef)
     qd = localvaluesd(itotheattransfer)
@@ -1770,7 +1772,7 @@ contains
       vd(2) = 0.0_8
       ww2d(i, j, ivx) = ww2d(i, j, ivx) + vd(1)
       vd(1) = 0.0_8
-      cellaread = cellaread + bcdatad(mm)%area(i, j)
+      cellaread = cellaread + bcdatad(mm)%area(i, j) + blk*aread
       bcdatad(mm)%area(i, j) = 0.0_8
       if (ssi(i, j, 1)**2 + ssi(i, j, 2)**2 + ssi(i, j, 3)**2 .eq. 0.0_8&
 &     ) then
@@ -1905,8 +1907,8 @@ contains
     real(kind=realtype) :: tauxy, tauxz, tauyz
     real(kind=realtype), dimension(3) :: refpoint
     real(kind=realtype), dimension(3, 2) :: axispoints
-    real(kind=realtype) :: mx, my, mz, cellarea, m0x, m0y, m0z, mvaxis, &
-&   mpaxis, qw
+    real(kind=realtype) :: mx, my, mz, area, cellarea, m0x, m0y, m0z, &
+&   mvaxis, mpaxis, qw
     real(kind=realtype) :: cperror, cperror2
     real(kind=realtype) :: q, scaledim, havg, areaheated
     intrinsic sqrt
@@ -1944,6 +1946,7 @@ contains
     mpaxis = zero
     mvaxis = zero
     cperror2 = zero
+    area = zero
     q = zero
     havg = zero
     areaheated = zero
@@ -2035,6 +2038,7 @@ contains
       cellarea = sqrt(ssi(i, j, 1)**2 + ssi(i, j, 2)**2 + ssi(i, j, 3)**&
 &       2)
       bcdata(mm)%area(i, j) = cellarea
+      area = area + cellarea*blk
 ! get normalized surface velocity:
       v(1) = ww2(i, j, ivx)
       v(2) = ww2(i, j, ivy)
@@ -2223,6 +2227,7 @@ contains
     localvalues(iheattransfercoef) = localvalues(iheattransfercoef) + &
 &     havg
     localvalues(iheatedarea) = localvalues(iheatedarea) + areaheated
+    localvalues(iarea) = localvalues(iarea) + area
   end subroutine wallintegrationface
 !  differentiation of flowintegrationface in reverse (adjoint) mode (with options i4 dr8 r8 noisize):
 !   gradient     of useful results: pointref timeref tref rgas
