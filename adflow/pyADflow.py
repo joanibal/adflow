@@ -2946,10 +2946,15 @@ class ADFLOW(AeroSolver):
         if not firstCall:
             # get any possible BC Data coming out of the aeroProblem
 
-            ap_bc_data = self.getBCDataFromBCVar(AP.getBCData())
+            # based on the BC vars of the ap problem, set the data of the mesh.
+            # this is needed because the dimension of the variables and mesh might
+            # not allign, but may still be valid.
+            ap_bc_data = self.getBCDataFromBCVar(AP.getBCVars())
             self.setBCData(ap_bc_data)
 
-            actuatorData = AP.getActuatorData()
+            # currently no translation is need from the vars to the data since all
+            # actuator regions use scalar data
+            actuatorData = AP.getActuatorVars()
             self.setActuatorData(actuatorData)
 
             # update the bc data on the coarser mesh levels
@@ -4275,7 +4280,7 @@ class ADFLOW(AeroSolver):
             useState = True
 
         # bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty
-        # BCData = self.curAP.getBCData()
+        # BCData = self.curAP.getBCVars()
         # import ipdb; ipdb.set_trace()
         # BCDataDot = copy.deepcopy(BCData)
 
@@ -4284,7 +4289,7 @@ class ADFLOW(AeroSolver):
         #     for BCVar in BCDataDot[group]:
         #         BCDataDot[group][BCVar] = 0
 
-        actData = self.curAP.getActuatorData()
+        actData = self.curAP.getActuatorVars()
         actDataDot = copy.deepcopy(actData)
 
         # zero BCDataDot
@@ -4302,7 +4307,7 @@ class ADFLOW(AeroSolver):
             extradot = self._getExtraDot(aeroDvsDot)
 
         bc_data_dot = self.getBCDataFromBCVar(bcDvsDot)
-        bc_data = self.getBCDataFromBCVar(self.curAP.getBCData())
+        bc_data = self.getBCDataFromBCVar(self.curAP.getBCVars())
 
         for group in actDvsDot:
             for actVar in actDvsDot[group]:
@@ -4551,10 +4556,10 @@ class ADFLOW(AeroSolver):
             useSpatial = True
 
         # Extract any possibly BC daa
-        bc_data = self.getBCDataFromBCVar(self.curAP.getBCData())
+        bc_data = self.getBCDataFromBCVar(self.curAP.getBCVars())
         BCArrays,  BCVarNames, BCDataArrSizes, patchLoc, nBCVars, groups  = self._convertBCDataToFortBCData(bc_data)
 
-        actData = self.curAP.getActuatorData()
+        actData = self.curAP.getActuatorVars()
         actArray, actVarNames, actFamList = self._convertActuatorDataToFortActuatorData(actData)
 
 
@@ -4567,7 +4572,7 @@ class ADFLOW(AeroSolver):
                                                                 actArray,  actVarNames, actFamList)
         BCDataBar = self._convertFortBCDataToBCData(BCArraysBar, BCVarNames, BCDataArrSizes, patchLoc, nBCVars, groups)
 
-        bc_var_bar = self.getBCVarBarFromBCDataBar( BCDataBar, self.curAP.getBCData())
+        bc_var_bar = self.getBCVarBarFromBCDataBar( BCDataBar, self.curAP.getBCVars())
 
         actDataBar =  self._convertFortActuatorDataToActuatorData(actArrayBar, actVarNames, actFamList)
 
