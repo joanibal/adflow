@@ -2946,7 +2946,7 @@ class ADFLOW(AeroSolver):
         if not firstCall:
             # get any possible BC Data coming out of the aeroProblem
 
-            ap_bc_data = self.getBCDataFromBCVar(AP.getBCData())
+            ap_bc_data = self.getBCDataFromBCVar(AP.getBCVars())
             self.setBCData(ap_bc_data)
 
             actuatorData = AP.getActuatorData()
@@ -4275,7 +4275,7 @@ class ADFLOW(AeroSolver):
             useState = True
 
         # bcDataNames, bcDataValues, bcDataFamLists, bcDataFams, bcVarsEmpty
-        # BCData = self.curAP.getBCData()
+        # BCData = self.curAP.getBCVars()
         # import ipdb; ipdb.set_trace()
         # BCDataDot = copy.deepcopy(BCData)
 
@@ -4302,7 +4302,7 @@ class ADFLOW(AeroSolver):
             extradot = self._getExtraDot(aeroDvsDot)
 
         bc_data_dot = self.getBCDataFromBCVar(bcDvsDot)
-        bc_data = self.getBCDataFromBCVar(self.curAP.getBCData())
+        bc_data = self.getBCDataFromBCVar(self.curAP.getBCVars())
 
         for group in actDvsDot:
             for actVar in actDvsDot[group]:
@@ -4551,7 +4551,7 @@ class ADFLOW(AeroSolver):
             useSpatial = True
 
         # Extract any possibly BC daa
-        bc_data = self.getBCDataFromBCVar(self.curAP.getBCData())
+        bc_data = self.getBCDataFromBCVar(self.curAP.getBCVars())
         BCArrays,  BCVarNames, BCDataArrSizes, patchLoc, nBCVars, groups  = self._convertBCDataToFortBCData(bc_data)
 
         actData = self.curAP.getActuatorData()
@@ -4567,7 +4567,7 @@ class ADFLOW(AeroSolver):
                                                                 actArray,  actVarNames, actFamList)
         BCDataBar = self._convertFortBCDataToBCData(BCArraysBar, BCVarNames, BCDataArrSizes, patchLoc, nBCVars, groups)
 
-        bc_var_bar = self.getBCVarBarFromBCDataBar( BCDataBar, self.curAP.getBCData())
+        bc_var_bar = self.getBCVarBarFromBCDataBar( BCDataBar, self.curAP.getBCVars())
 
         actDataBar =  self._convertFortActuatorDataToActuatorData(actArrayBar, actVarNames, actFamList)
 
