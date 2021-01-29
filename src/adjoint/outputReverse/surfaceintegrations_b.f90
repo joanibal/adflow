@@ -1073,21 +1073,21 @@ contains
 !   gradient     of useful results: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
 !                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
+!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
 !   with respect to varying inputs: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
 !                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
+!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
 !   rw status of diff variables: veldirfreestream:incr machcoef:incr
 !                pointref:incr pinf:incr pref:incr *xx:incr *pp1:incr
 !                *pp2:incr *ssi:incr *ww2:incr *(*viscsubface.tau):incr
 !                *(*viscsubface.q):incr *(*bcdata.fv):in-out *(*bcdata.fp):in-out
-!                *(*bcdata.area):in-out *(*bcdata.cellheatflux):in-out
+!                *(*bcdata.area):in-out *(*bcdata.cellheatxferrate):in-out
 !                localvalues:in-out
 !   plus diff mem management of: xx:in pp1:in pp2:in ssi:in ww2:in
 !                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
 !                bcdata:in *bcdata.fv:in *bcdata.fp:in *bcdata.area:in
-!                *bcdata.cellheatflux:in
+!                *bcdata.cellheatxferrate:in
   subroutine wallintegrationface_b(localvalues, localvaluesd, mm)
 !
 !       wallintegrations computes the contribution of the block
@@ -1398,9 +1398,9 @@ contains
         end if
         bcdatad(mm)%area(i, j) = bcdatad(mm)%area(i, j) + blk*&
 &         areaheatedd
-        qwd = bcdatad(mm)%cellheatflux(i, j) + blk*qd + blk*havgd/(tref*&
-&         (1.00000001-bcdata(mm)%tns_wall(i, j)))
-        bcdatad(mm)%cellheatflux(i, j) = 0.0_8
+        qwd = bcdatad(mm)%cellheatxferrate(i, j) + blk*qd + blk*havgd/(&
+&         tref*(1.00000001-bcdata(mm)%tns_wall(i, j)))
+        bcdatad(mm)%cellheatxferrate(i, j) = 0.0_8
         temp10 = viscsubface(mm)%q(i, j, 3)
         temp9 = viscsubface(mm)%q(i, j, 2)
         temp8 = viscsubface(mm)%q(i, j, 1)
@@ -1421,7 +1421,7 @@ contains
       call popinteger4(j)
       call popinteger4(i)
     else
-      bcdatad(mm)%cellheatflux = 0.0_8
+      bcdatad(mm)%cellheatxferrate = 0.0_8
       scaledimd = 0.0_8
     end if
     call popcontrol1b(branch)
@@ -2203,13 +2203,13 @@ contains
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = qw
+        bcdata(mm)%cellheatxferrate(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else
 ! if we an adiabatic wall, set the heat flux to zero
-      bcdata(mm)%cellheatflux = zero
+      bcdata(mm)%cellheatxferrate = zero
     end if
 ! increment the local values array with the values we computed here.
     localvalues(ifp:ifp+2) = localvalues(ifp:ifp+2) + fp

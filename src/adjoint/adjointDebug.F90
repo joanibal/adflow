@@ -1,4 +1,4 @@
-! This module is used for debugging and testing only 
+! This module is used for debugging and testing only
 
 module adjointDebug
 
@@ -32,6 +32,7 @@ contains
       use utils, only : isWallType, setPointers, setPointers_d, EChk
       use flowVarRefState, only : nw, nwf
       use wallDistanceData, only: xSurf, xSurfVec
+      use wallDistance, only: updateXSurf
       implicit none
       !
       ! Input Variables
@@ -42,26 +43,26 @@ contains
       real(kind=realType), dimension(:), intent(in) :: wDot
       real(kind=realType), dimension(:,:), intent(in) :: BCArraysDot
       real(kind=realType), dimension(:), intent(in) :: actArrayDot
-      
+
       ! size data
       logical, intent(in) :: useSpatial, useState
       integer(kind=intType), dimension(:, :) :: famLists
       integer(kind=intType) :: costSize, fSize, nTime
 
-      ! Boundary Condition data 
+      ! Boundary Condition data
       real(kind=realType), dimension(:,:), intent(inout) :: BCArrays
       character, dimension(:,:), intent(in) :: BCVarNames
       integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
       integer(kind=inttype), dimension(:), intent(in) :: nBCVars
-      
-      ! actuator data 
+
+      ! actuator data
       real(kind=realType), dimension(:), intent(inout) :: actArray
       character, dimension(:,:), intent(in) :: actVarNames
       integer(kind=intType), dimension(:, :), intent(in) :: actFamLists
 
       ! Finite difference parameters
       real(kind=realType), intent(in) :: h ! step size for Finite Difference
-      
+
       !
       ! Ouput Variables
       !
@@ -197,6 +198,8 @@ contains
       BCArrays = BCArrays + BCArraysDot*h
       actArray = actArray + actArrayDot*h
 
+      call updateXSurf(level)
+
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
       call master(useSpatial, famLists,  &
@@ -239,7 +242,8 @@ contains
       end do
 
 
-     
+      call updateXSurf(level)
+
       BCArrays = BCArrays - BCArraysDot*h
       actArray = actArray - actArrayDot*h
 
@@ -252,7 +256,7 @@ contains
 
    subroutine printADSeeds(nn, level, sps)
       ! this routine is used for debugging master_d, and master_b.
-      ! it prints all fo the AD seeds used 
+      ! it prints all fo the AD seeds used
 
 
       use constants
@@ -403,8 +407,10 @@ contains
                                  maxval(flowDomsd(nn, level, sps)%BCData(mm)%turbInlet)
          write(*,*) 'mm', mm, 'BCData(mm)%ps ',minval(flowDomsd(nn, level, sps)%BCData(mm)%ps), &
                                  maxval(flowDomsd(nn, level, sps)%BCData(mm)%ps)
-         write(*,*) 'mm', mm, 'BCData(mm)%cellHeatFlux ',minval(flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux), &
-                                 maxval(flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux)
+         write(*,*) 'mm', mm, 'BCData(mm)%cellHeatXferRate ',minval(flowDomsd(nn, level, sps)%BCData(mm)%cellHeatXferRate), &
+                                 maxval(flowDomsd(nn, level, sps)%BCData(mm)%cellHeatXferRate)
+         write(*,*) 'mm', mm, 'BCData(mm)%nodeHeatXferRate ',minval(flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatXferRate), &
+                                 maxval(flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatXferRate)
          write(*,*) 'mm', mm, 'BCData(mm)%nodeHeatFlux ',minval(flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatFlux), &
                                  maxval(flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatFlux)
 
@@ -532,7 +538,7 @@ contains
    !    character, dimension(:), intent(in) :: bcdatanames
    !    real(kind=realtype), dimension(:,:),intent(in) :: bcdatavalues
    !    integer(kind=inttype), dimension(:), intent(in) :: bcdatafamlists
-      
+
    !    logical, intent(in) :: BCVarsEmpty
 
 
@@ -738,13 +744,13 @@ contains
    ! end subroutine computeDotProductTest
 
 #else
-      
+
    subroutine computeMatrixFreeProductFwdCS(xvdot, extradot, wdot, BCArraysDot, actArrayDot, &
                                           useSpatial, useState, famLists,&
                                           BCArrays,  BCVarNames, patchLoc, nBCVars, &
                                           actArray,  actVarNames, actFamlists, &
                                           dwdot, funcsDot, fDot, hfdot, &
-                                          costSize, fSize, nTime)
+                                          costSize, fSize, nTime, h_mag)
 
       ! This routine is used to debug master_d. It uses the forward seeds to set perturbations
       ! and then computes the value of the derivatives using forward finite diffenece
@@ -766,6 +772,8 @@ contains
       use utils, only : isWallType, setPointers, setPointers_d, EChk
       use flowVarRefState, only : nw, nwf
       use wallDistanceData, only: xSurf, xSurfVec
+      use wallDistance, only : updateXSurf
+
       implicit none
 
       ! Input Variables
@@ -784,12 +792,13 @@ contains
       character, dimension(:,:), intent(in) :: BCVarNames
       integer(kind=intType), dimension(:, :), intent(in) :: patchLoc
       integer(kind=inttype), dimension(:), intent(in) :: nBCVars
-      
-      ! actuator data 
+      ! actuator data
       real(kind=realType), dimension(:), intent(inout) :: actArray
       character, dimension(:,:), intent(in) :: actVarNames
       integer(kind=intType), dimension(:, :), intent(in) :: actFamLists
 
+      ! step parameters
+      real(kind=alwaysRealType), intent(in) :: h_mag ! step size for step
 
 
       ! Ouput Variables
@@ -814,7 +823,7 @@ contains
       complex(kind=realType), dimension(:, :, :), allocatable :: heatfluxes
       complex(kind=realType) :: h ! step size for Finite Difference
 
-      h = cmplx(0, 1e-40)
+      h = cmplx(0, h_mag)
 
       fSize = size(fDot, 2)
       allocate(forces(3, fSize, nTimeIntervalsSpectral))
@@ -895,6 +904,8 @@ contains
       BCArrays = BCArrays + BCArraysDot*h
       actArray = actArray + actArrayDot*h
 
+      call updateXSurf(level)
+
       ! ----------------------------- Run Master ---------------------------------
       call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
                  BCArrays,  BCVarNames, patchLoc, nBCVars, &
@@ -936,6 +947,8 @@ contains
       BCArrays = BCArrays - BCArraysDot*h
       actArray = actArray - actArrayDot*h
 
+      call updateXSurf(level)
+
       fDot = aimag(forces)/aimag(h)
       hfDot = aimag(heatfluxes)/aimag(h)
       funcsDot = aimag(funcValues)/aimag(h)
@@ -945,8 +958,8 @@ contains
       write(*,*) 'funcsDot', minval(real(funcsDot)), maxval(real(funcsDot))
 
    end subroutine computeMatrixFreeProductFwdCS
- 
- ! this isn't compliling anymore 
+
+ ! this isn't compliling anymore
  ! something about how the interface for min and max values has changed
  ! Error: Generic function ‘minval’ at (1) is not consistent with a specific intrinsic interface
 

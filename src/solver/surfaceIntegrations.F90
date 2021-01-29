@@ -697,14 +697,14 @@ contains
                Q = Q + qw* blk
 
                ! Save the face based heatflux
-               bcData(mm)%cellHeatFlux(i, j) = qw
+               bcData(mm)%cellHeatXferRate(i, j) = qw
                hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)+1e-8))* blk
 
                areaHeated = areaHeated + BCData(mm)%area(i,j)* blk
           enddo
      else
           ! If we an adiabatic wall, set the heat flux to zero
-          bcData(mm)%cellHeatFlux = zero
+          bcData(mm)%cellHeatXferRate = zero
      end if viscHeatFlux
 
 

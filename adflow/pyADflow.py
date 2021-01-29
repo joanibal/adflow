@@ -100,10 +100,6 @@ class ADFLOW(AeroSolver):
         self.possibleAeroDVs, self.possibleBCDvs, self.possibleActuatorDvs, self.basicCostFunctions = (
             self._getObjectivesAndDVs())
 
-        # Now add the group for each of the "basic" cost functions:
-        self.adflowCostFunctions = OrderedDict()
-        for key in self.basicCostFunctions:
-            self.adflowCostFunctions[key] = [None, key]
 
         # Separate list of the supplied supplied functions
         self.adflowUserCostFunctions = OrderedDict()
@@ -252,6 +248,11 @@ class ADFLOW(AeroSolver):
         # Add the special "all surfaces" family.
         self.allFamilies = 'allSurfaces'
         self.addFamilyGroup(self.allFamilies, famList)
+
+        # Now add the group for each of the "basic" cost functions:
+        self.adflowCostFunctions = OrderedDict()
+        for key in self.basicCostFunctions:
+            self.adflowCostFunctions[key] = [self.allFamilies, key]
 
         # We also need to know about which surfaces are walls. Pull
         # out that information from fortran and set the special
@@ -4304,8 +4305,12 @@ class ADFLOW(AeroSolver):
             useSpatial = True
             aeroDvsDot, bcDvsDot, actDvsDot = self.curAP.evalDVsSensFwd(xDvDot)
 
-            extradot = self._getExtraDot(aeroDvsDot)
+        else:
+            aeroDvsDot = {}
+            bcDvsDot = {}
+            actDvsDot = {}
 
+        extradot = self._getExtraDot(aeroDvsDot)
         bc_data_dot = self.getBCDataFromBCVar(bcDvsDot)
         bc_data = self.getBCDataFromBCVar(self.curAP.getBCVars())
 
@@ -4372,7 +4377,7 @@ class ADFLOW(AeroSolver):
                                         useSpatial, useState, famLists, \
                                         BCArrays,  BCVarNames, patchLoc, nBCVars,\
                                         actArray,  actVarNames, actfamList,\
-                                        costSize, max(1, fSize), nTime)
+                                        costSize, max(1, fSize), nTime, h)
             else:
                 raise Error("Complexified ADflow must be used to apply the complex step")
 

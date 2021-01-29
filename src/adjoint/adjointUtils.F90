@@ -850,7 +850,8 @@ contains
                   flowDomsd(nn, level, sps)%BCData(mm)%ttInlet(iBeg:iStop,jBeg:jStop), &
                   flowDomsd(nn, level, sps)%BCData(mm)%turbInlet(iBeg:iStop,jBeg:jStop,nt1:nt2), &
                   flowDomsd(nn, level, sps)%BCData(mm)%ps(iBeg:iStop,jBeg:jStop), &
-                  flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux(inBeg+1:inStop,jnBeg+1:jnStop), &
+                  flowDomsd(nn, level, sps)%BCData(mm)%cellHeatXferRate(inBeg+1:inStop,jnBeg+1:jnStop), &
+                  flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatXferRate(inBeg:inStop,jnBeg:jnStop), &
                   flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatFlux(inBeg:inStop,jnBeg:jnStop), &
                   stat=ierr)
 
@@ -990,8 +991,10 @@ contains
        flowDomsd(nn, level, sps)%BCData(mm)%ttInlet = zero
        flowDomsd(nn, level, sps)%BCData(mm)%turbInlet = zero
        flowDomsd(nn, level, sps)%BCData(mm)%ps = zero
-       flowDomsd(nn, level, sps)%BCData(mm)%cellHeatFlux = zero
+       flowDomsd(nn, level, sps)%BCData(mm)%cellHeatXferRate = zero
+       flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatXferRate = zero
        flowDomsd(nn, level, sps)%BCData(mm)%nodeHeatFlux = zero
+
 
     end do bocoLoop
 

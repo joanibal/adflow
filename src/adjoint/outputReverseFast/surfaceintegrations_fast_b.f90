@@ -613,13 +613,13 @@ contains
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = qw
+        bcdata(mm)%cellheatxferrate(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else
 ! if we an adiabatic wall, set the heat flux to zero
-      bcdata(mm)%cellheatflux = zero
+      bcdata(mm)%cellheatxferrate = zero
     end if
 ! increment the local values array with the values we computed here.
     localvalues(ifp:ifp+2) = localvalues(ifp:ifp+2) + fp

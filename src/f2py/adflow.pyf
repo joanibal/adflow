@@ -114,7 +114,7 @@ python module libadflow
         !  end subroutine setbcdata
 
          subroutine setbcdata(sps, bcdataarray, bcdatavarnames, patchloc, patchnumbcvar)
-           integer(kind=inttype), intent(in) ::  sps 
+           integer(kind=inttype), intent(in) ::  sps
            real(kind=realtype), dimension(:,:), intent(in) :: bcdataarray
            character, dimension(:,:), intent(in) :: bcdatavarnames
            integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
@@ -123,14 +123,14 @@ python module libadflow
          end subroutine setbcdata
 
          subroutine getnumpatches(sps, famlist, numpatches)
-           integer(kind=inttype), intent(in) ::  sps 
+           integer(kind=inttype), intent(in) ::  sps
            integer(kind=inttype), dimension(:), intent(in) :: famlist
            integer(kind=inttype), intent(out) :: numpatches
          end subroutine getnumpatches
 
 
          subroutine getpatchdata(sps, famlist, patchloc, patchbctype, patchnumbcvar, patchfamid, patchnumnodes)
-           integer(kind=inttype), intent(in) ::  sps 
+           integer(kind=inttype), intent(in) ::  sps
            integer(kind=inttype), dimension(:), intent(in) :: famlist
           !  integer(kind=inttype), optional,intent(in),check(shape(famlists,0)==nfammax),depend(famlists) :: nfammax=shape(famlists,0)
             integer(kind=inttype), dimension(:,: ), intent(inout) :: patchloc
@@ -141,15 +141,15 @@ python module libadflow
          end subroutine getpatchdata
 
 
-   ! TODO get Sandy's feed back on this code 
-    !  gets the given bcData array 
+   ! TODO get Sandy's feed back on this code
+    !  gets the given bcData array
 
 
 
          subroutine getbcdata(sps, patchloc, patchnumbcvar, patchnumnodes, nbcarrays, maxpatchsize, bcdataarray, bcdatavarnames, bcdataarrsizes)
-           integer(kind=inttype), intent(in) ::  sps 
-           integer(kind=inttype), intent(in) ::  nbcarrays 
-           integer(kind=inttype), intent(in) ::  maxpatchsize 
+           integer(kind=inttype), intent(in) ::  sps
+           integer(kind=inttype), intent(in) ::  nbcarrays
+           integer(kind=inttype), intent(in) ::  maxpatchsize
            integer(kind=inttype), dimension(:, :), intent(in) :: bcpatchdata
            integer(kind=inttype), dimension(:,: ), intent(in) :: patchloc
            integer(kind=inttype), dimension(:), intent(in) ::    patchnumbcvar
@@ -158,7 +158,7 @@ python module libadflow
            character, dimension(nbcarrays,32), intent(out) :: bcdatavarnames
            integer(kind=inttype), dimension(nbcarrays), intent(out) :: bcdataarrsizes
           end subroutine getbcdata
-         
+
 
        end module bcdata
 
@@ -702,23 +702,23 @@ python module libadflow
                                                    actarray, actvarnames, actfamlists, &
                                                    dwdot, funcsdot, fdot, hfdot, &
                                                    costsize, fsize, ntime) ! in :test:adjointapi.f90:adjointapi
-                
+
                 real(kind=realtype) dimension(:),intent(in) :: xvdot
                 real(kind=realtype) dimension(:),intent(in) :: extradot
                 real(kind=realtype) dimension(:),intent(in) :: wdot
                 real(kind=realtype),  dimension(:,:), intent(in) :: bcarraysdot
                 real(kind=realtype) dimension(:), intent(in) :: actarraydot
-                
+
                 logical intent(in) :: usespatial
                 logical intent(in) :: usestate
                 integer(kind=inttype) dimension(:,:) :: famlists
-                
+
                 real(kind=realtype),  dimension(:,:), intent(in) :: bcarrays
                 character,  dimension(:,:), intent(in) :: bcvarnames
                 integer(kind=inttype),  dimension(:, :), intent(in) :: patchloc
                 integer(kind=inttype),  dimension(:), intent(in) :: nbcvars
 
-                ! actuator data 
+                ! actuator data
                 real(kind=realtype)  dimension(:), intent(inout) :: actarray
                 character  dimension(:,:), intent(in) :: actvarnames
                 integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
@@ -795,13 +795,13 @@ python module libadflow
           logical intent(in) :: usespatial
           logical intent(in) :: usestate
           integer(kind=inttype) dimension(:,:) :: famlists
-      
+
           real(kind=realtype), dimension(:,:), intent(inout) :: bcarrays
           character, dimension(:,:), intent(in) :: bcvarnames
           integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
-          integer(kind=inttype), dimension(:), intent(in) :: nbcvars   
+          integer(kind=inttype), dimension(:), intent(in) :: nbcvars
 
-          ! actuator data 
+          ! actuator data
           real(kind=realtype)  dimension(:), intent(inout) :: actarray
           character  dimension(:,:), intent(in) :: actvarnames
           integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
@@ -849,19 +849,19 @@ python module libadflow
 
 
 #else
-      ! the types in this routine will get complexified 
+      ! the types in this routine will get complexified
       subroutine computematrixfreeproductfwdcs(xvdot, extradot, wdot, bcarraysdot, actarraydot,&
                                                usespatial, usestate, famlists,&
                                                bcarrays,  bcvarnames, patchloc, nbcvars, &
                                                actarray, actvarnames, actfamlists, &
                                                dwdot, funcsdot, fdot, hfdot, &
-                                               costsize, fsize, ntime)
+                                               costsize, fsize, ntime, h)
         real(kind=realtype) dimension(:),intent(in) :: xvdot
         real(kind=realtype) dimension(:),intent(in) :: extradot
         real(kind=realtype) dimension(:),intent(in) :: wdot
         real(kind=realtype) dimension(:,:),intent(in) :: bcarraysdot
         real(kind=realtype) dimension(:), intent(in) :: actarraydot
-       
+
         ! real(kind=realtype) dimension(:),intent(in) :: bcdatavaluesdot
         logical intent(in) :: usespatial
         logical intent(in) :: usestate
@@ -869,9 +869,9 @@ python module libadflow
         real(kind=realtype), dimension(:,:), intent(in) :: bcarrays
         character, dimension(:,:), intent(in) :: bcvarnames
         integer(kind=inttype), dimension(:, :), intent(in) :: patchloc
-        integer(kind=inttype), dimension(:), intent(in) :: nbcvars  
+        integer(kind=inttype), dimension(:), intent(in) :: nbcvars
 
-        ! actuator data 
+        ! actuator data
         real(kind=realtype)  dimension(:), intent(inout) :: actarray
         character  dimension(:,:), intent(in) :: actvarnames
         integer(kind=inttype)  dimension(:, :), intent(in) :: actfamlists
@@ -884,6 +884,7 @@ python module libadflow
         integer(kind=inttype) :: costsize
         integer(kind=inttype) :: fsize
         integer(kind=inttype) :: ntime
+        real(kind=alwaysrealtype) :: h
       end subroutine computematrixfreeproductfwdcs
 #endif
 
@@ -950,17 +951,17 @@ python module libadflow
       !    integer(kind=inttype) intent(in) :: sps_in
       !  end subroutine settnswall
 
-       subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
-         real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
-         integer(kind=inttype) intent(in) :: npts
-         integer(kind=inttype) intent(in) :: sps
-       end subroutine gettnswall
+      !  subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
+      !    real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
+      !    integer(kind=inttype) intent(in) :: npts
+      !    integer(kind=inttype) intent(in) :: sps
+      !  end subroutine gettnswall
 
-       subroutine getwalltemperature(walltemp, npts, sps) ! in :test:getforces.f90
-         real(kind=realtype) dimension(npts),intent(out),depend(npts) :: walltemp
-         integer(kind=inttype) intent(in) :: npts
-         integer(kind=inttype) intent(in) :: sps
-       end subroutine getwalltemperature
+      !  subroutine getwalltemperature(walltemp, npts, sps) ! in :test:getforces.f90
+      !    real(kind=realtype) dimension(npts),intent(out),depend(npts) :: walltemp
+      !    integer(kind=inttype) intent(in) :: npts
+      !    integer(kind=inttype) intent(in) :: sps
+      !  end subroutine getwalltemperature
 
 
        subroutine setcptargets(cptarget,npts,sps_in) ! in :test:setCpTarget.f90

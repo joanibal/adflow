@@ -208,8 +208,8 @@ adjointExtra%sumDwandFw(fw, dw) > (dw) \
 \
 adjointExtra%resScale(dw) > (dw) \
 \
-surfaceIntegrations%wallIntegrationFace(Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, viscSubface%q, localValues, BCData%Fp, bcData%Fv, BCdata%cellHeatFlux, BCData%area, localValues) > \
-                                       (Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, viscSubface%q, localValues, BCdata%Fp, bcData%Fv, BCdata%cellHeatFlux, BCData%area, localValues)\
+surfaceIntegrations%wallIntegrationFace(Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, viscSubface%q, localValues, BCData%Fp, bcData%Fv, BCdata%cellHeatXferRate, BCData%area, localValues) > \
+                                       (Pinf, Pref, ww2, pp1, pp2, xx, ssi, velDirFreeStream, pointRef, machCoef, viscSubface%tau, viscSubface%q, localValues, BCdata%Fp, bcData%Fv, BCdata%cellHeatXferRate, BCData%area, localValues)\
 \
 surfaceIntegrations%flowIntegrationFace(Pref, rhoRef, timeRef, TRef, rGas, ww1, ww2, pp1, pp2, xx, ssi, pointRef, localValues) > \
                                        (Pref, rhoRef, timeRef, TRef, rGas, ww1, ww2, pp1, pp2, xx, ssi, pointRef, localValues)\

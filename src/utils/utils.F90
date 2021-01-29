@@ -4951,9 +4951,11 @@ end subroutine cross_prod
        if( associated(BCData(i)%uSlipALE) ) &
             deallocate(BCData(i)%uSlipALE, stat=ierr)
        if(ierr /= 0) deallocationFailure = .true.
-       if( associated(BCData(i)%cellHeatFlux) ) &
-            deallocate(BCData(i)%cellHeatFlux, stat=ierr)
+       if( associated(BCData(i)%cellHeatXferRate) ) &
+            deallocate(BCData(i)%cellHeatXferRate, stat=ierr)
        if(ierr /= 0) deallocationFailure = .true.
+       if( associated(BCData(i)%nodeHeatXferRate) ) &
+            deallocate(BCData(i)%nodeHeatXferRate, stat=ierr)
        if( associated(BCData(i)%nodeHeatFlux) ) &
             deallocate(BCData(i)%nodeHeatFlux, stat=ierr)
        if(ierr /= 0) deallocationFailure = .true.
@@ -4978,7 +4980,8 @@ end subroutine cross_prod
        nullify(BCData(i)%normALE)
        nullify(BCData(i)%rfaceALE)
        nullify(BCData(i)%uSlipALE)
-       nullify(BCData(i)%cellHeatFlux)
+       nullify(BCData(i)%cellHeatXferRate)
+       nullify(BCData(i)%nodeHeatXferRate)
        nullify(BCData(i)%nodeHeatFlux)
 
        nullify(BCData(i)%ptInlet)
@@ -6053,8 +6056,8 @@ end subroutine cross_prod
           case (cgnsAxisMoment)
              write(*,"(a)",advance="no") "       AxisMoment       |"
 
-          case (cgnsHeatFlux)
-             write(*,"(a)",advance="no") "           Q            |"
+          case (cgnsTotHeatTransfer)
+             write(*,"(a)",advance="no") "     Total Heat Xfer    |"
 
          end select
        enddo

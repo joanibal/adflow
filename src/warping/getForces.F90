@@ -115,7 +115,7 @@ subroutine getForces(forces, npts, sps)
         forces(iDim, ii+1:ii+size(localPtr)) = localPtr
      end if
 
-     call vecGetArrayF90(zipper%localVal, localPtr, ierr)
+     call vecRestoreArrayF90(zipper%localVal, localPtr, ierr)
      call EChk(ierr,__FILE__,__LINE__)
   end do dimLoop
 
@@ -1509,6 +1509,9 @@ subroutine computeNodalForces_b(sps)
   end do domains
 end subroutine computeNodalForces_b
 
+
+
+
 subroutine getHeatFlux(hflux, npts, sps)
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData
@@ -1562,7 +1565,7 @@ subroutine getHeatFlux(hflux, npts, sps)
      do mm=1, nBocos
          bocoType2: if(isWallType(BCType(mm))) then
 
-           BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
+           BCData(mm)%cellVal => BCData(mm)%cellHeatXferRate(:, :)
            BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
         end if bocoType2
 
@@ -1597,7 +1600,7 @@ end subroutine getHeatFlux
 
 subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
    ! forward mode differenitaion of getHeatFlux
-   ! the inputs are BCDdatad%area and BCdatad%cellHeatFlux
+   ! the inputs are BCDdatad%area and BCdatad%cellHeatXferRate
    ! the output is hfluxd
 
    use constants
@@ -1645,10 +1648,10 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
 
 
          bocoType2: if(isWallType(BCType(mm))) then
-            BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
+            BCData(mm)%cellVal => BCData(mm)%cellHeatXferRate(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
-            BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
+            BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatXferRate(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
 
         end if bocoType2
@@ -1683,7 +1686,7 @@ end subroutine getHeatFlux_d
 
 subroutine getHeatFlux_b(hfluxd, npts, sps)
    ! in: hfluxd
-   ! out: bcdatad%area, bcdatad%cellHeatFlux
+   ! out: bcdatad%area, bcdatad%cellHeatXferRate
    use constants
    use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad, BCFaceID
    use surfaceFamilies, only : BCFamExchange, familyExchange, &
@@ -1753,10 +1756,10 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
       do mm=1, nBocos
 
         bocoType2: if(isWallType(BCType(mm))) then
-            BCData(mm)%cellVal => BCData(mm)%cellHeatFlux(:, :)
+            BCData(mm)%cellVal => BCData(mm)%cellHeatXferRate(:, :)
             BCData(mm)%nodeVal => BCData(mm)%nodeHeatFlux(:, :)
 
-            BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatFlux(:, :)
+            BCDatad(mm)%cellVal => BCDatad(mm)%cellHeatXferRate(:, :)
             BCDatad(mm)%nodeVal => BCDatad(mm)%nodeHeatFlux(:, :)
 
         end if bocoType2
@@ -1829,7 +1832,7 @@ subroutine getHeatFluxCellCenter(hflux, npts, sps)
            do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
               do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
                  ii = ii + 1
-                 hflux(ii) = BCData(mm)%cellHeatFlux(i, j)
+                 hflux(ii) = BCData(mm)%cellHeatXferRate(i, j)
               end do
            end do
 
@@ -1846,177 +1849,4 @@ subroutine getHeatFluxCellCenter(hflux, npts, sps)
   end do
 
 end subroutine getHeatFluxCellCenter
-
-
-
-
-
-
-subroutine getTNSWall(tnsw, npts, sps)
-
-  use constants
-  use blockPointers, only : nDom, nBocos, BCData, BCType
-  use flowVarRefState, only : TRef
-  use utils, only : setPointers
-  implicit none
-
-  ! Input Variables
-  integer(kind=intType), intent(in) :: npts, sps
-  real(kind=realType), intent(out) :: tnsw(npts)
-
-  ! Local Variables
-  integer(kind=intType) :: mm, nn, i, j, ii
-  integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
-
-  ii = 0
-  domains: do nn=1,nDom
-     call setPointers(nn, 1_intType, sps)
-     ! Loop over the number of viscous boundary subfaces of this block.
-     bocos: do mm=1,nBocos
-        isoWall: if (BCType(mm) == NSWallIsoThermal) then
-           jBeg = BCdata(mm)%jnBeg; jEnd = BCData(mm)%jnEnd
-           iBeg = BCData(mm)%inBeg; iEnd = BCData(mm)%inEnd
-            do j=jBeg,jEnd
-
-               if (j==iBeg) then
-
-                  ii = ii + 1
-                  tnsw(ii) = tnsw(ii) + BCData(mm)%TNS_Wall(iBeg,j)*Tref
-
-                  do i=iBeg+1, iEnd
-                     ii = ii + 1
-                     tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(i,j)*Tref - tnsw(ii-1)
-                  end do
-
-               else
-                  ii = ii + 1
-                  tnsw(ii) = tnsw(ii) + 2*BCData(mm)%TNS_Wall(iBeg,j)*Tref - tnsw(ii-(iEnd-iBeg+1))
-
-                  do i=iBeg+1, iEnd
-                     ii = ii + 1
-                     tnsw(ii) = tnsw(ii) + 4*BCData(mm)%TNS_Wall(i,j)*Tref - &
-                              tnsw(ii-(iEnd-iBeg+1)) - tnsw(ii-(iEnd-iBeg+2)) - tnsw(ii-1)
-                  end do
-
-               end if
-
-
-           end do
-
-         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                  ii = ii + 1
-                  tnsw(ii) = zero
-               end do
-            end do
-         end if isoWall
-
-     end do bocos
-
-   end do domains
-
-end subroutine getTNSWall
-
-
-subroutine getWallTemperature(wallTempNodes, npts, sps)
-
-   ! returns the wall nodal wall temperature for the walls in the mesh
-
-
-
-
-   use constants
-   use blockPointers, only : nDom, nBocos, BCType, BCData
-   use BCPointers, only : ww1, ww2, pp1, pp2
-   use flowVarRefState, only : TRef, RGas
-   use surfaceFamilies, only : BCFamExchange, familyExchange, &
-   zeroCellVal, zeroNodeVal
-   use utils, only : setPointers, setBCPointers, isWallType
-   implicit none
-
-
-
-   ! Input Variables
-   integer(kind=intType), intent(in) :: npts, sps
-   real(kind=realType), intent(out) :: wallTempNodes(npts)
-
-   ! Local Variables
-   integer(kind=intType) :: mm, nn, i, j, ii, jj
-   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd, ind(4), ni, nj
-   real(kind=realType) :: t1, t2, wallTempCells
-   type(familyExchange), pointer :: exch
-
-   exch => BCFamExchange(iBCGroupWalls, sps)
-
-   ! compute the wall tempertaure for each BC that is a wall
-   domains: do nn=1,nDom
-      call setPointers(nn, 1_intType, sps)
-      ! Loop over the number of viscous boundary subfaces of this block.
-      bocos: do mm=1,nBocos
-         wall: if(isWallType(BCType(mm))) then
-            call setBCPointers(mm, .True.)
-
-            do j=(BCData(mm)%jnBeg+1), BCData(mm)%jnEnd
-               do i=(BCData(mm)%inBeg+1), BCData(mm)%inEnd
-
-                  ! The wall temperature is the average of the first off wall cell
-                  ! and the first halo cell
-                  t2 = pp2(i,j)/(RGas*ww2(i,j,irho))
-                  t1 = pp1(i,j)/(RGas*ww1(i,j,irho))
-
-                  BCData(mm)%cellTemperature(i,j) = (t2 + t1)/two*Tref *BCData(mm)%area(i,j)
-
-               enddo
-            end do
-         end if wall
-      end do bocos
-
-   end do domains
-
-   do nn=1, nDom
-      call setPointers(nn, 1_intType, sps)
-      do mm=1, nBocos
-         iBeg = BCdata(mm)%inBeg; iEnd=BCData(mm)%inEnd
-         jBeg = BCdata(mm)%jnBeg; jEnd=BCData(mm)%jnEnd
-
-         bocoType1: if(isWallType(BCType(mm))) then
-            BCData(mm)%cellVal => BCData(mm)%area(:, :)
-         end if bocoType1
-      end do
-   end do
-   call computeWeighting(exch)
-
-   do nn=1, nDom
-      call setPointers(nn, 1_intType, sps)
-      do mm=1, nBocos
-         wall2: if(isWallType(BCType(mm))) then
-            BCData(mm)%cellVal => BCData(mm)%cellTemperature(:, :)
-            BCData(mm)%nodeVal => BCData(mm)%nodeTemperature(:, :)
-         end if wall2
-      end do
-   end do
-
- call surfaceCellCenterToNode(exch)
-
- ! Now extract into the flat array:
- ii = 0
- do nn=1,nDom
-    call setPointers(nn,1_intType,sps)
-
-    ! Loop over the number of viscous boundary subfaces of this block.
-    ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
-    ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
-    do mm=1,nBocos
-      wall3: if(isWallType(BCType(mm))) then
-         do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-             do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                ii = ii + 1
-                wallTempNodes(ii) = BCData(mm)%nodeTemperature(i, j)
-             end do
-         end do
-      end if wall3
-    end do
- end do
-end subroutine getWallTemperature
 

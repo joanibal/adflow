@@ -116,12 +116,13 @@ module block
      real(kind=realType), dimension(:,:,:),   pointer :: rFaceALE
      real(kind=realType), dimension(:,:,:,:), pointer :: uSlipALE
 
-     ! cellHeatFlux(iBeg:iEnd,jBeg:jEnd,3)
-     !                 - Surface heat flux (cell based/node based).
+     ! cellHeatXferRate(iBeg:iEnd,jBeg:jEnd,3)
+     !                 - Surface heat transfer rate (Q_dot) (cell based/node based).
+     !                 - Surface heat heatflux  (q_dot = Q_dot/Area) (node based).
+
+     real(kind=realType), dimension(:,:),     pointer :: cellHeatXferRate
+     real(kind=realType), dimension(:,:),     pointer :: nodeHeatXferRate
      real(kind=realType), dimension(:,:),     pointer :: nodeHeatFlux
-     real(kind=realType), dimension(:,:),     pointer :: cellHeatFlux
-     real(kind=realType), dimension(:,:),     pointer :: nodeTemperature
-     real(kind=realType), dimension(:,:),     pointer :: cellTemperature
 
      ! ptInlet(:,:):       Total pressure at subsonic inlets.
      ! ttInlet(:,:):       Total temperature at subsonic inlets.

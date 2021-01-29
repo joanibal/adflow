@@ -837,20 +837,20 @@ contains
   end subroutine getcostfunctions
 !  differentiation of wallintegrationface in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
+!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
 !   with respect to varying inputs: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
 !                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatflux) localvalues
+!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
 !   rw status of diff variables: veldirfreestream:in machcoef:in
 !                pointref:in pinf:in pref:in *xx:in *pp1:in *pp2:in
 !                *ssi:in *ww2:in *(*viscsubface.tau):in *(*viscsubface.q):in
 !                *(*bcdata.fv):in-out *(*bcdata.fp):in-out *(*bcdata.area):in-out
-!                *(*bcdata.cellheatflux):in-out localvalues:in-out
+!                *(*bcdata.cellheatxferrate):in-out localvalues:in-out
 !   plus diff mem management of: xx:in pp1:in pp2:in ssi:in ww2:in
 !                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
 !                bcdata:in *bcdata.fv:in *bcdata.fp:in *bcdata.area:in
-!                *bcdata.cellheatflux:in
+!                *bcdata.cellheatxferrate:in
   subroutine wallintegrationface_d(localvalues, localvaluesd, mm)
 !
 !       wallintegrations computes the contribution of the block
@@ -1377,8 +1377,8 @@ contains
         qd = qd + blk*qwd
         q = q + qw*blk
 ! save the face based heatflux
-        bcdatad(mm)%cellheatflux(i, j) = qwd
-        bcdata(mm)%cellheatflux(i, j) = qw
+        bcdatad(mm)%cellheatxferrate(i, j) = qwd
+        bcdata(mm)%cellheatxferrate(i, j) = qw
         havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8)&
 &         )
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
@@ -1387,8 +1387,8 @@ contains
       end do
     else
 ! if we an adiabatic wall, set the heat flux to zero
-      bcdatad(mm)%cellheatflux = 0.0_8
-      bcdata(mm)%cellheatflux = zero
+      bcdatad(mm)%cellheatxferrate = 0.0_8
+      bcdata(mm)%cellheatxferrate = zero
       qd = 0.0_8
       areaheatedd = 0.0_8
       havgd = 0.0_8
@@ -1768,13 +1768,13 @@ contains
 ! total heat though the surface
         q = q + qw*blk
 ! save the face based heatflux
-        bcdata(mm)%cellheatflux(i, j) = qw
+        bcdata(mm)%cellheatxferrate(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
       end do
     else
 ! if we an adiabatic wall, set the heat flux to zero
-      bcdata(mm)%cellheatflux = zero
+      bcdata(mm)%cellheatxferrate = zero
     end if
 ! increment the local values array with the values we computed here.
     localvalues(ifp:ifp+2) = localvalues(ifp:ifp+2) + fp
