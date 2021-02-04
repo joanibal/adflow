@@ -1073,21 +1073,23 @@ contains
 !   gradient     of useful results: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
 !                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
+!                *(*bcdata.area) *(*bcdata.tns_wall) *(*bcdata.cellheatxferrate)
+!                localvalues
 !   with respect to varying inputs: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
 !                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
+!                *(*bcdata.area) *(*bcdata.tns_wall) *(*bcdata.cellheatxferrate)
+!                localvalues
 !   rw status of diff variables: veldirfreestream:incr machcoef:incr
 !                pointref:incr pinf:incr pref:incr *xx:incr *pp1:incr
 !                *pp2:incr *ssi:incr *ww2:incr *(*viscsubface.tau):incr
 !                *(*viscsubface.q):incr *(*bcdata.fv):in-out *(*bcdata.fp):in-out
-!                *(*bcdata.area):in-out *(*bcdata.cellheatxferrate):in-out
-!                localvalues:in-out
+!                *(*bcdata.area):in-out *(*bcdata.tns_wall):incr
+!                *(*bcdata.cellheatxferrate):in-out localvalues:in-out
 !   plus diff mem management of: xx:in pp1:in pp2:in ssi:in ww2:in
 !                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
 !                bcdata:in *bcdata.fv:in *bcdata.fp:in *bcdata.area:in
-!                *bcdata.cellheatxferrate:in
+!                *bcdata.tns_wall:in *bcdata.cellheatxferrate:in
   subroutine wallintegrationface_b(localvalues, localvaluesd, mm)
 !
 !       wallintegrations computes the contribution of the block
@@ -1159,6 +1161,7 @@ contains
     real(kind=realtype) :: temp0
     real(kind=realtype) :: tempd11
     real(kind=realtype) :: tempd10
+    real(kind=realtype) :: temp11
     real(kind=realtype) :: temp10
     real(kind=realtype) :: tempd9
     real(kind=realtype) :: tempd
@@ -1172,6 +1175,7 @@ contains
     real(kind=realtype) :: tempd1
     real(kind=realtype) :: tempd0
     real(kind=realtype) :: tmpd0(3)
+    real(kind=realtype) :: tempd26
     real(kind=realtype) :: tempd25
     real(kind=realtype) :: tempd24
     real(kind=realtype) :: tempd23
@@ -1396,26 +1400,35 @@ contains
         else
           blk = bcdata(mm)%iblank(i, j)
         end if
+! wall heat flux dotted with the area vector and scaled
+        qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
+&         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
+&         , 3)*ssi(i, j, 3))
+! total heat transfer rate though the surface
+! save the face based heat transfer
         bcdatad(mm)%area(i, j) = bcdatad(mm)%area(i, j) + blk*&
 &         areaheatedd
-        qwd = bcdatad(mm)%cellheatxferrate(i, j) + blk*qd + blk*havgd/(&
-&         tref*(1.00000001-bcdata(mm)%tns_wall(i, j)))
+        temp11 = tref*(-bcdata(mm)%tns_wall(i, j)+1.00000001)
+        tempd25 = blk*havgd/temp11
+        bcdatad(mm)%tns_wall(i, j) = bcdatad(mm)%tns_wall(i, j) + tref*&
+&         qw*tempd25/temp11
+        qwd = bcdatad(mm)%cellheatxferrate(i, j) + blk*qd + tempd25
         bcdatad(mm)%cellheatxferrate(i, j) = 0.0_8
         temp10 = viscsubface(mm)%q(i, j, 3)
         temp9 = viscsubface(mm)%q(i, j, 2)
         temp8 = viscsubface(mm)%q(i, j, 1)
-        tempd25 = fact*scaledim*qwd
+        tempd26 = fact*scaledim*qwd
         scaledimd = scaledimd + fact*(temp8*ssi(i, j, 1)+temp9*ssi(i, j&
 &         , 2)+temp10*ssi(i, j, 3))*qwd
         viscsubfaced(mm)%q(i, j, 1) = viscsubfaced(mm)%q(i, j, 1) + ssi(&
-&         i, j, 1)*tempd25
-        ssid(i, j, 1) = ssid(i, j, 1) + temp8*tempd25
+&         i, j, 1)*tempd26
+        ssid(i, j, 1) = ssid(i, j, 1) + temp8*tempd26
         viscsubfaced(mm)%q(i, j, 2) = viscsubfaced(mm)%q(i, j, 2) + ssi(&
-&         i, j, 2)*tempd25
-        ssid(i, j, 2) = ssid(i, j, 2) + temp9*tempd25
+&         i, j, 2)*tempd26
+        ssid(i, j, 2) = ssid(i, j, 2) + temp9*tempd26
         viscsubfaced(mm)%q(i, j, 3) = viscsubfaced(mm)%q(i, j, 3) + ssi(&
-&         i, j, 3)*tempd25
-        ssid(i, j, 3) = ssid(i, j, 3) + temp10*tempd25
+&         i, j, 3)*tempd26
+        ssid(i, j, 3) = ssid(i, j, 3) + temp10*tempd26
       end do
       call popinteger4(blk)
       call popinteger4(j)
@@ -2200,9 +2213,9 @@ contains
         qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
 &         , 3)*ssi(i, j, 3))
-! total heat though the surface
+! total heat transfer rate though the surface
         q = q + qw*blk
-! save the face based heatflux
+! save the face based heat transfer
         bcdata(mm)%cellheatxferrate(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk

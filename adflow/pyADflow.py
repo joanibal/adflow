@@ -3466,7 +3466,21 @@ class ADFLOW(AeroSolver):
         # Finally map the vector as required.
         return self.mapVector(forces, self.allWallsGroup, groupName)
 
-    def getHeatFluxes(self,  groupName=None, TS=0, nodal=True):
+
+    def getHeatFluxes(self, **kwargs):
+
+        #set options
+        opt_val = self.getOption('heatxferratesasfluxes')
+        self.setOption('heatxferratesasfluxes', True)
+        heat_fluxes = self.getHeatXferRates(**kwargs)
+        self.setOption('heatxferratesasfluxes', opt_val)
+
+        return heat_fluxes
+
+    def getHeatXferRates(self, groupName=None, TS=0):
+
+
+    # def getHeatFluxes(self,  groupName=None, TS=0):
         """Return the heat fluxes for isothermal walls on the families
         defined by group name on this processor.
 
@@ -3495,29 +3509,18 @@ class ADFLOW(AeroSolver):
         # Set the family to all walls group.
         nPts, nCells = self._getSurfaceSize(self.allWallsGroup)
         nPts2, nCells2 = self._getSurfaceSize(groupName)
-        if nodal:
-            fluxes = numpy.zeros(nPts, self.dtype)
-            self.adflow.getheatflux(fluxes, TS+1)
-            vec1 = numpy.zeros((nPts, 3), self.dtype)
-            vec2 = numpy.zeros((nPts2, 3), self.dtype)
-            # Map vector expects and Nx3 array. So we will do just that.
-            vec1[:, 0] = fluxes
-            vec1 = self.mapVector(vec1, self.allWallsGroup, groupName,vec2, includeZipper=False)
-            fluxes = vec1[:, 0]
 
-        else:
-            #TODO investegate the problem with using map vectors with cell center vals
-            # This currently doesn't work. DON'T TRY it ANAKIN!
-            fluxes = numpy.zeros(nCells, self.dtype)
-            self.adflow.getheatfluxcellcenter(fluxes, TS+1)
+        heat_xfer_rate = numpy.zeros(nPts, self.dtype)
+        self.adflow.getheatxferrate(heat_xfer_rate, TS+1)
+        vec1 = numpy.zeros((nPts, 3), self.dtype)
+        vec2 = numpy.zeros((nPts2, 3), self.dtype)
+        # Map vector expects and Nx3 array. So we will do just that.
+        vec1[:, 0] = heat_xfer_rate
+        vec1 = self.mapVector(vec1, self.allWallsGroup, groupName,vec2, includeZipper=False)
+        heat_xfer_rate = vec1[:, 0]
 
-            vec1 = numpy.zeros((nCells, 3), self.dtype)
-            vec2 = numpy.zeros((nCells2, 3), self.dtype)
+        return heat_xfer_rate
 
-
-
-
-        return fluxes
 
     def getWallTemperature(self, groupName=None, TS=0):
         """Return the wall temperature on the families
@@ -5336,6 +5339,7 @@ class ADFLOW(AeroSolver):
 
             # Multidisciplinary Coupling Parameters
             'forcesAsTractions':[bool, True],
+            'heatxferratesAsFluxes':[bool, False],
 
             # Adjoint Parameters
             'adjointL2Convergence':[float, 1e-6],
@@ -5503,6 +5507,7 @@ class ADFLOW(AeroSolver):
             'vis2coarse':['discr', 'vis2coarse'],
             'restrictionrelaxation':['iter', 'fcoll'],
             'forcesastractions':['physics', 'forcesastractions'],
+            'heatxferratesasfluxes':['physics', 'heatxferratesasfluxes'],
             'lowspeedpreconditioner':['discr', 'lowspeedpreconditioner'],
             'cavitationnumber':['physics','cavitationnumber'],
 

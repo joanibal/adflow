@@ -260,7 +260,7 @@ contains
 
        if (present(heatfluxes)) then
          ! Now we can retrieve the heatfluxes for this spectral instance
-          call getHeatFlux(heatfluxes(1, :, sps), size(heatfluxes, 2) , sps)
+          call getHeatXferRate(heatfluxes(1, :, sps), size(heatfluxes, 2) , sps)
       end if
     end do
 
@@ -585,7 +585,7 @@ contains
 
     do sps=1, nTimeIntervalsSpectral
        call getForces_d(forces(:, :, sps), forcesDot(:, :, sps), fSize, sps)
-       call getHeatFlux_d(heatfluxes(:, :, sps), heatfluxesDot(:, :, sps), fSize, sps)
+       call getHeatXferRate_d(heatfluxes(:, :, sps), heatfluxesDot(:, :, sps), fsize , sps)
     end do
 
     ! Copy out the residual derivative into the provided dwDot
@@ -799,7 +799,7 @@ contains
     forceSpsLoop: do sps=1, nTimeIntervalsSpectral
        fSize = size(forcesBar, 2)
        call getForces_b(forcesBar(:, :, sps), fSize, sps)
-       call getHeatFlux_b(heatfluxBar(:, :, sps), fSize, sps)
+       call getHeatXferRate_b(heatfluxBar(:, :, sps), fSize, sps)
     end do forceSpsLoop
 
     ! Call the final getSolution_b routine

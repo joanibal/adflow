@@ -453,7 +453,7 @@ class BCDerivsTests(unittest.TestCase):
             np.testing.assert_allclose(fDot_FD,fDot, atol=1e-10)
             np.testing.assert_allclose(hfDot_FD,hfDot, atol=1e-10)
 
-    def test_fwd_dict_vs_float(self):
+    def test_fwd_array_vs_float(self):
 
         ap = copy.deepcopy(self.ap)
 

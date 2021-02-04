@@ -600,6 +600,7 @@ module inputPhysics
 
   ! Return forces as tractions instead of forces:
   logical :: forcesAsTractions
+  logical :: heatXferRatesAsFluxes
 
 end module inputPhysics
 

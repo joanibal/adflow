@@ -841,16 +841,18 @@ contains
 !   with respect to varying inputs: veldirfreestream machcoef pointref
 !                pinf pref *xx *pp1 *pp2 *ssi *ww2 *(*viscsubface.tau)
 !                *(*viscsubface.q) *(*bcdata.fv) *(*bcdata.fp)
-!                *(*bcdata.area) *(*bcdata.cellheatxferrate) localvalues
+!                *(*bcdata.area) *(*bcdata.tns_wall) *(*bcdata.cellheatxferrate)
+!                localvalues
 !   rw status of diff variables: veldirfreestream:in machcoef:in
 !                pointref:in pinf:in pref:in *xx:in *pp1:in *pp2:in
 !                *ssi:in *ww2:in *(*viscsubface.tau):in *(*viscsubface.q):in
 !                *(*bcdata.fv):in-out *(*bcdata.fp):in-out *(*bcdata.area):in-out
-!                *(*bcdata.cellheatxferrate):in-out localvalues:in-out
+!                *(*bcdata.tns_wall):in *(*bcdata.cellheatxferrate):in-out
+!                localvalues:in-out
 !   plus diff mem management of: xx:in pp1:in pp2:in ssi:in ww2:in
 !                viscsubface:in *viscsubface.tau:in *viscsubface.q:in
 !                bcdata:in *bcdata.fv:in *bcdata.fp:in *bcdata.area:in
-!                *bcdata.cellheatxferrate:in
+!                *bcdata.tns_wall:in *bcdata.cellheatxferrate:in
   subroutine wallintegrationface_d(localvalues, localvaluesd, mm)
 !
 !       wallintegrations computes the contribution of the block
@@ -1373,14 +1375,15 @@ contains
         qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
 &         , 3)*ssi(i, j, 3))
-! total heat though the surface
+! total heat transfer rate though the surface
         qd = qd + blk*qwd
         q = q + qw*blk
-! save the face based heatflux
+! save the face based heat transfer
         bcdatad(mm)%cellheatxferrate(i, j) = qwd
         bcdata(mm)%cellheatxferrate(i, j) = qw
-        havgd = havgd + blk*qwd/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8)&
-&         )
+        havgd = havgd + blk*(qwd*tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8)&
+&         +qw*tref*bcdatad(mm)%tns_wall(i, j))/(tref**2*(1-bcdata(mm)%&
+&         tns_wall(i, j)+1e-8)**2)
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheatedd = areaheatedd + blk*bcdatad(mm)%area(i, j)
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk
@@ -1765,9 +1768,9 @@ contains
         qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
 &         , 3)*ssi(i, j, 3))
-! total heat though the surface
+! total heat transfer rate though the surface
         q = q + qw*blk
-! save the face based heatflux
+! save the face based heat transfer
         bcdata(mm)%cellheatxferrate(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk

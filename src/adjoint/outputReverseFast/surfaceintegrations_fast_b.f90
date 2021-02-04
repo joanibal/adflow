@@ -610,9 +610,9 @@ contains
         qw = fact*scaledim*(viscsubface(mm)%q(i, j, 1)*ssi(i, j, 1)+&
 &         viscsubface(mm)%q(i, j, 2)*ssi(i, j, 2)+viscsubface(mm)%q(i, j&
 &         , 3)*ssi(i, j, 3))
-! total heat though the surface
+! total heat transfer rate though the surface
         q = q + qw*blk
-! save the face based heatflux
+! save the face based heat transfer
         bcdata(mm)%cellheatxferrate(i, j) = qw
         havg = havg + qw/(tref*(1-bcdata(mm)%tns_wall(i, j)+1e-8))*blk
         areaheated = areaheated + bcdata(mm)%area(i, j)*blk

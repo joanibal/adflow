@@ -2126,6 +2126,8 @@ loopbocos:do mm=1,nbocos
             else
               max1 = x1
             end if
+! write(*,*) 'sum', aimag(dw(i,j,k,l))/1e-200 + aimag(fw(i,j,k,l)))/1e-200, aimag(dw(i,j,k,l))/1e-200 , aimag(fw(i,j,k,l)))/1e-20
+!0
             dw(i, j, k, l) = (dw(i, j, k, l)+fw(i, j, k, l))*max1
           end do
         end do

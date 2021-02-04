@@ -693,10 +693,10 @@ contains
                + viscSubface(mm)%q(i,j,2)*ssi(i,j,2) &
                + viscSubface(mm)%q(i,j,3)*ssi(i,j,3))
 
-               ! total heat though the surface
+               ! total heat transfer rate though the surface
                Q = Q + qw* blk
 
-               ! Save the face based heatflux
+               ! Save the face based heat transfer
                bcData(mm)%cellHeatXferRate(i, j) = qw
                hAvg = hAvg +  qw/(Tref*(1 - BCData(mm)%TNS_Wall(i,j)+1e-8))* blk
 

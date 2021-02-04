@@ -289,7 +289,7 @@ subroutine getForces_b(forcesd, npts, sps)
            end do
         end if
 
-        call vecGetArrayF90(zipper%localVal, localPtr, ierr)
+        call vecRestoreArrayF90(zipper%localVal, localPtr, ierr)
         call EChk(ierr,__FILE__,__LINE__)
 
         ! Zero the vector we are scatting into:
@@ -1197,7 +1197,7 @@ subroutine computeWeighting_b(exch)
    call EChk(ierr,__FILE__,__LINE__)
 
 
- end subroutine computeWeighting_b
+end subroutine computeWeighting_b
 
 
 subroutine computeNodalTractions(sps)
@@ -1439,7 +1439,7 @@ subroutine computeNodalForces_d(sps)
 
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
-  use utils, only : setPointers
+  use utils, only : setPointers_d
   implicit none
 
   integer(kind=intType), intent(in) ::  sps
@@ -1449,7 +1449,7 @@ subroutine computeNodalForces_d(sps)
   real(kind=realType) :: qfd(3)
 
   do nn=1, nDom
-     call setPointers(nn, 1_intType, sps)
+     call setPointers_d(nn, 1_intType, sps)
      do mm=1, nBocos
         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
@@ -1476,7 +1476,7 @@ subroutine computeNodalForces_b(sps)
 
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
-  use utils, only : setPointers_d
+  use utils, only : setPointers_b
   implicit none
 
   integer(kind=intType), intent(in) ::  sps
@@ -1486,13 +1486,17 @@ subroutine computeNodalForces_b(sps)
   real(kind=realType) :: qf_b(3)
 
   domains: do nn=1,nDom
-     call setPointers_d(nn, 1_intType, sps)
+     call setPointers_b(nn, 1_intType, sps)
      do mm=1, nBocos
         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
         if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
              BCType(mm) == NSWallIsothermal) then
-           BCDatad(mm)%F = zero
+
+            BCDatad(mm)%Fv = zero
+            BCDatad(mm)%Fp = zero
+
+
            do j=jBeg, jEnd
               do i=iBeg, iEnd
 
@@ -1512,7 +1516,287 @@ end subroutine computeNodalForces_b
 
 
 
-subroutine getHeatFlux(hflux, npts, sps)
+subroutine getHeatXferRate(hxfer, npts, sps)
+   ! computes and returns the nodal heat xfer rate from the cell center values.
+   ! If heatxferratesAsfluxes, then the nodal heat fluxes are returned instead.
+   ! This routine is modeled after the get forces routine above.
+
+   ! THIS FUNCTION DOES NOT WORK WITH ZIPPER MESHES
+
+   ! inputs
+   !    BCDdata%area
+   !             cell areas
+   !    BCdata%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+
+   ! outputs
+   !    hxfer
+   !       the heat transfer rate or the heat flux depending on `heatxferratesAsfluxes`
+
+
+   use constants
+   use blockPointers, only : nDom, nBocos, BCType, BCData
+   use surfaceFamilies, only : BCFamExchange, familyExchange, &
+        zeroCellVal, zeroNodeVal, fullfamList
+   use surfaceIntegrations, only : integrateSurfaces
+   use inputPhysics, only : heatxferratesAsfluxes
+
+   use utils, only : setPointers, isWallType
+   implicit none
+   !
+   !      Local variables.
+   !
+   integer(kind=intType), intent(in) :: npts, sps
+   real(kind=realType), intent(out) :: hxfer(npts)
+   real(kind=realType) :: localValues(nLocalValues)
+
+   integer(kind=intType) :: mm, nn, i, j, ii
+   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+   type(familyExchange), pointer :: exch
+
+
+   ! Set the pointer to the wall exchange:
+   exch => BCFamExchange(iBCGroupWalls, sps)
+
+   domains: do nn=1,nDom
+       call setPointers(nn, 1_intType, sps)
+       localValues = zero
+       call integrateSurfaces(localValues, fullFamList)
+   end do domains
+
+
+   if (heatxferratesAsfluxes) then
+      write(*,*) '=========== fluxes =========='
+      call computeNodalHeatFlux(sps)
+   else
+      write(*,*) '=========== hxfer =========='
+      call computeNodalHeatXferRate(sps)
+   end if
+
+   ! Now extract into the flat array:
+   ii = 0
+   do nn=1,nDom
+      call setPointers(nn,1_intType,sps)
+
+      do mm=1,nBocos
+         bocoType3: if(isWallType(BCType(mm))) then
+
+             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+                  ii = ii + 1
+                  if (heatxferratesAsfluxes) then
+                     hxfer(ii) = BCData(mm)%nodeHeatFlux(i, j)
+                  else
+                     hxfer(ii) = BCData(mm)%nodeHeatXferRate(i, j)
+                  end if
+                end do
+            end do
+         end if bocoType3
+      end do
+   end do
+end subroutine getHeatXferRate
+
+
+subroutine getHeatXferRate_d(hxfer, hxferd, npts, sps)
+   ! computes and returns the nodal heat xfer rate from the cell center values and the derivatives.
+   ! If heatxferratesAsfluxes, then the nodal heat fluxes are returned instead.
+   ! This routine is modeled after the get forces routine above.
+
+   ! THIS FUNCTION DOES NOT WORK WITH ZIPPER MESHES
+
+   ! inputs
+   !    BCDdata%area
+   !             cell areas
+   !    BCdata%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+   !    BCDdatad%area
+   !             cell areas
+   !    BCdatad%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+
+   ! outputs
+   !    hxfer
+   !       the heat transfer rate or the heat flux depending on `heatxferratesAsfluxes`
+   !    hxferd
+   !       the heat transfer rate or the heat flux depending on `heatxferratesAsfluxes`
+
+
+   use constants
+   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
+   use surfaceFamilies, only : BCFamExchange, familyExchange, &
+        zeroCellVal, zeroNodeVal, fullfamList
+   use surfaceIntegrations, only : integrateSurfaces
+   use inputPhysics, only : heatxferratesAsfluxes
+
+   use utils, only : setPointers_d, isWallType
+   implicit none
+   !
+   !      Local variables.
+   !
+   integer(kind=intType), intent(in) :: npts, sps
+   real(kind=realType), intent(out) :: hxfer(npts)
+   real(kind=realType), intent(out) :: hxferd(npts)
+
+
+   integer(kind=intType) :: mm, nn, i, j, ii
+   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+   type(familyExchange), pointer :: exch
+
+
+   ! Set the pointer to the wall exchange:
+   exch => BCFamExchange(iBCGroupWalls, sps)
+
+   ! this routine isn't part of the api and is always called after inegrateSurfaces_d
+
+
+   if (heatxferratesAsfluxes) then
+      write(*,*) '=========== fluxes =========='
+      call computeNodalHeatFlux_d(sps)
+   else
+      write(*,*) '=========== hxfer =========='
+      call computeNodalHeatXferRate_d(sps)
+   end if
+
+   ! Now extract into the flat array:
+   ii = 0
+   do nn=1,nDom
+      call setPointers_d(nn,1_intType,sps)
+
+      do mm=1,nBocos
+         bocoType3: if(isWallType(BCType(mm))) then
+
+             do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+                do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+                  ii = ii + 1
+                  if (heatxferratesAsfluxes) then
+                     hxfer(ii) = BCData(mm)%nodeHeatFlux(i, j)
+                     hxferd(ii) = BCDatad(mm)%nodeHeatFlux(i, j)
+                  else
+                     hxfer(ii) = BCData(mm)%nodeHeatXferRate(i, j)
+                     hxferd(ii) = BCDatad(mm)%nodeHeatXferRate(i, j)
+                  end if
+                end do
+            end do
+         end if bocoType3
+      end do
+   end do
+end subroutine getHeatXferRate_d
+
+
+subroutine getHeatXferRate_b(hxferd, npts, sps)
+   ! bwd mode of get getheatxferrate
+
+   ! THIS FUNCTION DOES NOT WORK WITH ZIPPER MESHES
+
+   ! inputs
+
+   !    hxferd
+   !       the heat transfer rate or the heat flux depending on `heatxferratesAsfluxes`
+
+   ! outputs
+   !    BCdatad%area
+   !             heat transfer rate defined at the cell centers
+
+   !    BCdatad%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+
+   use constants
+   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad, BCFaceID
+   use surfaceFamilies, only : BCFamExchange, familyExchange, &
+         zeroCellVal, zeroNodeVal, fullfamList
+   use utils, only : EChk, setPointers, setPointers_b, setBCPointers, isWallType
+   use inputPhysics, only : heatxferratesAsfluxes
+
+#include <petscversion.h>
+#if PETSC_VERSION_GE(3,8,0)
+#include <petsc/finclude/petsc.h>
+   use petsc
+   implicit none
+#else
+   implicit none
+#define PETSC_AVOID_MPIF_H
+#include "petsc/finclude/petsc.h"
+#include "petsc/finclude/petscvec.h90"
+#endif
+
+   integer(kind=intType), intent(in) :: npts, sps
+   real(kind=realType), intent(in) :: hxferd(npts)
+
+   !
+   !      Local variables.
+   !
+
+   integer(kind=intType) :: mm, nn, i, j, ii,  ierr
+   type(familyExchange), pointer :: exch
+   real(kind=realType) :: hflux(npts)
+
+   ! Set the pointer to the wall exchange:
+   exch => BCFamExchange(iBCGroupWalls, sps)
+
+   ! Initalize the weighting seed
+   call vecSet(exch%sumGlobald, zero, ierr)
+   call EChk(ierr,__FILE__,__LINE__)
+
+   ! ! ====================
+   ! ! forward pass:
+   ! ! ====================
+   call getHeatXferRate(hflux, npts, sps)
+
+      ! ====================
+   ! Do the reverse pass:
+   ! ====================
+
+   ! Now extract the seeds:
+   ii = 0
+   do nn=1,nDom
+      call setPointers_b(nn,1_intType,sps)
+
+      do mm=1,nBocos
+        bocoType3: if(isWallType(BCType(mm))) then
+            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
+               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
+                  ii = ii + 1
+                  if (heatxferratesAsfluxes) then
+                     BCDatad(mm)%nodeHeatFlux(i, j) = hxferd(ii)
+                  else
+                     BCDatad(mm)%nodeHeatXferRate(i, j) = hxferd(ii)
+                  end if
+
+               end do
+            end do
+        end if bocoType3
+      end do
+   end do
+
+
+   if (heatxferratesAsfluxes) then
+      write(*,*) '=========== fluxes =========='
+      call computeNodalHeatFlux_b(sps)
+   else
+      write(*,*) '=========== hxfer =========='
+      call computeNodalHeatXferRate_b(sps)
+   end if
+
+   ! this routine isn't part of the api and is always called *before* inegrateSurfaces_d
+
+
+end subroutine getHeatXferRate_b
+
+
+
+
+subroutine computeNodalHeatFlux(sps)
+   ! inputs
+   !    BCDdata%area
+   !             cell areas
+   !    BCdata%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+
+   ! outputs
+   !    BCdata%nodalHeatFlux
+   !           The heat flux defined at the cell nodes
+
+
   use constants
   use blockPointers, only : nDom, nBocos, BCType, BCData
   use surfaceFamilies, only : BCFamExchange, familyExchange, &
@@ -1524,27 +1808,14 @@ subroutine getHeatFlux(hflux, npts, sps)
   !
   !      Local variables.
   !
-  integer(kind=intType), intent(in) :: npts, sps
-  real(kind=realType), intent(out) :: hflux(npts)
-  real(kind=realType) :: localValues(nLocalValues)
-
-  integer(kind=intType) :: mm, nn, i, j, ii
-  integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+  integer(kind=intType), intent(in) ::  sps
+  integer(kind=intType) :: mm, nn
   type(familyExchange), pointer :: exch
-
 
   ! Set the pointer to the wall exchange:
   exch => BCFamExchange(iBCGroupWalls, sps)
 
-  domains: do nn=1,nDom
-      call setPointers(nn, 1_intType, sps)
-      localValues = zero
-      call integrateSurfaces(localValues, fullFamList)
-   end do domains
-
-
   ! Set the weighting factors. In this case, area
-  ! the adiabatic wall cells have a weighting factor of zero
   do nn=1, nDom
      call setPointers(nn, 1_intType, sps)
      do mm=1, nBocos
@@ -1556,9 +1827,6 @@ subroutine getHeatFlux(hflux, npts, sps)
   end do
 
   call computeWeighting(exch)
-
-
-  ! compute the nodal values from the cell center values and the weighting
 
   do nn=1, nDom
      call setPointers(nn, 1_intType, sps)
@@ -1572,36 +1840,16 @@ subroutine getHeatFlux(hflux, npts, sps)
      end do
   end do
 
+    ! compute the nodal values from the cell center values and the weighting
    call surfaceCellCenterToNode(exch)
 
+end subroutine computeNodalHeatFlux
 
-  ! Now extract into the flat array:
-  ii = 0
-  do nn=1,nDom
-     call setPointers(nn,1_intType,sps)
 
-     ! Loop over the number of viscous boundary subfaces of this block.
-     ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
-     ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
-     do mm=1,nBocos
-        bocoType3: if(isWallType(BCType(mm))) then
-
-      !   bocoType3: if (BCType(mm) == NSWallIsoThermal) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                 ii = ii + 1
-                 hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
-              end do
-           end do
-        end if bocoType3
-     end do
-  end do
-end subroutine getHeatFlux
-
-subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
-   ! forward mode differenitaion of getHeatFlux
+subroutine computeNodalHeatFlux_d(sps)
+   ! forward mode differenitaion of computeNodalHeatFlux
    ! the inputs are BCDdatad%area and BCdatad%cellHeatXferRate
-   ! the output is hfluxd
+   ! the output is BCDdatad%nodeHeatflux
 
    use constants
    use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
@@ -1609,12 +1857,12 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
         zeroCellVal, zeroNodeVal, fullfamList
    use utils, only : setPointers, setPointers_d, isWallType
    implicit none
+
+   integer(kind=intType), intent(in) ::  sps
+
    !
    !      Local variables.
    !
-   integer(kind=intType), intent(in) :: npts, sps
-   real(kind=realType), intent(out) :: hflux(npts),  hfluxd(npts)
-
    integer(kind=intType) :: mm, nn, i, j, ii
    type(familyExchange), pointer :: exch
 
@@ -1660,95 +1908,27 @@ subroutine getHeatFlux_d(hflux, hfluxd, npts, sps)
 
    call surfaceCellCenterToNode_d(exch)
 
-   ! Now extract into the flat array:
-   ii = 0
-   do nn=1,nDom
-      call setPointers_d(nn,1_intType,sps)
 
-      ! Loop over the number of viscous boundary subfaces of this block.
-      ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
-      ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
-      do mm=1,nBocos
-
-        bocoType3: if(isWallType(BCType(mm))) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                  ii = ii + 1
-                  hflux(ii) = BCData(mm)%nodeHeatFlux(i, j)
-                  hfluxd(ii) = BCDatad(mm)%nodeHeatFlux(i, j)
-               end do
-            end do
-        end if bocoType3
-      end do
-   end do
-end subroutine getHeatFlux_d
+end subroutine computeNodalHeatFlux_d
 
 
-subroutine getHeatFlux_b(hfluxd, npts, sps)
-   ! in: hfluxd
+subroutine computeNodalHeatFlux_b(sps)
+   ! in: bcdata%nodeheatflux
    ! out: bcdatad%area, bcdatad%cellHeatXferRate
    use constants
    use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad, BCFaceID
    use surfaceFamilies, only : BCFamExchange, familyExchange, &
          zeroCellVal, zeroNodeVal, fullfamList
    use utils, only : EChk, setPointers, setPointers_b, setBCPointers, isWallType
-#include <petscversion.h>
-#if PETSC_VERSION_GE(3,8,0)
-#include <petsc/finclude/petsc.h>
-   use petsc
-   implicit none
-#else
-   implicit none
-#define PETSC_AVOID_MPIF_H
-#include "petsc/finclude/petsc.h"
-#include "petsc/finclude/petscvec.h90"
-#endif
+
+   integer(kind=intType), intent(in) ::  sps
+
    !
    !      Local variables.
    !
-   integer(kind=intType), intent(in) :: npts, sps
-   real(kind=realType), intent(out) :: hfluxd(npts)
 
    integer(kind=intType) :: mm, nn, i, j, ii,  ierr
    type(familyExchange), pointer :: exch
-   real(kind=realType) :: hflux(npts)
-
-   ! Set the pointer to the wall exchange:
-   exch => BCFamExchange(iBCGroupWalls, sps)
-
-   ! Initalize the weighting seed
-   call vecSet(exch%sumGlobald, zero, ierr)
-   call EChk(ierr,__FILE__,__LINE__)
-
-   ! ====================
-   ! forward pass:
-   ! ====================
-   call getHeatFlux(hflux, npts, sps)
-
-   ! ====================
-   ! Do the reverse pass:
-   ! ====================
-
-   ! Now extract the seeds:
-   ii = 0
-   do nn=1,nDom
-      call setPointers_b(nn,1_intType,sps)
-
-      do mm=1,nBocos
-        bocoType3: if(isWallType(BCType(mm))) then
-            do j=BCData(mm)%jnBeg,BCData(mm)%jnEnd
-               do i=BCData(mm)%inBeg,BCData(mm)%inEnd
-                  ii = ii + 1
-                  BCDatad(mm)%nodeHeatFlux(i, j) = hfluxd(ii)
-               end do
-            end do
-        end if bocoType3
-
-
-
-      end do
-   end do
-
 
    ! propagate the seeds from the nodes to the cell center and weighting factor
    do nn=1, nDom
@@ -1784,69 +1964,223 @@ subroutine getHeatFlux_b(hfluxd, npts, sps)
 
    call computeWeighting_b(exch)
 
-end subroutine getHeatFlux_b
+end subroutine computeNodalHeatFlux_b
 
 
-subroutine getHeatFluxCellCenter(hflux, npts, sps)
-   !TODO implement this subroutine
+subroutine computeNodalHeatXferRate(sps)
+   ! computes the nodal heat transfer rate  (units of energy/time e.g. Watts)
+   ! Based on the doc string for computeNodal forces, no scatter and gather is need
 
-  use constants
-  use blockPointers, only : nDom, nBocos, BCType, BCData
-  use surfaceFamilies, only : BCFamExchange, familyExchange, &
-       zeroCellVal, zeroNodeVal, fullfamList
-  use surfaceIntegrations, only : integrateSurfaces
+   ! inputs
+   !    BCdata%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
 
-  use utils, only : setPointers
-  implicit none
-  !
-  !      Local variables.
-  !
-  integer(kind=intType), intent(in) :: npts, sps
-  real(kind=realType), intent(out) :: hflux(npts)
-  real(kind=realType) :: localValues(nLocalValues)
+   ! outputs
+   !    BCdata%nodeHeatXferRate
+   !           The heat transfer rate defined at the cell nodes
 
-  integer(kind=intType) :: mm, nn, i, j, ii
-  integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
-  type(familyExchange), pointer :: exch
 
-  ! Set the pointer to the wall exchange:
-  exch => BCFamExchange(iBCGroupWalls, sps)
+   use constants
+   use blockPointers, only : nDom, nBocos, BCType, BCData
+   use utils, only : setPointers
+   implicit none
 
-  domains: do nn=1,nDom
+   integer(kind=intType), intent(in) ::  sps
+
+   integer(kind=intType) :: mm, nn, i, j
+   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+   real(kind=realType) :: qf
+
+   do nn=1, nDom
       call setPointers(nn, 1_intType, sps)
-      localValues = zero
-      call integrateSurfaces(localValues, fullFamList)
-   end do domains
+      do mm=1, nBocos
+         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
+         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
+
+         if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
+              BCType(mm) == NSWallIsothermal) then
+            BCData(mm)%nodeHeatXferRate = zero
+            do j=jBeg, jEnd
+               do i=iBeg, iEnd
+                  qf = fourth*BCData(mm)%cellHeatXferRate(i,j)
+                  BCData(mm)%nodeHeatXferRate(i  , j  ) = BCData(mm)%nodeHeatXferRate(i  , j) + qf
+                  BCData(mm)%nodeHeatXferRate(i-1, j  ) = BCData(mm)%nodeHeatXferRate(i-1, j) + qf
+                  BCData(mm)%nodeHeatXferRate(i  , j-1) = BCData(mm)%nodeHeatXferRate(i  , j-1) + qf
+                  BCData(mm)%nodeHeatXferRate(i-1, j-1) = BCData(mm)%nodeHeatXferRate(i-1, j-1) + qf
+               end do
+            end do
+         end if
+      end do
+   end do
+end subroutine computeNodalHeatXferRate
+
+subroutine computeNodalHeatXferRate_d(sps)
+   ! computes the nodal heat transfer rate  (units of energy/time e.g. Watts)
+   ! Based on the doc string for computeNodal forces, no scatter and gather is need
+
+   ! inputs
+   !    BCdata%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+
+   ! outputs
+   !    BCdata%nodeHeatXferRate
+   !           The heat transfer rate defined at the cell nodes
 
 
-  ! Now extract into the flat array:
-  ii = 0
-  do nn=1,nDom
-     call setPointers(nn,1_intType,sps)
+   use constants
+   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
+   use utils, only : setPointers_d
+   implicit none
 
-     ! Loop over the number of viscous boundary subfaces of this block.
-     ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
-     ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
-     do mm=1,nBocos
-        bocoType3: if (BCType(mm) == NSWallIsoThermal) then
-           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
-              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
-                 ii = ii + 1
-                 hflux(ii) = BCData(mm)%cellHeatXferRate(i, j)
-              end do
-           end do
+   integer(kind=intType), intent(in) ::  sps
 
-         ! Simply put in zeros for the other wall BCs
-        else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
-           do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
-              do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
-                 ii = ii + 1
-                 hflux(ii) = zero
-              end do
-           end do
-        end if bocoType3
-     end do
-  end do
+   integer(kind=intType) :: mm, nn, i, j
+   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+   real(kind=realType) :: qf, qfd
 
-end subroutine getHeatFluxCellCenter
+   do nn=1, nDom
+      call setPointers_d(nn, 1_intType, sps)
+      do mm=1, nBocos
+         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
+         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
+
+         if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
+              BCType(mm) == NSWallIsothermal) then
+            BCData(mm)%nodeHeatXferRate = zero
+            BCDatad(mm)%nodeHeatXferRate = zero
+            do j=jBeg, jEnd
+               do i=iBeg, iEnd
+                  qf = fourth*BCData(mm)%cellHeatXferRate(i,j)
+                  qfd = fourth*BCDatad(mm)%cellHeatXferRate(i,j)
+
+                  BCData(mm)%nodeHeatXferRate(i  , j  ) = BCData(mm)%nodeHeatXferRate(i  , j) + qf
+                  BCData(mm)%nodeHeatXferRate(i-1, j  ) = BCData(mm)%nodeHeatXferRate(i-1, j) + qf
+                  BCData(mm)%nodeHeatXferRate(i  , j-1) = BCData(mm)%nodeHeatXferRate(i  , j-1) + qf
+                  BCData(mm)%nodeHeatXferRate(i-1, j-1) = BCData(mm)%nodeHeatXferRate(i-1, j-1) + qf
+
+                  BCDatad(mm)%nodeHeatXferRate(i  , j  ) = BCDatad(mm)%nodeHeatXferRate(i  , j) + qfd
+                  BCDatad(mm)%nodeHeatXferRate(i-1, j  ) = BCDatad(mm)%nodeHeatXferRate(i-1, j) + qfd
+                  BCDatad(mm)%nodeHeatXferRate(i  , j-1) = BCDatad(mm)%nodeHeatXferRate(i  , j-1) + qfd
+                  BCDatad(mm)%nodeHeatXferRate(i-1, j-1) = BCDatad(mm)%nodeHeatXferRate(i-1, j-1) + qfd
+               end do
+            end do
+         end if
+      end do
+   end do
+end subroutine computeNodalHeatXferRate_d
+
+subroutine computeNodalHeatXferRate_b(sps)
+   ! computes the nodal heat transfer rate  (units of energy/time e.g. Watts)
+   ! Based on the doc string for computeNodal forces, no scatter and gather is need
+
+   ! inputs
+   !    BCdatad%nodeHeatXferRate
+   !           The heat transfer rate defined at the cell nodes
+
+   ! outputs
+   !    BCdatad%cellHeatXferRate
+   !             heat transfer rate defined at the cell centers
+
+
+
+   use constants
+   use blockPointers, only : nDom, nBocos, BCType, BCData, BCDatad
+   use utils, only : setPointers_b
+   implicit none
+
+   integer(kind=intType), intent(in) ::  sps
+
+   integer(kind=intType) :: mm, nn, i, j
+   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+   real(kind=realType) :: qf, qfd
+
+   do nn=1, nDom
+      call setPointers_b(nn, 1_intType, sps)
+      do mm=1, nBocos
+         iBeg = BCdata(mm)%inBeg+1; iEnd=BCData(mm)%inEnd
+         jBeg = BCdata(mm)%jnBeg+1; jEnd=BCData(mm)%jnEnd
+
+         if(BCType(mm) == EulerWall.or.BCType(mm) == NSWallAdiabatic .or. &
+              BCType(mm) == NSWallIsothermal) then
+
+            BCDatad(mm)%cellHeatXferRate = zero
+
+            do j=jBeg, jEnd
+               do i=iBeg, iEnd
+                  qfd = fourth*(BCDatad(mm)%nodeHeatXferRate(i  , j  ) + &
+                                BCDatad(mm)%nodeHeatXferRate(i-1, j  ) + &
+                                BCDatad(mm)%nodeHeatXferRate(i  , j-1) + &
+                                BCDatad(mm)%nodeHeatXferRate(i-1, j-1))
+
+                  BCDatad(mm)%cellHeatXferRate(i,j) = BCDatad(mm)%cellHeatXferRate(i,j) + qfd
+               end do
+            end do
+         end if
+      end do
+   end do
+end subroutine computeNodalHeatXferRate_b
+
+
+! subroutine getHeatFluxCellCenter(hflux, npts, sps)
+!    !TODO implement this subroutine
+
+!   use constants
+!   use blockPointers, only : nDom, nBocos, BCType, BCData
+!   use surfaceFamilies, only : BCFamExchange, familyExchange, &
+!        zeroCellVal, zeroNodeVal, fullfamList
+!   use surfaceIntegrations, only : integrateSurfaces
+
+!   use utils, only : setPointers
+!   implicit none
+!   !
+!   !      Local variables.
+!   !
+!   integer(kind=intType), intent(in) :: npts, sps
+!   real(kind=realType), intent(out) :: hflux(npts)
+!   real(kind=realType) :: localValues(nLocalValues)
+
+!   integer(kind=intType) :: mm, nn, i, j, ii
+!   integer(kind=intType) :: iBeg, iEnd, jBeg, jEnd
+!   type(familyExchange), pointer :: exch
+
+!   ! Set the pointer to the wall exchange:
+!   exch => BCFamExchange(iBCGroupWalls, sps)
+
+!   domains: do nn=1,nDom
+!       call setPointers(nn, 1_intType, sps)
+!       localValues = zero
+!       call integrateSurfaces(localValues, fullFamList)
+!    end do domains
+
+
+!   ! Now extract into the flat array:
+!   ii = 0
+!   do nn=1,nDom
+!      call setPointers(nn,1_intType,sps)
+
+!      ! Loop over the number of viscous boundary subfaces of this block.
+!      ! According to preprocessing/viscSubfaceInfo, visc bocos are numbered
+!      ! before other bocos. Therefore, mm_nViscBocos == mm_nBocos
+!      do mm=1,nBocos
+!         bocoType3: if (BCType(mm) == NSWallIsoThermal) then
+!            do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
+!               do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
+!                  ii = ii + 1
+!                  hflux(ii) = BCData(mm)%cellHeatXferRate(i, j)
+!               end do
+!            end do
+
+!          ! Simply put in zeros for the other wall BCs
+!         else if (BCType(mm) == NSWallAdiabatic .or. BCType(mm) == EulerWall) then
+!            do j=(BCData(mm)%jcBeg+1),(BCData(mm)%jcEnd-1)
+!               do i=(BCData(mm)%icBeg+1),(BCData(mm)%icEnd-1)
+!                  ii = ii + 1
+!                  hflux(ii) = zero
+!               end do
+!            end do
+!         end if bocoType3
+!      end do
+!   end do
+
+! end subroutine getHeatFluxCellCenter
 

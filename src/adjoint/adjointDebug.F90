@@ -953,9 +953,6 @@ contains
       hfDot = aimag(heatfluxes)/aimag(h)
       funcsDot = aimag(funcValues)/aimag(h)
 
-      write(*,*) 'fDot', minval(real(fDot)), maxval(real(fDot))
-      write(*,*) 'hfDot', minval(real(hfDot)), maxval(real(hfDot))
-      write(*,*) 'funcsDot', minval(real(funcsDot)), maxval(real(funcsDot))
 
    end subroutine computeMatrixFreeProductFwdCS
 

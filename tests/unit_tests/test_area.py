@@ -12,41 +12,13 @@ from adflow.pyADflow import ADFLOW
 from mpi4py import MPI
 
 
-# def delete_module(modname, paranoid=None):
-#     from sys import modules
-#     try:
-#         thismod = modules[modname]
-#     except KeyError:
-#         raise ValueError(modname)
-#     these_symbols = dir(thismod)
-#     if paranoid:
-#         try:
-#             paranoid[:]  # sequence support
-#         except:
-#             raise ValueError('must supply a finite list for paranoid')
-#         else:
-#             these_symbols = paranoid[:]
-#     del modules[modname]
-#     for mod in modules.values():
-#         try:
-#             delattr(mod, modname)
-#         except AttributeError:
-#             pass
-#         if paranoid:
-#             for symbol in these_symbols:
-#                 if symbol[:2] == '__':  # ignore special symbols
-#                     continue
-#                 try:
-#                     delattr(mod, symbol)
-#                 except AttributeError:
-#                     pass
-
 
 class AreaClacTests(unittest.TestCase):
 
     def setUp(self):
         # the mesh is an extruded naca 0012 of unit chord and ref area
-        gridFile = os.path.join(baseDir, '../input_files/cube_hot.cgns')
+        # gridFile = os.path.join(baseDir, '../input_files/cube_hot.cgns')
+        gridFile = os.path.join(baseDir, '../input_files/naca0012_hot_L2.cgns')
 
         self.aero_options = {
             # I/O Parameters
@@ -80,7 +52,7 @@ class AreaClacTests(unittest.TestCase):
             P=93e3,  # pa
             areaRef=1.0,  # m^2
             chordRef=1.0,  # m^2
-            evalFuncs=["cd", "totheattransfer", "havg", "area" ],
+            evalFuncs=["cd", "totheattransfer", "havg", "area", "hot_area" ],
             alpha=0.0,
             beta=0.00,
             xRef=0.0,
@@ -90,12 +62,11 @@ class AreaClacTests(unittest.TestCase):
 
         # these values come from inspecting the cgns mesh itself
         self.CFDSolver = ADFLOW(options=self.aero_options)
-        # self.CFDSolver.addFunction('area', 'heated_wall', name="hot_area")
+        self.CFDSolver.addFunction('area', 'heated_wall', name="hot_area")
 
         self.CFDSolver.getResidual(self.ap)
         # self.CFDSolver(self.ap)
 
-    # @unittest.skip("")
     def test_area(self):
         "Tests the area is being calculated correctly"
 
@@ -124,15 +95,12 @@ class AreaClacTests(unittest.TestCase):
         funcs = {}
         self.CFDSolver.evalFunctions(self.ap, funcs)
 
-
         # low tolerance here because we are comparing an approx with another approx
         np.testing.assert_allclose(funcs['n0012_area'],area_of_n0012(0,1 ), rtol=5e-3)
         np.testing.assert_allclose(funcs['n0012_hot_area'],area_of_n0012(0.1, 0.6 ), rtol=1e-4)
 
-    # @unittest.skip("")
     def test_fwd(self):
 
-        # self.CFDSolver(self.ap)
         xVDot = self.CFDSolver.getSpatialPerturbation(123)
 
         resDot, funcsDot, fDot, hfDot = self.CFDSolver.computeJacobianVectorProductFwd(
@@ -148,12 +116,10 @@ class AreaClacTests(unittest.TestCase):
 
         for func in funcsDot:
             np.testing.assert_allclose(funcsDot_FD[func],funcsDot[func], err_msg=func,  rtol=1e-5)
-            # print('func',func,  (funcsDot[func] - funcsDot_CS[func]), funcsDot[func])
-            # print('func FD',func,  (funcsDot_FD[func] - funcsDot_CS[func]), funcsDot_FD[func])
 
 
-        np.testing.assert_allclose(fDot_FD,fDot, atol=1e-6)
-        np.testing.assert_allclose(hfDot_FD,hfDot, atol=1e-6)
+        np.testing.assert_allclose(fDot_FD,fDot, atol=6e-5)
+        np.testing.assert_allclose(hfDot_FD[hfDot_FD != 0], hfDot[hfDot_FD != 0], rtol=1e-5)
 
     @unittest.skip("cmplx adflow needed")
     def test_fwd_CS(self):
@@ -213,6 +179,8 @@ class AreaClacTests(unittest.TestCase):
         # print(hfDot)
 
 
+
+
     def test_bwd(self):
 
         xVDot = self.CFDSolver.getSpatialPerturbation(321)
@@ -223,6 +191,10 @@ class AreaClacTests(unittest.TestCase):
 
         dwBar = self.CFDSolver.getStatePerturbation(314)
         xVBar = self.CFDSolver.computeJacobianVectorProductBwd(
+            resBar=dwBar, xVDeriv=True)
+
+        # np.testing.assert_array_almost_equal(np.dot(xVDot, xVBar), np.dot(resDot, dwBar), decimal=14)
+        np.testing.assert_allclose(np.dot(xVDot, xVBar), np.dot(resDot, dwBar), rtol=1e-14)
 
 if __name__ == '__main__':
     unittest.main()

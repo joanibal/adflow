@@ -933,36 +933,11 @@ python module libadflow
           integer(kind=inttype) intent(in) :: sps
         end subroutine getforces
 
-       subroutine getheatflux(hflux,npts,sps_in) ! in :test:getForces.F90
-         real(kind=realtype) dimension(npts),intent(inout) :: hflux
-         integer(kind=inttype), optional,intent(in),depend(hflux) :: npts=len(hflux)
+       subroutine getheatxferrate(hxfer,npts,sps_in) ! in :test:getForces.F90
+         real(kind=realtype) dimension(npts),intent(inout) :: hxfer
+         integer(kind=inttype), optional,intent(in),depend(hxfer) :: npts=len(hxfer)
          integer(kind=inttype) intent(in) :: sps_in
-       end subroutine getheatflux
-
-       subroutine getheatfluxcellcenter(hflux,npts,sps_in) ! in :test:getForces.F90
-         real(kind=realtype) dimension(npts),intent(inout) :: hflux
-         integer(kind=inttype), optional,intent(in),depend(hflux) :: npts=len(hflux)
-         integer(kind=inttype) intent(in) :: sps_in
-       end subroutine getheatfluxcellcenter
-
-      !  subroutine settnswall(tnsw,npts,sps_in) ! in :test:getForces.F90
-      !    real(kind=realtype) dimension(npts),intent(in) :: tnsw
-      !    integer(kind=inttype) optional,intent(in),check(len(tnsw)>=npts),depend(tnsw) :: npts=len(tnsw)
-      !    integer(kind=inttype) intent(in) :: sps_in
-      !  end subroutine settnswall
-
-      !  subroutine gettnswall(tnsw,npts,sps) ! in :test:getForces.F90
-      !    real(kind=realtype) dimension(npts),intent(out),depend(npts) :: tnsw
-      !    integer(kind=inttype) intent(in) :: npts
-      !    integer(kind=inttype) intent(in) :: sps
-      !  end subroutine gettnswall
-
-      !  subroutine getwalltemperature(walltemp, npts, sps) ! in :test:getforces.f90
-      !    real(kind=realtype) dimension(npts),intent(out),depend(npts) :: walltemp
-      !    integer(kind=inttype) intent(in) :: npts
-      !    integer(kind=inttype) intent(in) :: sps
-      !  end subroutine getwalltemperature
-
+       end subroutine getheatxferrate
 
        subroutine setcptargets(cptarget,npts,sps_in) ! in :test:setCpTarget.f90
          real(kind=realtype) dimension(npts),intent(in) :: cptarget
@@ -1363,6 +1338,7 @@ python module libadflow
          real(kind=realtype) dimension(3) :: pointrefec
          real(kind=realtype) dimension(3,2) :: momentaxis
          logical :: forcesastractions
+         logical :: heatxferratesasfluxes
          real(kind=realtype) :: ssuthdim
          real(kind=realtype) :: musuthdim
          real(kind=realtype) :: tsuthdim
