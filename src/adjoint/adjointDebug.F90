@@ -198,7 +198,12 @@ contains
       BCArrays = BCArrays + BCArraysDot*h
       actArray = actArray + actArrayDot*h
 
-      call updateXSurf(level)
+
+      ! The xvolume that is set by used by update Xsurf is only allocated with
+      ! rans
+      if(equations == RANSEquations) then
+         call updateXSurf(level)
+      end if
 
       ! ----------------------------- Run Master ---------------------------------
       ! Run the super-dee-duper master rotuine
@@ -242,8 +247,9 @@ contains
       end do
 
 
-      call updateXSurf(level)
-
+      if(equations == RANSEquations) then
+         call updateXSurf(level)
+      end if
       BCArrays = BCArrays - BCArraysDot*h
       actArray = actArray - actArrayDot*h
 
@@ -904,7 +910,10 @@ contains
       BCArrays = BCArrays + BCArraysDot*h
       actArray = actArray + actArrayDot*h
 
-      call updateXSurf(level)
+
+      if(equations == RANSEquations) then
+         call updateXSurf(level)
+      end if
 
       ! ----------------------------- Run Master ---------------------------------
       call master(useSpatial, famLists, funcValues, forces, heatfluxes, &
