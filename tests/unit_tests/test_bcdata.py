@@ -13,10 +13,10 @@ from mpi4py import MPI
 
 #TODO refactor tests to share a baseclass with needed options
 
-class BaseBCTest():
-    """class to hold the common setup method for the tests"""
+# class BaseBCTest():
+#     """class to hold the common setup method for the tests"""
 
-    def setup()
+#     def setup()
 
 
 
