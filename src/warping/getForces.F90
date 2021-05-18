@@ -1566,10 +1566,8 @@ subroutine getHeatXferRate(hxfer, npts, sps)
 
 
    if (heatxferratesAsfluxes) then
-      write(*,*) '=========== fluxes =========='
       call computeNodalHeatFlux(sps)
    else
-      write(*,*) '=========== hxfer =========='
       call computeNodalHeatXferRate(sps)
    end if
 
@@ -1650,10 +1648,8 @@ subroutine getHeatXferRate_d(hxfer, hxferd, npts, sps)
 
 
    if (heatxferratesAsfluxes) then
-      write(*,*) '=========== fluxes =========='
       call computeNodalHeatFlux_d(sps)
    else
-      write(*,*) '=========== hxfer =========='
       call computeNodalHeatXferRate_d(sps)
    end if
 
@@ -1770,10 +1766,8 @@ subroutine getHeatXferRate_b(hxferd, npts, sps)
 
 
    if (heatxferratesAsfluxes) then
-      write(*,*) '=========== fluxes =========='
       call computeNodalHeatFlux_b(sps)
    else
-      write(*,*) '=========== hxfer =========='
       call computeNodalHeatXferRate_b(sps)
    end if
 
@@ -1930,6 +1924,8 @@ subroutine computeNodalHeatFlux_b(sps)
    integer(kind=intType) :: mm, nn, i, j, ii,  ierr
    type(familyExchange), pointer :: exch
 
+   ! Set the pointer to the wall exchange:
+   exch => BCFamExchange(iBCGroupWalls, sps)
    ! propagate the seeds from the nodes to the cell center and weighting factor
    do nn=1, nDom
       call setPointers_b(nn, 1_intType, sps)

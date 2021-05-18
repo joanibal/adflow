@@ -390,7 +390,6 @@ contains
     tanh_c=cmplx(tanh(real(a)),aimag(a)/cosh(real(a))**2)
     return
   end function tanh_c
-asdfads
 ! MAX, intrinsic
 ! the logical statements here are chossen to match fwd AD code from tapenade
 ! this way they are consistent even when the real parts are equal

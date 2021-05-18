@@ -1611,7 +1611,6 @@ contains
          call setBCVarNamesSubsonicOutflow
       case default
 
-         write(*,*) 'There is no data for BC'
          cycle
          call terminate('getBCData', &
             'This is not a valid boundary condtion for getBCData')

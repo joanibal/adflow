@@ -932,7 +932,8 @@ class ADFLOW(AeroSolver):
 
         # Remind the users of the modified options:
         if self.getOption('printIterations'):
-            self.printModifiedOptions()
+            # self.printModifiedOptions()
+            pass
 
         # Possibly release adjoint memory if not already done
         # so. Don't remove this. If switching problems, this is done
@@ -983,7 +984,7 @@ class ADFLOW(AeroSolver):
             print("Fatal failure during mesh warp! Bad mesh is "
                   "written in output directory as failed_mesh.cgns")
             fileName = os.path.join(self.getOption('outputDirectory'),
-                                    'failed_mesh.cgns')
+                                    f'failed_mesh_{self.curAP.adflowData.callCounter}.cgns')
             self.writeMeshFile(fileName)
             self.curAP.fatalFail = True
             self.curAP.solveFailed = True
@@ -1425,9 +1426,7 @@ class ADFLOW(AeroSolver):
             xDvBar = self.computeJacobianVectorProductBwd(resBar=psi, funcsBar=self._getFuncsBar(f), xDvDeriv=True)
 
             # TODO remove this debuging part
-            # resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
-            # print(numpy.sum(resDot*psi))
-
+            resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha_n0012_hot': 1.0}, residualDeriv=True)
             # Compute everything and update into the dictionary
             funcsSens[key].update(xDvBar)
 
@@ -2585,8 +2584,6 @@ class ADFLOW(AeroSolver):
             Name of family or group of families for which to return coordinates for.
 
         """
-        if self.mesh is None:
-            return
 
         if groupName is None:
             groupName = self.allWallsGroup
@@ -2950,6 +2947,8 @@ class ADFLOW(AeroSolver):
             # based on the BC vars of the ap problem, set the data of the mesh.
             # this is needed because the dimension of the variables and mesh might
             # not allign, but may still be valid.
+            # for example the bc var maybe a scalar which is used to set an array of
+            # bcdata
             ap_bc_data = self.getBCDataFromBCVar(AP.getBCVars())
             self.setBCData(ap_bc_data)
 
@@ -2967,7 +2966,19 @@ class ADFLOW(AeroSolver):
 
 
     def getBCDataFromBCVar(self, bc_ap_dict):
+        """
+        takes a dictionary that represetns the bc_data and converts it the bcdata type used by adflow
 
+        Parameters
+        ----------
+        bc_ap_dict : dict
+            the dictionary of bcdata organized bc_ap_dict[familyGroup][bc variable] = data array
+
+        Returns
+        ----------
+        bc_data : BCData
+            BCData object used by ADflow that organizes the data by Patch, BC Variable
+        """
 
         bc_data = self.getBCData(groupNames=bc_ap_dict.keys())
         for fam in bc_ap_dict:
@@ -2977,6 +2988,22 @@ class ADFLOW(AeroSolver):
         return bc_data
 
     def getBCVarBarFromBCDataBar(self, bc_data, bc_var_dict):
+        """
+        converts a BCData object which holds derivatives seeds and converts it to a dictinary that can be passed to
+        AP.evalSensBWD
+
+        reverse mode of getBCDataFromBCVar
+
+        Returns
+        ----------
+        bc_ap_dict : dict
+            the dictionary of bcdata organized bc_ap_dict[familyGroup][bc variable] = data array
+
+        Parameters
+        ----------
+        bc_data : BCData
+            BCData object used by ADflow that organizes the data by Patch, BC Variable
+        """
 
         bc_var_dict = copy.deepcopy(bc_var_dict)
 
@@ -3814,7 +3841,6 @@ class ADFLOW(AeroSolver):
         converts from a dictionary of derviative seeds to a vector to pass
         to the fortran layer. This is used in the fwd jac-vec-prods.
         """
-
         # Process the extra variable perturbation from xDvDot
         extradot = numpy.zeros(self.adflow.adjointvars.ndesignextra)
 
@@ -3829,7 +3855,7 @@ class ADFLOW(AeroSolver):
 
         return extradot
 
-    def _getAeroDvsBar(self, extradot):
+    def _getAeroDvsBar(self, extrabar):
         """
         converts from a dictionary of derviative seeds to a vector to pass
         to the fortran layer. This is used in the fwd jac-vec-prods.
@@ -3838,10 +3864,9 @@ class ADFLOW(AeroSolver):
 
         for key, idx in self.possibleAeroDVs.items():
             # We need to split out the family from the key.
-            val = extradot[idx]
-
+            val = extrabar[idx]
             if key == 'alpha':
-                val /= numpy.pi/180
+                val *= numpy.pi/180
 
             aeroDvsBar[key] = val
 
@@ -3912,7 +3937,6 @@ class ADFLOW(AeroSolver):
 
         # Check to see if the RHS Partials have been computed
         if objective not in self.curAP.adflowData.adjointRHS:
-            resDot = self.computeJacobianVectorProductFwd(xDvDot={'alpha': 1.0}, residualDeriv=True)
 
             RHS = self.computeJacobianVectorProductBwd(
                 funcsBar=self._getFuncsBar(objective), wDeriv=True)
@@ -6273,24 +6297,38 @@ class BCData(object):
         data = numpy.array(data).flatten()
         return data
 
-
     def setBCArraysFlatData(self, data, bc_var, **kwargs):
+        """
+        Set a flat array of data into all of the data arrays.
+        The values must be given in the same size an order as the values produced
+        by getBCArraysFlatData
+
+        Parameters
+        ----------
+        data : 1-D np.array
+            the flattened data to be set
+        bc_var : string
+            the name of the BC variable the data corresponds to
+        """
         old_data = self.getBCArraysData(bc_var, **kwargs)
         start_idx = 0
-        od_tot_size = 0
+        old_tot_size = 0
+
+        # --- replace the old data with the new data ---
         for idx, _ in enumerate(old_data):
-            od_tot_size += old_data[idx].size
-            if isinstance(data, float):
+            old_tot_size += old_data[idx].size
+            if isinstance(data, float) or isinstance(data, numpy.complex):
                 old_data[idx] = numpy.ones(old_data[idx].size)*data
             else:
                 old_data[idx] = data[start_idx:start_idx + old_data[idx].size]
             start_idx +=old_data[idx].size
 
-        if not isinstance(data, float):
-            if od_tot_size != data.size:
+        # --- check to make sure the data is the right size before setting ---
+        if not (isinstance(data, float) or isinstance(data, numpy.complex)):
+            if old_tot_size != data.size:
                 raise Error('the given data vector must match the size of the \
                              old data, or one scalar value must be given.\
-                             {} given, {} expected'.format(data.size, od_tot_size))
+                             {} given, {} expected'.format(data.size, old_tot_size))
 
         self.setBCArraysData(old_data, bc_var, **kwargs)
 

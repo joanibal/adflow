@@ -917,6 +917,12 @@ contains
     use agmg, only : setupShellPC, destroyShellPC, applyShellPC
 #include <petsc/finclude/petsc.h>
     use petsc
+#if defined(PETSC_USING_F90) && !defined(PETSC_USE_FORTRANKIND)
+    external PETSC_NULL_FUNCTION
+    external KSPMONITORDEFAULT
+    external KSPMONITORTRUERESIDUALNORM
+    external PETSCVIEWERANDFORMATDESTROY
+#endif
     implicit none
 
     !     Local variables.
@@ -924,6 +930,8 @@ contains
     integer(kind=intType) :: ierr
     real(kind=realType) :: timeA
     PC shellPC
+    PetscViewerAndFormat vf;
+
     if (ApproxPC)then
        !setup the approximate PC Matrix
        useAD = ADPC
@@ -969,6 +977,12 @@ contains
        ! PETSC_NULL_CONTEXT doesn't exit...
        call KSPMonitorSet(adjointKSP, MyKSPMonitor, PETSC_NULL_FUNCTION, &
             PETSC_NULL_FUNCTION, ierr)
+       call EChk(ierr, __FILE__, __LINE__)
+      !  KSPMonitorTrueResidual() 
+      ! call PetscViewerAndFormatCreate(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_DEFAULT,vf,ierr)
+      ! call KSPMonitorSet(adjointKSP,KSPMONITORTRUERESIDUALNORM,vf,PetscViewerAndFormatDestroy,ierr)
+      !  call KSPMonitorSet(adjointKSP, KSPMONITORDEFAULT, PETSC_NULL_FUNCTION, &
+      !       PETSC_NULL_FUNCTION, ierr)
        call EChk(ierr, __FILE__, __LINE__)
     endif
 

@@ -21,10 +21,10 @@ contains
       use blockPointers, only : nDom
       use communication, only : adflow_comm_world
       use inputTimeSpectral, only : nTimeIntervalsSpectral
-      use inputPhysics, only :pointRefd, alphad, betad, equations, machCoefd, &
-         machd, machGridd, rgasdimd
+      use inputPhysics, only :pointRef, alpha, beta, equations, machCoef, &
+         mach, machGrid, rgasdim
       use iteration, only : currentLevel, groundLevel
-      use flowVarRefState, only : pInfDimd, rhoInfDimd, TinfDimd
+      use flowVarRefState, only : pInfDim, rhoInfDim, TinfDim
       use blockPointers, only : nDom, il, jl, kl, wd, x, w, dw, dwd, nBocos, nViscBocos
 
       use adjointUtils, only : allocDerivativeValues, zeroADSeeds
@@ -117,21 +117,7 @@ contains
          end do
       end do
 
-      ! Set the extra seeds now do the extra ones. Note that we are assuming the
-      ! machNumber used for the coefficients follows the Mach number,
-      ! not the grid mach number.
-      alphad = extraDot(iAlpha)
-      betad = extraDot(iBeta)
-      machd = extraDot(iMach)
-      machCoefd = extraDot(iMach)
-      machGridd = extraDot(iMachGrid)
-      PinfDimd = extraDot(iPressure)
-      rhoinfDimd = extraDot(iDensity)
-      tinfdimd = extraDot(iTemperature)
-      pointrefd(1) = extraDot(iPointRefX)
-      pointrefd(2) = extraDot(iPointRefY)
-      pointrefd(3) = extraDot(iPointRefZ)
-      rgasdimd = zero
+
 
 
 
@@ -166,6 +152,25 @@ contains
       funcsDot = -funcValues
 
       !  --------------------- apply the perturbations ----------------------------
+      ! Set the extra seeds now do the extra ones. Note that we are assuming the
+      ! machNumber used for the coefficients follows the Mach number,
+      ! not the grid mach number.
+
+
+      alpha = alpha + h*extraDot(iAlpha)
+      beta = beta + h*extraDot(iBeta)
+      mach = mach + h*extraDot(iMach)
+      machCoef = machCoef + h*extraDot(iMach)
+      machGrid = machGrid + h*extraDot(iMachGrid)
+      PinfDim = PinfDim + h*extraDot(iPressure)
+      rhoinfDim = rhoinfDim + h*extraDot(iDensity)
+      tinfdim = tinfdim + h*extraDot(iTemperature)
+      pointref(1) = pointref(1) + h*extraDot(iPointRefX)
+      pointref(2) = pointref(2) + h*extraDot(iPointRefY)
+      pointref(3) = pointref(3) + h*extraDot(iPointRefZ)
+      rgasdim = rgasdim + h*zero
+
+
       ! Set the provided w and x seeds:
       ii = 0
       jj = 0
@@ -213,6 +218,27 @@ contains
                   actArray, actVarNames, actFamLists)
 
       ! ------------------------- set the output vectors ----------------------
+      ! Set the extra seeds now do the extra ones. Note that we are assuming the
+      ! machNumber used for the coefficients follows the Mach number,
+      ! not the grid mach number.
+
+
+      alpha = alpha - h*extraDot(iAlpha)
+      beta = beta - h*extraDot(iBeta)
+      mach = mach - h*extraDot(iMach)
+      machCoef = machCoef - h*extraDot(iMach)
+      machGrid = machGrid - h*extraDot(iMachGrid)
+      PinfDim = PinfDim - h*extraDot(iPressure)
+      rhoinfDim = rhoinfDim - h*extraDot(iDensity)
+      tinfdim = tinfdim - h*extraDot(iTemperature)
+      pointref(1) = pointref(1) - h*extraDot(iPointRefX)
+      pointref(2) = pointref(2) - h*extraDot(iPointRefY)
+      pointref(3) = pointref(3) - h*extraDot(iPointRefZ)
+      rgasdim = rgasdim - h*zero
+
+
+
+
       ! Copy out the residual derivative into the provided dwDot and remove the
       ! perturbation
       ii = 0
