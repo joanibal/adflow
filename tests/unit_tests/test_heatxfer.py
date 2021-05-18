@@ -392,7 +392,7 @@ class HeatXferWDerivsTests(BaseHeatXferTest, unittest.TestCase):
         # idx = np.argmax(res)
         # print(np.max(res), idx, resDot[idx], resDot_CS[idx])
 
-        # np.testing.assert_allclose(resDot_CS, resDot, rtol=5e-12)
+        np.testing.assert_allclose(resDot_CS, resDot, rtol=1e-11)
 
         for func in funcsDot:
             np.testing.assert_allclose(funcsDot_FD[func], funcsDot[func], err_msg=func, rtol=1e-5)
