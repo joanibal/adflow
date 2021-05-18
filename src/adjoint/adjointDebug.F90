@@ -516,8 +516,8 @@ contains
 
       ! And the reverse seeds in the actuator zones
       do i=1, nActuatorRegions
-         write(*,*) 'actuatorRegionsd(i)%F ',actuatorRegionsd(i)%F
-         write(*,*) 'actuatorRegionsd(i)%T ',actuatorRegionsd(i)%T
+         write(*,*) 'actuatorRegionsd(i)%Force ',actuatorRegionsd(i)%force
+         write(*,*) 'actuatorRegionsd(i)%Torque ',actuatorRegionsd(i)%torque
       end do
 
    end subroutine printADSeeds
@@ -667,7 +667,7 @@ contains
    !       ! ----------------------------- Run Master ---------------------------------
    !       ! Run the super-dee-duper master rotuine
    !       ! if (bcVarsEmpty) then
-   !       !    call master(.true., famLists, funcValues, forces, heatfluxes)
+   !       !    call master(.true, famLists, funcValues, forces, heatfluxes)
    !       ! else
    !       !    call master(.true., famLists, funcValues, forces, heatfluxes, &
    !       !                bcDataNames, bcDataValues, bcDataFamLists)
@@ -1374,8 +1374,8 @@ contains
 
    !    ! And the reverse seeds in the actuator zones
    !    do i=1, nActuatorRegions
-   !       write(*,*) 'actuatorRegionsd(i)%F ',aimag(actuatorRegions(i)%F)/h
-   !       write(*,*) 'actuatorRegionsd(i)%T ',aimag(actuatorRegions(i)%T)/h
+   !       write(*,*) 'actuatorRegionsd(i)%force ',aimag(actuatorRegions(i)%force)/h
+   !       write(*,*) 'actuatorRegionsd(i)%torque ',aimag(actuatorRegions(i)%torque)/h
    !    end do
 
    ! end subroutine printCSSeeds
